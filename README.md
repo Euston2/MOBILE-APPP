@@ -6,7 +6,7 @@ is reached — then keeps them blocked until midnight. No accounts, no cloud, no
 way to talk yourself out of it at 11 p.m.
 
 <p>
-  <img alt="CI" src="https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg" />
+  <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
   <img alt="version" src="https://img.shields.io/badge/version-0.0.1-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
