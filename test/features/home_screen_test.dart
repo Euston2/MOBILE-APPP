@@ -1,33 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lockout/app.dart';
-import 'package:lockout/core/di.dart';
 import 'package:lockout/domain/entities/installed_app.dart';
+import 'package:lockout/domain/entities/monitored_app.dart';
 
+import '../helpers/fake_stores.dart';
 import '../helpers/fakes.dart';
-import '../helpers/test_surface.dart';
+import '../helpers/pump_lockout.dart';
 
 void main() {
-  Future<void> pumpHome(
-    WidgetTester tester, {
-    required FakeUsageRepository usage,
-    required FakePermissionsRepository permissions,
-  }) async {
-    useTallScreen(tester);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          usageRepositoryProvider.overrideWithValue(usage),
-          permissionsRepositoryProvider.overrideWithValue(permissions),
-          usagePollIntervalProvider.overrideWithValue(const Duration(hours: 1)),
-        ],
-        child: const LockoutApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
   testWidgets('lists per-app usage with friendly labels', (tester) async {
     final usage = FakeUsageRepository(
       summary: summaryOf([
@@ -46,7 +25,7 @@ void main() {
       ],
     );
 
-    await pumpHome(
+    await pumpLockoutApp(
       tester,
       usage: usage,
       permissions: FakePermissionsRepository(allGranted),
@@ -56,10 +35,11 @@ void main() {
     expect(find.text('Instagram'), findsOneWidget);
     expect(find.text('30m'), findsOneWidget);
     expect(find.text('10m'), findsOneWidget);
-    expect(find.text('40m'), findsOneWidget); // combined total
+    expect(find.text('40m'), findsOneWidget);
     expect(find.text('Since 00:00 · 2 apps'), findsOneWidget);
+    expect(find.text('No daily limit set yet'), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox());
+    await disposeTestApp(tester);
   });
 
   testWidgets('falls back to the package name when the label is unknown', (
@@ -70,7 +50,7 @@ void main() {
       apps: const [],
     );
 
-    await pumpHome(
+    await pumpLockoutApp(
       tester,
       usage: usage,
       permissions: FakePermissionsRepository(allGranted),
@@ -78,7 +58,7 @@ void main() {
 
     expect(find.text('com.example.unknown'), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox());
+    await disposeTestApp(tester);
   });
 
   testWidgets('shows an error with retry when usage cannot be read', (
@@ -86,7 +66,7 @@ void main() {
   ) async {
     final usage = FakeUsageRepository(error: StateError('usage unavailable'));
 
-    await pumpHome(
+    await pumpLockoutApp(
       tester,
       usage: usage,
       permissions: FakePermissionsRepository(allGranted),
@@ -95,13 +75,13 @@ void main() {
     expect(find.text("Couldn't reach the Android layer"), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox());
+    await disposeTestApp(tester);
   });
 
   testWidgets('shows the empty state when nothing was used today', (
     tester,
   ) async {
-    await pumpHome(
+    await pumpLockoutApp(
       tester,
       usage: FakeUsageRepository(),
       permissions: FakePermissionsRepository(allGranted),
@@ -110,6 +90,62 @@ void main() {
     expect(find.textContaining('No usage recorded yet today'), findsOneWidget);
     expect(find.text('0m'), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox());
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('ring compares usage with the saved limit', (tester) async {
+    await pumpLockoutApp(
+      tester,
+      usage: FakeUsageRepository(
+        summary: summaryOf([
+          (packageName: 'com.instagram.android', seconds: 3900),
+        ]),
+      ),
+      permissions: FakePermissionsRepository(allGranted),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(dailyLimitSeconds: 3600),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+    );
+
+    expect(find.text('1h 05m'), findsWidgets);
+    expect(find.text('of 1h'), findsOneWidget);
+    expect(find.text('Limit reached · 5m over'), findsOneWidget);
+    expect(find.text('1 monitored'), findsOneWidget);
+    expect(find.text('Edit limit & apps'), findsOneWidget);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('shows the remaining time while under the limit', (tester) async {
+    await pumpLockoutApp(
+      tester,
+      usage: FakeUsageRepository(
+        summary: summaryOf([
+          (packageName: 'com.instagram.android', seconds: 900),
+        ]),
+      ),
+      permissions: FakePermissionsRepository(allGranted),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(dailyLimitSeconds: 3600),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+    );
+
+    expect(find.text('of 1h'), findsOneWidget);
+    expect(find.text('45m left today'), findsOneWidget);
+    expect(find.text('Limit reached · 5m over'), findsNothing);
+
+    await disposeTestApp(tester);
   });
 }

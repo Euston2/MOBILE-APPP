@@ -9,7 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 
-- Stage 2: drift database, monitored-app selection, daily limit, progress ring.
+- Stage 3: foreground service, foreground-app polling, full-screen block
+  screen and overlay.
+
+## [0.2.0] - 2026-10-29
+
+### Added
+
+- drift database (schema version 1) with `monitored_apps`, `daily_usage` and
+  `daily_summary` tables; the generated schema is committed.
+- `PrefsSettingsRepository` storing the daily limit, lock state, next reset and
+  onboarding flag in `shared_preferences`.
+- "Limit & apps" screen: 15-minute to 8-hour slider plus presets, searchable
+  installed-app picker, an atomic save of both values, and a read-only mode when
+  the lock is active.
+- Home progress ring showing today's combined usage against the limit, with
+  remaining time and an over-limit state; the per-app list is filtered to the
+  monitored apps.
+- `evaluateLimit` use case shared by Home (and later the block screen and lock
+  checks).
+- Onboarding completion is persisted, so a configured device boots straight to
+  Home even when a permission is later revoked.
+- Tests: limit boundary/rounding cases, settings prefs round-trip (including
+  clearing `locked_at`), drift repository replacement, and widget tests for the
+  ring, the limit editor and the persisted onboarding gate.
+
+### Changed
+
+- The app gate now reads the persisted settings before choosing onboarding or
+  Home instead of keeping the flag in memory.
+
+### Notes
+
+- Lock enforcement, the midnight reset and the "changes take effect the next
+  day" rule arrive with Stage 4. Until then a saved limit applies to today's
+  counter immediately and the lock guard is dormant.
 
 ## [0.1.0] - 2026-10-29
 

@@ -10,7 +10,7 @@ emulators).
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze --fatal-infos
 flutter test
-cd android && ./gradlew testDebugUnitTest   # from Stage 3 on
+cd android && ./gradlew :app:testDebugUnitTest   # JVM tests in :app only
 ```
 
 What must always be covered by unit tests:
@@ -49,3 +49,4 @@ Run before every release. Record device, Android version and OEM.
 
 Accepted results are recorded at the end of each stage summary and in the
 corresponding release notes.
+

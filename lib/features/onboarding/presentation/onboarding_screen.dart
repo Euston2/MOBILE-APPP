@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../domain/entities/permission_snapshot.dart';
-import 'onboarding_controller.dart';
+import '../../limits/presentation/settings_controller.dart';
 import 'permissions_controller.dart';
 import 'widgets/permission_tile.dart';
 
@@ -18,7 +20,9 @@ class OnboardingScreen extends ConsumerWidget {
 
   void _finish(BuildContext context, WidgetRef ref) {
     if (isRoot) {
-      ref.read(onboardingCompletedProvider.notifier).complete();
+      unawaited(
+        ref.read(settingsControllerProvider.notifier).markOnboardingCompleted(),
+      );
     } else {
       Navigator.of(context).pop();
     }
@@ -88,8 +92,11 @@ class OnboardingScreen extends ConsumerWidget {
               if (isRoot) ...[
                 const SizedBox(height: 4),
                 TextButton(
-                  onPressed: () =>
-                      ref.read(onboardingCompletedProvider.notifier).complete(),
+                  onPressed: () => unawaited(
+                    ref
+                        .read(settingsControllerProvider.notifier)
+                        .markOnboardingCompleted(),
+                  ),
                   child: const Text('Skip for now'),
                 ),
               ],
