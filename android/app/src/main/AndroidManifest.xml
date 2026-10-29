@@ -1,4 +1,41 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!--
+      USAGE STATS: reads per-app foreground time. This is a "special app access"
+      permission granted in Settings > Special access > Usage access; it cannot
+      be granted at runtime and is the only supported source of app usage data.
+    -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!--
+      PACKAGE VISIBILITY: lists launchable apps for the picker. On Android 11+
+      installed apps are hidden without this. Only package name, label and a
+      system flag are read and stored locally.
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!--
+      OVERLAY: draws the full-screen block screen above the blocked app
+      (used from Stage 3). Checked and explained in onboarding from Stage 1.
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!--
+      NOTIFICATIONS: the blocking foreground service must show a persistent
+      notification (Stage 3); on Android 13+ it also needs this runtime grant.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      BATTERY: asks the user to exempt Lockout from battery optimisation so the
+      watcher is not killed by OEM battery managers.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <application
         android:label="Lockout"
         android:name="${applicationName}"

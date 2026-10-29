@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-0.0.1-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-0.1.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -17,8 +17,8 @@ way to talk yourself out of it at 11 p.m.
 | Stage | Scope | Version | State |
 | ----- | ----- | ------- | ----- |
 | 0 | Project, folder structure, CI, Git workflow | `v0.0.1` | ✅ done |
-| 1 | Permissions & usage tracking | `v0.1.0` | ⏳ next |
-| 2 | Limit setting, drift storage, progress ring | `v0.2.0` | ⏳ |
+| 1 | Permissions & usage tracking | `v0.1.0` | ✅ done |
+| 2 | Limit setting, drift storage, progress ring | `v0.2.0` | ⏳ next |
 | 3 | Blocking engine (foreground service + overlay) | `v0.3.0` | ⏳ |
 | 4 | Lock & midnight reset | `v0.4.0` | ⏳ |
 | 5 | History & stats | `v0.5.0` | ⏳ |

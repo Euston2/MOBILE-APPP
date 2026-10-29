@@ -35,14 +35,17 @@ Planned Kotlin packages (same namespaces as the Dart side):
 
 ```
 com.lockout.lockout/
-├── MainActivity.kt          # Flutter host
+├── MainActivity.kt            # Flutter host, owns the channel lifetime
 └── platform/
-    ├── LockoutChannels.kt   # MethodChannel/EventChannel registration
-    ├── UsageStatsReader.kt  # UsageStatsManager queries + time-window math
-    ├── AppBlockService.kt   # foreground service, polls foreground app
-    ├── BlockActivity.kt     # full-screen block screen
-    ├── MidnightAlarm.kt     # exact alarm scheduling/cancellation
-    └── BootReceiver.kt      # BOOT_COMPLETED / TIME_SET / TIMEZONE_CHANGED
+    ├── LockoutPlatform.kt     # MethodChannel routing, background executor
+    ├── PermissionController.kt# status checks + Settings intents
+    ├── UsageStatsReader.kt    # UsageStatsManager -> events (Stage 1)
+    ├── UsageAggregator.kt     # pure time-window math (JVM-tested)
+    ├── AppCatalog.kt          # launchable apps for the picker
+    ├── AppBlockService.kt     # foreground service, polls foreground app (Stage 3)
+    ├── BlockActivity.kt       # full-screen block screen (Stage 3)
+    ├── MidnightAlarm.kt       # exact alarm scheduling/cancellation (Stage 4)
+    └── BootReceiver.kt        # BOOT_COMPLETED / TIME_SET / TIMEZONE_CHANGED (Stage 4)
 ```
 
 The Kotlin layer owns *facts* (which app is in front, how many seconds were

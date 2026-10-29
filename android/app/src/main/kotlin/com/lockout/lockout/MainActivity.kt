@@ -1,5 +1,21 @@
 package com.lockout.lockout
 
+import com.lockout.lockout.platform.LockoutPlatform
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
 
-class MainActivity : FlutterActivity()
+class MainActivity : FlutterActivity() {
+
+    private var platform: LockoutPlatform? = null
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        platform = LockoutPlatform(this, flutterEngine.dartExecutor.binaryMessenger)
+    }
+
+    override fun onDestroy() {
+        platform?.dispose()
+        platform = null
+        super.onDestroy()
+    }
+}
