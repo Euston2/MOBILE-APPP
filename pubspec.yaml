@@ -4,7 +4,7 @@ publish_to: 'none'
 
 # Semantic versioning: MAJOR.MINOR.PATCH+BUILD.
 # Stage 0 is the project scaffold.
-version: 0.1.0+2
+version: 0.2.0+3
 
 environment:
   sdk: ^3.11.4
@@ -15,11 +15,19 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^3.3.2
+  drift: 2.30.0
+  shared_preferences: ^2.5.6
+  sqlite3_flutter_libs: ^0.6.0+eol
+  path_provider: ^2.1.6
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  drift_dev: 2.30.0
+  build_runner: ^2.15.1
 
 flutter:
   uses-material-design: true
+

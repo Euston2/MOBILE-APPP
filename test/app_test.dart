@@ -1,29 +1,17 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lockout/app.dart';
-import 'package:lockout/core/di.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
 
+import 'helpers/fake_stores.dart';
 import 'helpers/fakes.dart';
-import 'helpers/test_surface.dart';
+import 'helpers/pump_lockout.dart';
 
 void main() {
   testWidgets('shows onboarding when permissions are missing', (tester) async {
-    useTallScreen(tester);
-    final permissions = FakePermissionsRepository(PermissionSnapshot.none);
-    final usage = FakeUsageRepository();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          permissionsRepositoryProvider.overrideWithValue(permissions),
-          usageRepositoryProvider.overrideWithValue(usage),
-        ],
-        child: const LockoutApp(),
-      ),
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(PermissionSnapshot.none),
+      usage: FakeUsageRepository(),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('Set up Lockout'), findsOneWidget);
     expect(find.text('Usage access'), findsOneWidget);
@@ -34,56 +22,61 @@ void main() {
   });
 
   testWidgets('shows Home when every permission is granted', (tester) async {
-    useTallScreen(tester);
-    final permissions = FakePermissionsRepository(allGranted);
-    final usage = FakeUsageRepository(
-      summary: summaryOf([
-        (packageName: 'com.instagram.android', seconds: 3900),
-      ]),
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          permissionsRepositoryProvider.overrideWithValue(permissions),
-          usageRepositoryProvider.overrideWithValue(usage),
-          usagePollIntervalProvider.overrideWithValue(const Duration(hours: 1)),
-        ],
-        child: const LockoutApp(),
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(
+        summary: summaryOf([
+          (packageName: 'com.instagram.android', seconds: 3900),
+        ]),
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('Today'), findsOneWidget);
-    expect(find.text('Time used today'), findsOneWidget);
-    expect(find.text('1h 05m'), findsNWidgets(2));
+    expect(find.text('1h 05m'), findsWidgets);
+    expect(find.text('No daily limit set yet'), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox());
+    await disposeTestApp(tester);
   });
 
-  testWidgets('skipping onboarding lands on Home', (tester) async {
-    useTallScreen(tester);
-    final permissions = FakePermissionsRepository(PermissionSnapshot.none);
-    final usage = FakeUsageRepository();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          permissionsRepositoryProvider.overrideWithValue(permissions),
-          usageRepositoryProvider.overrideWithValue(usage),
-          usagePollIntervalProvider.overrideWithValue(const Duration(hours: 1)),
-        ],
-        child: const LockoutApp(),
-      ),
+  testWidgets('skipping onboarding persists the flag and lands on Home', (
+    tester,
+  ) async {
+    final settings = FakeSettingsRepository();
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(PermissionSnapshot.none),
+      usage: FakeUsageRepository(),
+      settings: settings,
     );
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Skip for now'));
     await tester.pumpAndSettle();
 
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('4 permissions missing'), findsOneWidget);
+    expect(settings.settings.onboardingCompleted, isTrue);
+    expect(settings.saveCalls, 1);
 
-    await tester.pumpWidget(const SizedBox());
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('a completed setup goes straight to Home on next launch', (
+    tester,
+  ) async {
+    final settings = FakeSettingsRepository(
+      initial: settingsWith(onboardingCompleted: true),
+    );
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(PermissionSnapshot.none),
+      usage: FakeUsageRepository(),
+      settings: settings,
+    );
+
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Set up Lockout'), findsNothing);
+
+    await disposeTestApp(tester);
   });
 }

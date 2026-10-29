@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-0.1.0-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-0.2.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -18,8 +18,8 @@ way to talk yourself out of it at 11 p.m.
 | ----- | ----- | ------- | ----- |
 | 0 | Project, folder structure, CI, Git workflow | `v0.0.1` | ✅ done |
 | 1 | Permissions & usage tracking | `v0.1.0` | ✅ done |
-| 2 | Limit setting, drift storage, progress ring | `v0.2.0` | ⏳ next |
-| 3 | Blocking engine (foreground service + overlay) | `v0.3.0` | ⏳ |
+| 2 | Limit setting, drift storage, progress ring | `v0.2.0` | ✅ done |
+| 3 | Blocking engine (foreground service + overlay) | `v0.3.0` | ⏳ next |
 | 4 | Lock & midnight reset | `v0.4.0` | ⏳ |
 | 5 | History & stats | `v0.5.0` | ⏳ |
 | 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ⏳ |
@@ -34,9 +34,9 @@ way to talk yourself out of it at 11 p.m.
   seconds. When the limit is crossed (or you open a monitored app while locked)
   a full-screen `BlockActivity` is launched above it.
 - **Lock** — once the limit is hit, `isLocked` is stamped with a timestamp and
-  `next_reset_at` is written to the database. Settings are read-only until then,
-  including across reboots, because the service and the UI both trust the
-  persisted timestamp rather than the alarm.
+  `next_reset_at` is written next to it in `shared_preferences`. Settings are
+  read-only until then, including across reboots, because the service and the UI
+  both trust the persisted timestamp rather than the alarm.
 - **Reset** — `AlarmManager.setExactAndAllowWhileIdle` fires at 00:00 local time;
   a `BOOT_COMPLETED` receiver re-arms it; any start of the app or service
   recovers a missed reset by comparing `now` with `next_reset_at`.
@@ -54,6 +54,12 @@ way to talk yourself out of it at 11 p.m.
 | Charts | `fl_chart` |
 | Tests | `flutter_test`, Kotlin JUnit |
 | CI/CD | GitHub Actions |
+
+Storage split: settings and lock state (`daily_limit_seconds`, `is_locked`,
+`locked_at`, `next_reset_at`, onboarding flag) live in `shared_preferences`
+because the service reads them on every check; the monitored-app list and all
+daily usage history live in a drift/SQLite database so they can grow and be
+queried. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#storage).
 
 ## Project structure
 

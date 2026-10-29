@@ -1,37 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lockout/app.dart';
-import 'package:lockout/core/di.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
 
+import '../helpers/fake_stores.dart';
 import '../helpers/fakes.dart';
-import '../helpers/test_surface.dart';
+import '../helpers/pump_lockout.dart';
 
 void main() {
-  Future<void> pumpOnboarding(
-    WidgetTester tester, {
-    required FakePermissionsRepository permissions,
-  }) async {
-    useTallScreen(tester);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          permissionsRepositoryProvider.overrideWithValue(permissions),
-          usageRepositoryProvider.overrideWithValue(FakeUsageRepository()),
-        ],
-        child: const LockoutApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
   testWidgets('continue is disabled while usage access is missing', (
     tester,
   ) async {
-    await pumpOnboarding(
+    await pumpLockoutApp(
       tester,
       permissions: FakePermissionsRepository(PermissionSnapshot.none),
+      usage: FakeUsageRepository(),
     );
 
     final button = tester.widget<FilledButton>(find.byType(FilledButton));
@@ -46,7 +28,11 @@ void main() {
     tester,
   ) async {
     final permissions = FakePermissionsRepository(PermissionSnapshot.none);
-    await pumpOnboarding(tester, permissions: permissions);
+    await pumpLockoutApp(
+      tester,
+      permissions: permissions,
+      usage: FakeUsageRepository(),
+    );
 
     await tester.tap(find.text('Open settings').first);
     await tester.pumpAndSettle();
@@ -55,15 +41,14 @@ void main() {
   });
 
   testWidgets('continue works once usage access is granted', (tester) async {
-    final permissions = FakePermissionsRepository(
-      const PermissionSnapshot(
-        usageAccess: true,
-        overlay: false,
-        notifications: false,
-        batteryOptimizationIgnored: false,
-      ),
+    final permissions = FakePermissionsRepository(usageOnly);
+    final settings = FakeSettingsRepository();
+    await pumpLockoutApp(
+      tester,
+      permissions: permissions,
+      usage: FakeUsageRepository(),
+      settings: settings,
     );
-    await pumpOnboarding(tester, permissions: permissions);
 
     final button = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(button.onPressed, isNotNull);
@@ -73,7 +58,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Today'), findsOneWidget);
+    expect(settings.settings.onboardingCompleted, isTrue);
 
-    await tester.pumpWidget(const SizedBox());
+    await disposeTestApp(tester);
   });
 }

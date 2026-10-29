@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/repositories/monitored_apps_repository.dart';
 import '../domain/repositories/permissions_repository.dart';
+import '../domain/repositories/settings_repository.dart';
 import '../domain/repositories/usage_repository.dart';
 
 /// Composition root contracts.
@@ -17,6 +19,18 @@ final usageRepositoryProvider = Provider<UsageRepository>(
 final permissionsRepositoryProvider = Provider<PermissionsRepository>(
   (ref) => throw StateError(
     'permissionsRepositoryProvider must be overridden in the composition root.',
+  ),
+);
+
+final settingsRepositoryProvider = Provider<SettingsRepository>(
+  (ref) => throw StateError(
+    'settingsRepositoryProvider must be overridden in the composition root.',
+  ),
+);
+
+final monitoredAppsRepositoryProvider = Provider<MonitoredAppsRepository>(
+  (ref) => throw StateError(
+    'monitoredAppsRepositoryProvider must be overridden in the composition root.',
   ),
 );
 

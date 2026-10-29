@@ -29,6 +29,23 @@ Non-negotiables:
    `lib/platform`. One channel file on each side, request/response via
    `MethodChannel`, streaming foreground changes via `EventChannel`.
 
+## Storage
+
+| Data | Where | Why |
+| ---- | ----- | --- |
+| Settings + lock (`daily_limit_seconds`, `is_locked`, `locked_at`, `next_reset_at`, onboarding flag) | `shared_preferences` via `PrefsSettingsRepository` | A handful of scalars that the blocking service reads on every check; prefs reads are cheap and survive process death. |
+| Monitored apps (`monitored_apps`) | drift via `DriftMonitoredAppsRepository` | Edited and queried as a set, with display names kept for history labels. |
+| Per-app daily totals (`daily_usage`) and per-day summary (`daily_summary`) | drift | Grows over time; feeds the history screen and charts in Stage 5. |
+
+The schema lives in `lib/data/local/app_database.dart`. `app_database.g.dart` is
+generated with `dart run build_runner build` and committed so CI does not need a
+codegen step. Schema changes bump `schemaVersion` and add a migration.
+
+Stage 2 note: a saved limit and app selection apply immediately while unlocked.
+Enforcing the lock, the midnight reset and the "changes take effect the next
+day" rule are Stage 4 behaviour; the editor already becomes read-only when
+`is_locked` is true so the UI contract will not change.
+
 ## Native layer
 
 Planned Kotlin packages (same namespaces as the Dart side):
@@ -72,6 +89,8 @@ logic testable in Dart and the Android-specific code as thin as possible.
 | ---- | ----- | --- |
 | "Used today" time window (midnight, DST, timezone change) | domain + Kotlin helper | `flutter_test` on a pure function; JUnit for the Kotlin mirror |
 | Limit reached exactly at the boundary | domain | table-driven unit tests |
+| Settings survive an app restart | data | `PrefsSettingsRepository` round-trip with mock `shared_preferences` |
+| App selection is replaced atomically | data | drift in-memory database test |
 | Lock cannot be bypassed | domain + data | repository contract tests with fakes |
 | Midnight reset, missed alarm | domain | clock-injected use case tests |
 | Block screen scheduling | native | instrumentation/manual matrix in `docs/TESTING.md` |

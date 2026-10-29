@@ -5,7 +5,7 @@ import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_resume_observer.dart';
 import 'features/home/presentation/home_screen.dart';
-import 'features/onboarding/presentation/onboarding_controller.dart';
+import 'features/limits/presentation/settings_controller.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
 import 'features/onboarding/presentation/permissions_controller.dart';
 
@@ -28,15 +28,25 @@ class LockoutApp extends StatelessWidget {
 
 /// Decides between setup and Home.
 ///
-/// Home is shown when every permission is granted, or when the user explicitly
-/// skipped setup. Otherwise the onboarding flow is the entry point.
+/// Home is shown when every permission is granted, or when the user has
+/// finished (or skipped) setup on an earlier launch — that flag is persisted in
+/// settings, so a configured device boots straight into Home.
 class _AppGate extends ConsumerWidget {
   const _AppGate();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final permissions = ref.watch(permissionsControllerProvider);
-    final completed = ref.watch(onboardingCompletedProvider);
+    final settings = ref.watch(settingsControllerProvider);
+
+    if (settings.hasError) {
+      return Scaffold(
+        body: ErrorRetryView(
+          message: '${settings.error}',
+          onRetry: () => ref.invalidate(settingsControllerProvider),
+        ),
+      );
+    }
 
     return permissions.when(
       loading: () => const _StartupScreen(),
@@ -46,9 +56,14 @@ class _AppGate extends ConsumerWidget {
           onRetry: () => ref.invalidate(permissionsControllerProvider),
         ),
       ),
-      data: (snapshot) => completed || snapshot.allGranted
-          ? const HomeScreen()
-          : const OnboardingScreen(isRoot: true),
+      data: (snapshot) {
+        final current = settings.value;
+        if (current == null) return const _StartupScreen();
+        final ready = current.onboardingCompleted || snapshot.allGranted;
+        return ready
+            ? const HomeScreen()
+            : const OnboardingScreen(isRoot: true);
+      },
     );
   }
 }
