@@ -28,5 +28,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release signing plumbing in Gradle via git-ignored `android/key.properties`.
 - Widget tests for app boot and small-screen layout.
 
-[Unreleased]: https://github.com/OWNER/REPO/compare/v0.0.1...develop
-[0.0.1]: https://github.com/OWNER/REPO/releases/tag/v0.0.1
+[Unreleased]: https://github.com/Euston2/MOBILE-APPP/compare/v0.0.1...develop
+[0.0.1]: https://github.com/Euston2/MOBILE-APPP/releases/tag/v0.0.1
