@@ -48,6 +48,10 @@ GitHub Release with auto-generated notes and the APK attached.
 
    and place `release-keystore.jks` in `android/app/`.
 
+Until the secrets are configured, `release.yml` still builds and publishes an
+APK, but signs it with the debug key and emits a warning annotation. Configure
+the secrets before the first public release (Stage 7).
+
 ## Release checklist
 
 ```bash
