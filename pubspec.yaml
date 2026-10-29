@@ -1,0 +1,25 @@
+name: lockout
+description: "Lockout: a hard-limit social media usage tracker for Android."
+publish_to: 'none'
+
+# Semantic versioning: MAJOR.MINOR.PATCH+BUILD.
+# Stage 0 is the project scaffold.
+version: 0.0.1+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^3.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

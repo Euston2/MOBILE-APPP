@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security or bypass report
+    url: https://github.com/OWNER/REPO/security/advisories/new
+    about: Please report ways to bypass the lock privately, not in a public issue.

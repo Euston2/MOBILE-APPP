@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest an improvement or a new screen/behaviour
+title: 'feat: '
+labels: ['enhancement', 'triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        v1 is deliberately backend-free: no accounts, no cloud sync, no per-app limits.
+        Please check the roadmap in `README.md` before proposing something in that list.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is painful today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Which stage does this belong to?
+      options:
+        - Stage 0 – scaffold
+        - Stage 1 – permissions & tracking
+        - Stage 2 – limits & storage
+        - Stage 3 – blocking engine
+        - Stage 4 – lock & midnight reset
+        - Stage 5 – history & stats
+        - Stage 6 – hardening
+        - Stage 7 – release
+        - Post-v1
+    validations:
+      required: true

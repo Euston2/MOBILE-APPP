@@ -1,0 +1,54 @@
+# Misc
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code (workspace settings are local)
+.vscode/
+
+# Flutter / Dart
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+android/.gradle/
+android/local.properties
+android/app/.cxx/
+
+# Signing material: never commit keystores or their passwords.
+android/key.properties
+*.jks
+*.keystore
+android/app/*.jks
+
+# Symbolication / obfuscation artifacts
+app.*.symbols
+app.*.map.json
+
+# Android Studio build outputs
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Google Play / crash symbols
+*.aab
+*.apk
