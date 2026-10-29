@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Kotlin package layout (`com.lockout.lockout`) with a dedicated `platform`
   package for the future channels, services and receivers.
 - GitHub Actions `ci.yml` (format, analyze, test, debug APK, gated Kotlin unit
-  tests) and `release.yml` (signed APK on `v*` tags).
+  tests) and `release.yml` (signed APK on `v*` tags, debug-signed with a warning
+  until the keystore secrets exist).
 - Issue templates (bug, feature) and a pull-request template.
 - `README.md`, `CHANGELOG.md`, `LICENSE`, architecture/permissions/workflow docs.
 - Release signing plumbing in Gradle via git-ignored `android/key.properties`.
