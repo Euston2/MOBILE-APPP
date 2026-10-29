@@ -68,3 +68,9 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // JVM unit tests for pure Kotlin logic (UsageAggregator, and later the
+    // lock/reset calculations). Run with: ./gradlew testDebugUnitTest
+    testImplementation("junit:junit:4.13.2")
+}
