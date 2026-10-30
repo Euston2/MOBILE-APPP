@@ -8,6 +8,7 @@ import '../../../domain/entities/installed_app.dart';
 import '../../../domain/entities/permission_snapshot.dart';
 import '../../../domain/entities/usage_summary.dart';
 import '../../../domain/usecases/evaluate_limit.dart';
+import '../../blocking/presentation/blocking_controller.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
 import '../../limits/presentation/set_limits_screen.dart';
 import '../../limits/presentation/settings_controller.dart';
@@ -47,6 +48,7 @@ class HomeScreen extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider).value;
     final monitored = ref.watch(monitoredAppsControllerProvider).value;
     final usage = ref.watch(todayUsageControllerProvider);
+    final blocker = ref.watch(blockingSyncProvider);
     final installed =
         ref.watch(installedAppsProvider).value ?? const <InstalledApp>[];
     final labels = <String, String>{
@@ -95,6 +97,12 @@ class HomeScreen extends ConsumerWidget {
                 _PermissionBanner(
                   missing: missing,
                   onFix: () => _openPermissions(context),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (blocker.hasError) ...[
+                _BlockerBanner(
+                  onRetry: () => ref.invalidate(blockingSyncProvider),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -219,6 +227,16 @@ class _LimitCard extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            if (reached) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Monitored apps are blocked until 00:00.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             if (!status.hasLimit)
               FilledButton.tonal(
@@ -230,6 +248,53 @@ class _LimitCard extends StatelessWidget {
                 onPressed: onConfigure,
                 child: const Text('Edit limit & apps'),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockerBanner extends StatelessWidget {
+  const _BlockerBanner({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      color: theme.colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        child: Row(
+          children: [
+            Icon(
+              Icons.gpp_maybe_outlined,
+              color: theme.colorScheme.onErrorContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "The blocker couldn't start",
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                  ),
+                  Text(
+                    'Check notification and overlay permissions, then retry.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),

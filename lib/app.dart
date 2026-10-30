@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_resume_observer.dart';
+import 'features/blocking/presentation/blocking_controller.dart';
 import 'features/home/presentation/home_screen.dart';
 import 'features/limits/presentation/settings_controller.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
@@ -38,6 +39,11 @@ class _AppGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final permissions = ref.watch(permissionsControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
+
+    // Side effect: push the latest limit/app selection to the native watcher.
+    // Watched here (not in a screen) so it happens on every change, including
+    // the initial load, no matter which route is visible.
+    ref.watch(blockingSyncProvider);
 
     if (settings.hasError) {
       return Scaffold(

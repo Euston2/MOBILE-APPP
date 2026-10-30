@@ -9,8 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 
-- Stage 3: foreground service, foreground-app polling, full-screen block
-  screen and overlay.
+- Stage 4: stamp the lock when the limit is crossed, midnight reset via
+  `AlarmManager`, `BOOT_COMPLETED` recovery, next-day application of settings.
+
+## [0.3.0] - 2026-10-30
+
+### Added
+
+- `BlockingService`, a `specialUse` foreground service that polls the foreground
+  app every 2 seconds while a limit and monitored apps are configured.
+- Native `BlockPolicy` (pure Kotlin, JVM-tested) for the block decision: exact
+  boundary, over-limit, active vs expired lock, unmonitored apps, no limit.
+- Full-screen native `BlockActivity` showing used vs limit time, with "Close
+  app" and "Open Lockout" actions; it closes itself if the violation clears.
+- `BlockOverlay` fallback for ROMs that silently drop background activity
+  starts, using the existing overlay permission; tapping it opens the details
+  screen.
+- `BlockingConfig` cached on the native side, so the watcher keeps enforcing
+  after the Flutter process is killed; Dart pushes it whenever settings or the
+  app selection change (`blockingSyncProvider`, watched by the app gate).
+- Home banner when the native blocker cannot start, with a retry action.
+- Kotlin tests for the blocking policy and the native duration formatting
+  (22 JVM tests total).
+
+### Changed
+
+- Home states that monitored apps are blocked until 00:00 once the limit is
+  reached.
+- CI continues to run only `:app` JVM tests, now covering the blocking policy.
+
+### Notes
+
+- The lock is not yet stamped, so Stage 3 blocks because usage stays at or above
+  the limit until midnight; the persisted lock and its midnight reset arrive
+  with Stage 4. Until then, changing the limit can unblock early.
 
 ## [0.2.0] - 2026-10-29
 

@@ -59,8 +59,15 @@ com.lockout.lockout/
     ├── UsageStatsReader.kt    # UsageStatsManager -> events (Stage 1)
     ├── UsageAggregator.kt     # pure time-window math (JVM-tested)
     ├── AppCatalog.kt          # launchable apps for the picker
-    ├── AppBlockService.kt     # foreground service, polls foreground app (Stage 3)
-    ├── BlockActivity.kt       # full-screen block screen (Stage 3)
+    ├── BlockingConfig.kt      # pure config snapshot + isActive (JVM-tested)
+    ├── BlockPolicy.kt         # pure block decision (JVM-tested)
+    ├── BlockingStore.kt       # native cache of the config (own prefs file)
+    ├── BlockingService.kt     # foreground service, polls the foreground app
+    ├── ForegroundAppTracker.kt# event stream -> current foreground package
+    ├── BlockUsage.kt          # combined monitored usage since local midnight
+    ├── BlockActivity.kt       # full-screen block screen
+    ├── BlockOverlay.kt        # overlay fallback when activity starts are dropped
+    ├── BlockCopy.kt           # native strings + duration formatting (JVM-tested)
     ├── MidnightAlarm.kt       # exact alarm scheduling/cancellation (Stage 4)
     └── BootReceiver.kt        # BOOT_COMPLETED / TIME_SET / TIMEZONE_CHANGED (Stage 4)
 ```
@@ -70,28 +77,35 @@ used, is the alarm armed). The Dart layer owns *policy* (is the limit hit, what
 the block screen says, what a settings change does). This split keeps the risky
 logic testable in Dart and the Android-specific code as thin as possible.
 
-## Data flow (target v0.4)
+## Data flow
 
-1. `AppBlockService` polls the foreground package every 2 s while a monitored
-   app is visible.
-2. It asks `UsageStatsReader` for today's totals and sends a usage event to
-   Flutter (Home updates live) or triggers `BlockActivity` when the limit is
-   reached or the app is monitored while locked.
-3. Crossing the limit writes `is_locked`, `locked_at`, `next_reset_at` and the
-   per-app totals into `shared_preferences`/drift in the same transaction-like
-   sequence, so a crash cannot lose the lock.
-4. At 00:00 the alarm (or a recovery check on service/app start) writes
-   `daily_summary` and `daily_usage`, clears the lock, arms the next alarm.
+1. The Dart gate watches settings and the app selection, then pushes the
+   resulting `BlockingConfig` to Kotlin (`setBlockingConfig`). Kotlin caches it
+   in its own prefs file and starts or stops `BlockingService`.
+2. Every 2 s the service resolves the foreground package from `UsageEvents`,
+   sums today's monitored usage, and asks the pure `BlockPolicy` for a verdict.
+   The usage query only runs while a monitored app is actually in front; Stage 6
+   profiles the cost and may cache increments between queries.
+3. On a verdict it launches `BlockActivity`; if that activity does not reach the
+   foreground (some ROMs drop background activity starts), `BlockOverlay` covers
+   the app instead. Both read the same cached config and policy, so they cannot
+   disagree with Home.
+4. The block surfaces re-evaluate every 2 s and close themselves when the
+   verdict clears. Stage 4 replaces "usage is still high" with a persisted lock:
+   crossing the limit writes `is_locked`, `locked_at` and `next_reset_at` in
+   `shared_preferences`, and a midnight alarm (or a recovery check on app/service
+   start) clears it, writes `daily_summary`/`daily_usage` and arms the next run.
 
 ## Testing strategy
 
 | Risk | Where | How |
 | ---- | ----- | --- |
 | "Used today" time window (midnight, DST, timezone change) | domain + Kotlin helper | `flutter_test` on a pure function; JUnit for the Kotlin mirror |
-| Limit reached exactly at the boundary | domain | table-driven unit tests |
+| Limit reached exactly at the boundary | domain + native | Dart table-driven tests and Kotlin `BlockPolicyTest` |
 | Settings survive an app restart | data | `PrefsSettingsRepository` round-trip with mock `shared_preferences` |
 | App selection is replaced atomically | data | drift in-memory database test |
 | Lock cannot be bypassed | domain + data | repository contract tests with fakes |
+| Block surfaces cannot disagree | native | shared `BlockPolicy`/`BlockCopy` used by service, activity and overlay |
 | Midnight reset, missed alarm | domain | clock-injected use case tests |
 | Block screen scheduling | native | instrumentation/manual matrix in `docs/TESTING.md` |
 

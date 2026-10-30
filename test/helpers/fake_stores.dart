@@ -1,6 +1,8 @@
+import 'package:lockout/domain/entities/blocking_config.dart';
 import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
 import 'package:lockout/domain/entities/usage_settings.dart';
+import 'package:lockout/domain/repositories/blocking_repository.dart';
 import 'package:lockout/domain/repositories/monitored_apps_repository.dart';
 import 'package:lockout/domain/repositories/settings_repository.dart';
 
@@ -46,6 +48,26 @@ class FakeMonitoredAppsRepository implements MonitoredAppsRepository {
   Future<void> replaceAll(List<MonitoredApp> apps) async {
     this.apps = List.of(apps);
     replaceCalls++;
+  }
+}
+
+/// In-memory stand-in for the native watcher.
+class FakeBlockingRepository implements BlockingRepository {
+  FakeBlockingRepository({this.error});
+
+  final List<BlockingConfig> synced = [];
+  int stopCalls = 0;
+  Object? error;
+
+  @override
+  Future<void> sync(BlockingConfig config) async {
+    if (error case final error?) throw error;
+    synced.add(config);
+  }
+
+  @override
+  Future<void> stop() async {
+    stopCalls++;
   }
 }
 

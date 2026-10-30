@@ -20,6 +20,7 @@ What must always be covered by unit tests:
 | Time windows | "today" from 00:00 local time, DST transitions, timezone changes mid-day, clock moved backwards |
 | Limit logic | total == limit (blocked), total > limit, limit changed mid-day, no monitored apps |
 | Lock logic | lock set once, cannot be cleared while `now < next_reset_at`, persists across cold start |
+| Blocking decisions | unmonitored app, exact limit, over limit, active/expired lock, no limit (`BlockPolicyTest`) |
 | Reset logic | alarm fired at 00:00, missed alarm recovered on start, double reset is idempotent |
 | History | daily totals summed correctly held per app, week aggregation, CSV escaping |
 

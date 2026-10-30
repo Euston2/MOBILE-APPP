@@ -67,4 +67,22 @@ class LockoutPlatform {
     }
     return raw;
   }
+
+  /// Stores the blocking config on the native side and starts (or restarts) the
+  /// foreground watcher. Kotlin keeps its own copy so enforcement survives this
+  /// Flutter process being killed.
+  Future<void> setBlockingConfig({
+    required Set<String> monitoredPackages,
+    required int dailyLimitSeconds,
+    required bool isLocked,
+    required DateTime nextResetAt,
+  }) => _channel.invokeMethod<void>('setBlockingConfig', <String, Object>{
+    'monitoredPackages': monitoredPackages.toList(growable: false),
+    'dailyLimitSeconds': dailyLimitSeconds,
+    'isLocked': isLocked,
+    'nextResetAtMs': nextResetAt.millisecondsSinceEpoch,
+  });
+
+  /// Stops the foreground watcher when there is nothing to enforce.
+  Future<void> stopBlocking() => _channel.invokeMethod<void>('stopBlocking');
 }
