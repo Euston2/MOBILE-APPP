@@ -118,6 +118,10 @@ void main() {
     expect(find.text('Limit reached · 5m over'), findsOneWidget);
     expect(find.text('1 monitored'), findsOneWidget);
     expect(find.text('Edit limit & apps'), findsOneWidget);
+    expect(
+      find.text('Monitored apps are blocked until 00:00.'),
+      findsOneWidget,
+    );
 
     await disposeTestApp(tester);
   });
@@ -144,7 +148,32 @@ void main() {
 
     expect(find.text('of 1h'), findsOneWidget);
     expect(find.text('45m left today'), findsOneWidget);
-    expect(find.text('Limit reached · 5m over'), findsNothing);
+    expect(find.text('Monitored apps are blocked until 00:00.'), findsNothing);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('shows a retry banner when the native blocker fails', (
+    tester,
+  ) async {
+    await pumpLockoutApp(
+      tester,
+      usage: FakeUsageRepository(),
+      permissions: FakePermissionsRepository(allGranted),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(dailyLimitSeconds: 1800),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+      blocking: FakeBlockingRepository(error: StateError('service refused')),
+    );
+
+    expect(find.text("The blocker couldn't start"), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
 
     await disposeTestApp(tester);
   });

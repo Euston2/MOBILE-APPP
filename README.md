@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-0.2.0-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-0.3.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -19,20 +19,26 @@ way to talk yourself out of it at 11 p.m.
 | 0 | Project, folder structure, CI, Git workflow | `v0.0.1` | ✅ done |
 | 1 | Permissions & usage tracking | `v0.1.0` | ✅ done |
 | 2 | Limit setting, drift storage, progress ring | `v0.2.0` | ✅ done |
-| 3 | Blocking engine (foreground service + overlay) | `v0.3.0` | ⏳ next |
-| 4 | Lock & midnight reset | `v0.4.0` | ⏳ |
+| 3 | Blocking engine (foreground service + overlay) | `v0.3.0` | ✅ done |
+| 4 | Lock & midnight reset | `v0.4.0` | ⏳ next |
 | 5 | History & stats | `v0.5.0` | ⏳ |
 | 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ⏳ |
 | 7 | Release (signed APK, GitHub Release) | `v1.0.0` | ⏳ |
+
+Until Stage 4 lands, blocking works because today's usage stays at or above the
+limit until midnight; the persisted lock and its alarm-driven reset are next.
+Changing the limit before then can unblock an app early.
 
 ## How it works (v1 target)
 
 - **Tracking** — `UsageStatsManager` reports foreground time per package since
   local midnight. The combined total across the monitored apps is the number
   that counts against the limit.
-- **Blocking** — a foreground service watches the foreground app every few
+- **Blocking** — a foreground service watches the foreground app every two
   seconds. When the limit is crossed (or you open a monitored app while locked)
-  a full-screen `BlockActivity` is launched above it.
+  a full-screen native `BlockActivity` is launched above it. If a ROM silently
+  refuses background activity starts, a full-screen overlay covers the app
+  instead; both surfaces are native so blocking survives the Flutter process.
 - **Lock** — once the limit is hit, `isLocked` is stamped with a timestamp and
   `next_reset_at` is written next to it in `shared_preferences`. Settings are
   read-only until then, including across reboots, because the service and the UI

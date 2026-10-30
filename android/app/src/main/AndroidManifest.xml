@@ -36,6 +36,15 @@
     -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!--
+      FOREGROUND SERVICE: the watcher must keep running while another app is in
+      the foreground. Since Android 14 the "special use" subtype is the correct
+      category for continuous usage monitoring, and it needs its own permission
+      plus the declared subtype on the service element below.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <application
         android:label="Lockout"
         android:name="${applicationName}"
@@ -62,6 +71,35 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!--
+          Block screen shown above a blocked app. It lives in its own task and
+          is excluded from recents so it cannot be "swiped away" back into the
+          monitored app, and the platform Material theme avoids paying for a
+          Flutter engine just to draw one screen.
+        -->
+        <activity
+            android:name=".platform.BlockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="com.lockout.lockout.block"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <!--
+          Foreground watcher: polls the foreground app every 2 s and shows the
+          block screen. "specialUse" is the Android 14+ category for continuous
+          usage monitoring; the property is required for that category.
+        -->
+        <service
+            android:name=".platform.BlockingService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Monitors foreground app usage against the user's daily limit and shows the block screen." />
+        </service>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

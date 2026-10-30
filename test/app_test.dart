@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
 
 import 'helpers/fake_stores.dart';
@@ -76,6 +77,54 @@ void main() {
 
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Set up Lockout'), findsNothing);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('pushes the limit and app selection to the native watcher', (
+    tester,
+  ) async {
+    final blocking = FakeBlockingRepository();
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(dailyLimitSeconds: 3600),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+      blocking: blocking,
+    );
+
+    expect(blocking.synced, isNotEmpty);
+    final config = blocking.synced.last;
+    expect(config.dailyLimitSeconds, 3600);
+    expect(config.monitoredPackages, {'com.instagram.android'});
+    expect(config.isLocked, isFalse);
+    expect(config.isActive, isTrue);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('stops the native watcher when no limit is configured', (
+    tester,
+  ) async {
+    final blocking = FakeBlockingRepository();
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      blocking: blocking,
+    );
+
+    expect(blocking.synced, isEmpty);
+    // The gate may recompute while settings and apps load; stop is idempotent.
+    expect(blocking.stopCalls, greaterThanOrEqualTo(1));
 
     await disposeTestApp(tester);
   });

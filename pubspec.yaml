@@ -4,7 +4,7 @@ publish_to: 'none'
 
 # Semantic versioning: MAJOR.MINOR.PATCH+BUILD.
 # Stage 0 is the project scaffold.
-version: 0.2.0+3
+version: 0.3.0+4
 
 environment:
   sdk: ^3.11.4
@@ -30,4 +30,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
 

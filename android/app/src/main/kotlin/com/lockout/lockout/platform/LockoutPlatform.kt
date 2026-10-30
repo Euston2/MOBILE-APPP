@@ -82,6 +82,47 @@ class LockoutPlatform(
                 runAsync(result) { UsageStatsReader.read(activity, startMs, endMs) }
             }
 
+            // Dart owns the policy; it pushes the resulting config here. The
+            // service caches it so blocking survives the Flutter process.
+            "setBlockingConfig" -> {
+                val packages = call.argument<List<String>>("monitoredPackages")?.toSet()
+                    ?: emptySet()
+                val limitSeconds = call.argument<Number>("dailyLimitSeconds")?.toInt() ?: 0
+                val isLocked = call.argument<Boolean>("isLocked") == true
+                val nextResetAtMs = call.argument<Number>("nextResetAtMs")?.toLong() ?: 0L
+                if (limitSeconds < 0 || nextResetAtMs < 0) {
+                    result.error("bad_args", "limitSeconds and nextResetAtMs must be >= 0", null)
+                    return
+                }
+
+                try {
+                    val config = BlockingConfig(
+                        monitoredPackages = packages,
+                        dailyLimitSeconds = limitSeconds,
+                        isLocked = isLocked,
+                        nextResetAtMs = nextResetAtMs,
+                    )
+                    BlockingStore.save(activity, config)
+                    if (config.isActive) {
+                        BlockingService.start(activity)
+                    } else {
+                        BlockingService.stop(activity)
+                    }
+                    result.success(null)
+                } catch (error: Exception) {
+                    result.error(
+                        "blocking_error",
+                        error.message ?: error.javaClass.simpleName,
+                        null,
+                    )
+                }
+            }
+
+            "stopBlocking" -> {
+                BlockingService.stop(activity)
+                result.success(null)
+            }
+
             else -> result.notImplemented()
         }
     }

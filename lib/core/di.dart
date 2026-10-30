@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/repositories/blocking_repository.dart';
 import '../domain/repositories/monitored_apps_repository.dart';
 import '../domain/repositories/permissions_repository.dart';
 import '../domain/repositories/settings_repository.dart';
@@ -34,10 +35,17 @@ final monitoredAppsRepositoryProvider = Provider<MonitoredAppsRepository>(
   ),
 );
 
+final blockingRepositoryProvider = Provider<BlockingRepository>(
+  (ref) => throw StateError(
+    'blockingRepositoryProvider must be overridden in the composition root.',
+  ),
+);
+
 /// How often the Home screen re-reads the usage counter.
 ///
-/// Stage 3 moves the authoritative polling into the foreground service; this
-/// provider lets tests shorten or disable the timer.
+/// The native `BlockingService` enforces the limit independently (every 2 s);
+/// this timer only keeps the Flutter UI close to live. Tests stretch or disable
+/// it.
 final usagePollIntervalProvider = Provider<Duration>(
   (ref) => const Duration(seconds: 5),
 );

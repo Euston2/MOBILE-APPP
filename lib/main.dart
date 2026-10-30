@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/di.dart';
 import 'data/local/app_database.dart';
+import 'data/repositories/android_blocking_repository.dart';
 import 'data/repositories/android_permissions_repository.dart';
 import 'data/repositories/android_usage_repository.dart';
 import 'data/repositories/drift_monitored_apps_repository.dart';
@@ -34,6 +35,9 @@ Future<void> main() async {
         ),
         monitoredAppsRepositoryProvider.overrideWithValue(
           DriftMonitoredAppsRepository(database),
+        ),
+        blockingRepositoryProvider.overrideWithValue(
+          AndroidBlockingRepository(platform),
         ),
       ],
       child: const LockoutApp(),
