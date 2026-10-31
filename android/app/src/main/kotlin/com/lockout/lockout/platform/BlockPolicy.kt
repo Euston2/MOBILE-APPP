@@ -15,6 +15,10 @@ enum class BlockReason(val wireName: String) {
  * Kept Android-free so it can be exhaustively unit tested on the JVM
  * (`BlockPolicyTest`). The service, the block activity and the overlay all call
  * the same function, so they can never disagree about the state.
+ *
+ * All checks resolve the effective configuration for the supplied clock value,
+ * which is how a limit/app change saved before midnight starts applying at
+ * 00:00 without any Dart call.
  */
 object BlockPolicy {
 
@@ -35,7 +39,9 @@ object BlockPolicy {
         if (config.isLocked && nowMs < config.nextResetAtMs) {
             return BlockReason.LOCKED
         }
-        if (config.dailyLimitSeconds > 0 && usedSecondsToday >= config.dailyLimitSeconds) {
+
+        val active = config.effectiveAt(nowMs)
+        if (active.limitSeconds > 0 && usedSecondsToday >= active.limitSeconds) {
             return BlockReason.LIMIT_REACHED
         }
         return null
@@ -52,7 +58,23 @@ object BlockPolicy {
         nowMs: Long,
     ): BlockReason? {
         val pkg = foregroundPackage ?: return null
-        if (pkg !in config.monitoredPackages) return null
+        if (pkg !in config.effectiveAt(nowMs).packages) return null
         return reasonFor(config, usedSecondsToday, nowMs)
+    }
+
+    /**
+     * True when the limit has just been crossed and no lock has been stamped
+     * yet. The service calls [LockState.lock] when this returns true, which
+     * turns "usage is currently high" into a persisted lock until midnight.
+     */
+    fun shouldLock(
+        config: BlockingConfig,
+        usedSecondsToday: Long,
+        nowMs: Long,
+    ): Boolean {
+        if (config.isLocked && nowMs < config.nextResetAtMs) return false
+        val active = config.effectiveAt(nowMs)
+        return active.limitSeconds > 0 &&
+            usedSecondsToday >= active.limitSeconds
     }
 }

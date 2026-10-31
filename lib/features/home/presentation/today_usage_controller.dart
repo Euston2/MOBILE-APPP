@@ -12,7 +12,8 @@ import '../../limits/presentation/monitored_apps_controller.dart';
 /// Today's combined usage, refreshed on a timer while Home is visible.
 ///
 /// Once apps are selected, only their usage is returned. Polling (rather than
-/// an EventChannel) is enough until the foreground service exists in Stage 3.
+/// an EventChannel) keeps the UI fresh; the native service enforces the limit
+/// independently, so the screen being closed does not stop blocking.
 class TodayUsageController extends AsyncNotifier<UsageSummary> {
   Timer? _timer;
   bool _disposed = false;

@@ -1,0 +1,76 @@
+package com.lockout.lockout.platform
+
+import java.util.Calendar
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Boundary tests for the local-day arithmetic used by the lock and reset. */
+class DayMathTest {
+
+    private fun local(
+        year: Int,
+        month: Int,
+        day: Int,
+        hour: Int = 0,
+        minute: Int = 0,
+    ): Long = Calendar.getInstance().apply {
+        clear()
+        set(year, month, day, hour, minute, 0)
+    }.timeInMillis
+
+    private fun Calendar.part(part: Int) = get(part)
+
+    @Test
+    fun `start of day is local midnight`() {
+        val afternoon = local(2026, Calendar.OCTOBER, 30, 15, 42)
+
+        val start = DayMath.startOfLocalDay(afternoon)
+        val calendar = Calendar.getInstance().apply { timeInMillis = start }
+
+        assertEquals(0, calendar.part(Calendar.HOUR_OF_DAY))
+        assertEquals(0, calendar.part(Calendar.MINUTE))
+        assertEquals(30, calendar.part(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
+    fun `next midnight is strictly in the future`() {
+        val evening = local(2026, Calendar.OCTOBER, 30, 23, 59)
+
+        val next = DayMath.nextLocalMidnight(evening)
+        val calendar = Calendar.getInstance().apply { timeInMillis = next }
+
+        assertTrue(next > evening)
+        assertEquals(0, calendar.part(Calendar.HOUR_OF_DAY))
+        assertEquals(31, calendar.part(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
+    fun `at exactly midnight the next reset is the following day`() {
+        val midnight = local(2026, Calendar.OCTOBER, 30)
+
+        val next = DayMath.nextLocalMidnight(midnight)
+        val calendar = Calendar.getInstance().apply { timeInMillis = next }
+
+        assertEquals(31, calendar.part(Calendar.DAY_OF_MONTH))
+        assertEquals(0, calendar.part(Calendar.HOUR_OF_DAY))
+    }
+
+    @Test
+    fun `previous day starts 24 local hours earlier`() {
+        val afternoon = local(2026, Calendar.OCTOBER, 30, 12)
+
+        val previous = DayMath.startOfPreviousLocalDay(afternoon)
+        val calendar = Calendar.getInstance().apply { timeInMillis = previous }
+
+        assertEquals(29, calendar.part(Calendar.DAY_OF_MONTH))
+        assertEquals(0, calendar.part(Calendar.HOUR_OF_DAY))
+    }
+
+    @Test
+    fun `local date uses the yyyy-MM-dd key`() {
+        val afternoon = local(2026, Calendar.OCTOBER, 30, 12)
+
+        assertEquals("2026-10-30", DayMath.localDate(afternoon))
+    }
+}

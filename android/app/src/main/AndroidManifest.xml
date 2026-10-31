@@ -37,6 +37,21 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!--
+      BOOT: re-arms the midnight alarm and restarts the watcher after a reboot.
+      Alarms do not survive a restart, so this receiver is required for the lock
+      to keep working after the device is turned off overnight.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
+      EXACT ALARM: schedules the 00:00 reset with AlarmManager. This is a special
+      access on Android 12+ (Settings > Special access > Alarms & reminders); the
+      app checks canScheduleExactAlarms() and falls back to an inexact,
+      doze-safe alarm, with the service poll recovering any delay.
+    -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!--
       FOREGROUND SERVICE: the watcher must keep running while another app is in
       the foreground. Since Android 14 the "special use" subtype is the correct
       category for continuous usage monitoring, and it needs its own permission
@@ -99,6 +114,30 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Monitors foreground app usage against the user's daily limit and shows the block screen." />
         </service>
+
+        <!--
+          Midnight reset. Exported=false: the alarm uses an explicit
+          PendingIntent, so only Lockout can trigger this receiver.
+        -->
+        <receiver
+            android:name=".platform.MidnightReceiver"
+            android:exported="false" />
+
+        <!--
+          Boot/time-change recovery. Exported=true is required to receive these
+          protected system broadcasts; RECEIVE_BOOT_COMPLETED restricts who can
+          deliver BOOT_COMPLETED.
+        -->
+        <receiver
+            android:name=".platform.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

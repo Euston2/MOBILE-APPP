@@ -9,8 +9,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 
-- Stage 4: stamp the lock when the limit is crossed, midnight reset via
-  `AlarmManager`, `BOOT_COMPLETED` recovery, next-day application of settings.
+- Stage 5: history screen and weekly charts (`fl_chart`), CSV export.
+
+## [0.4.0] - 2026-10-31
+
+### Added
+
+- Persisted daily lock: when the combined monitored usage reaches the limit, the
+  native service stamps `is_locked`, `locked_at` and `next_reset_at` in its own
+  cache and in Flutter's `shared_preferences`; blocking no longer depends on the
+  live usage counter, so lowering or removing the limit cannot unblock early.
+- Lock read-only UI: Home shows "Locked until 00:00" with a countdown, and the
+  limit/app editor is disabled. Controllers also reject edits while locked, in
+  case a screen was built before the native lock landed.
+- Midnight reset: exact `AlarmManager` alarm (with a doze-safe inexact fallback
+  when `SCHEDULE_EXACT_ALARM` access is unavailable), `BOOT_COMPLETED`,
+  `TIME_SET`, `TIMEZONE_CHANGED` and `MY_PACKAGE_REPLACED` recovery, plus a
+  clock check on every service poll and app start. A missed alarm cannot leave
+  an expired lock in place.
+- Next-day settings: while a limit is active, limit and app-selection changes are
+  scheduled for the next local midnight (`pending_limit_seconds`,
+  `pending_effective_at`, `monitored_apps.pending_enabled`, drift schema v2 with
+  migration). Kotlin receives the complete pending configuration and switches by
+  clock at 00:00, even when Flutter is not running. The first configuration
+  still applies immediately.
+- Home and the editor explain scheduled changes ("New settings start at 00:00")
+  and what still applies today.
+- History archiving: at reset the native side writes yesterday's per-app totals
+  to a small JSON queue; the app imports it into `daily_usage`/`daily_summary`
+  on launch or refresh. Imports are idempotent (drift upserts).
+- New tests: settings transitions, app planning/reconciliation, scheduled
+  settings in the editor and Home, blocking-config payloads, prefs reload,
+  drift upsert/archive, archive import, `DayMath` and pending `BlockPolicy`
+  cases.
+
+### Changed
+
+- `BlockingConfig` now carries both the current and pending app sets/limits and
+  the lock timestamp; the service resolves the effective configuration by clock.
+- The service materialises a due pending configuration into the active one at
+  reset, so notifications and the next day's archive use the correct values.
+- Settings are re-read on resume and before every edit; a one-shot timer reloads
+  them at the next lock/pending transition while the app stays open.
+
+### Notes
+
+- Only the most recent missing day is archived after a long offline gap; older
+  days are not reconstructed.
+- Android gives apps no way to survive a user force-stop. Persisted state
+  recovers correctly the next time Lockout is opened.
+- Device acceptance (block timing, midnight on a real clock, reboot, OEM battery
+  managers) was not run in this environment: no Android device was attached.
 
 ## [0.3.0] - 2026-10-30
 

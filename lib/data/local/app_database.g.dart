@@ -46,6 +46,20 @@ class $MonitoredAppsTable extends MonitoredApps
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _pendingEnabledMeta = const VerificationMeta(
+    'pendingEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> pendingEnabled = GeneratedColumn<bool>(
+    'pending_enabled',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pending_enabled" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -63,6 +77,7 @@ class $MonitoredAppsTable extends MonitoredApps
     packageName,
     displayName,
     isEnabled,
+    pendingEnabled,
     updatedAt,
   ];
   @override
@@ -105,6 +120,15 @@ class $MonitoredAppsTable extends MonitoredApps
         isEnabled.isAcceptableOrUnknown(data['is_enabled']!, _isEnabledMeta),
       );
     }
+    if (data.containsKey('pending_enabled')) {
+      context.handle(
+        _pendingEnabledMeta,
+        pendingEnabled.isAcceptableOrUnknown(
+          data['pending_enabled']!,
+          _pendingEnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -132,6 +156,10 @@ class $MonitoredAppsTable extends MonitoredApps
         DriftSqlType.bool,
         data['${effectivePrefix}is_enabled'],
       )!,
+      pendingEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pending_enabled'],
+      ),
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -149,11 +177,15 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
   final String packageName;
   final String displayName;
   final bool isEnabled;
+
+  /// Null = no scheduled change. True = add at next midnight. False = remove.
+  final bool? pendingEnabled;
   final DateTime updatedAt;
   const MonitoredAppRow({
     required this.packageName,
     required this.displayName,
     required this.isEnabled,
+    this.pendingEnabled,
     required this.updatedAt,
   });
   @override
@@ -162,6 +194,9 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
     map['package_name'] = Variable<String>(packageName);
     map['display_name'] = Variable<String>(displayName);
     map['is_enabled'] = Variable<bool>(isEnabled);
+    if (!nullToAbsent || pendingEnabled != null) {
+      map['pending_enabled'] = Variable<bool>(pendingEnabled);
+    }
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -171,6 +206,9 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
       packageName: Value(packageName),
       displayName: Value(displayName),
       isEnabled: Value(isEnabled),
+      pendingEnabled: pendingEnabled == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pendingEnabled),
       updatedAt: Value(updatedAt),
     );
   }
@@ -184,6 +222,7 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
       packageName: serializer.fromJson<String>(json['packageName']),
       displayName: serializer.fromJson<String>(json['displayName']),
       isEnabled: serializer.fromJson<bool>(json['isEnabled']),
+      pendingEnabled: serializer.fromJson<bool?>(json['pendingEnabled']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -194,6 +233,7 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
       'packageName': serializer.toJson<String>(packageName),
       'displayName': serializer.toJson<String>(displayName),
       'isEnabled': serializer.toJson<bool>(isEnabled),
+      'pendingEnabled': serializer.toJson<bool?>(pendingEnabled),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -202,11 +242,15 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
     String? packageName,
     String? displayName,
     bool? isEnabled,
+    Value<bool?> pendingEnabled = const Value.absent(),
     DateTime? updatedAt,
   }) => MonitoredAppRow(
     packageName: packageName ?? this.packageName,
     displayName: displayName ?? this.displayName,
     isEnabled: isEnabled ?? this.isEnabled,
+    pendingEnabled: pendingEnabled.present
+        ? pendingEnabled.value
+        : this.pendingEnabled,
     updatedAt: updatedAt ?? this.updatedAt,
   );
   MonitoredAppRow copyWithCompanion(MonitoredAppsCompanion data) {
@@ -218,6 +262,9 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
           ? data.displayName.value
           : this.displayName,
       isEnabled: data.isEnabled.present ? data.isEnabled.value : this.isEnabled,
+      pendingEnabled: data.pendingEnabled.present
+          ? data.pendingEnabled.value
+          : this.pendingEnabled,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -228,14 +275,20 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
           ..write('packageName: $packageName, ')
           ..write('displayName: $displayName, ')
           ..write('isEnabled: $isEnabled, ')
+          ..write('pendingEnabled: $pendingEnabled, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(packageName, displayName, isEnabled, updatedAt);
+  int get hashCode => Object.hash(
+    packageName,
+    displayName,
+    isEnabled,
+    pendingEnabled,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -243,6 +296,7 @@ class MonitoredAppRow extends DataClass implements Insertable<MonitoredAppRow> {
           other.packageName == this.packageName &&
           other.displayName == this.displayName &&
           other.isEnabled == this.isEnabled &&
+          other.pendingEnabled == this.pendingEnabled &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -250,12 +304,14 @@ class MonitoredAppsCompanion extends UpdateCompanion<MonitoredAppRow> {
   final Value<String> packageName;
   final Value<String> displayName;
   final Value<bool> isEnabled;
+  final Value<bool?> pendingEnabled;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const MonitoredAppsCompanion({
     this.packageName = const Value.absent(),
     this.displayName = const Value.absent(),
     this.isEnabled = const Value.absent(),
+    this.pendingEnabled = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -263,6 +319,7 @@ class MonitoredAppsCompanion extends UpdateCompanion<MonitoredAppRow> {
     required String packageName,
     required String displayName,
     this.isEnabled = const Value.absent(),
+    this.pendingEnabled = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : packageName = Value(packageName),
@@ -271,6 +328,7 @@ class MonitoredAppsCompanion extends UpdateCompanion<MonitoredAppRow> {
     Expression<String>? packageName,
     Expression<String>? displayName,
     Expression<bool>? isEnabled,
+    Expression<bool>? pendingEnabled,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -278,6 +336,7 @@ class MonitoredAppsCompanion extends UpdateCompanion<MonitoredAppRow> {
       if (packageName != null) 'package_name': packageName,
       if (displayName != null) 'display_name': displayName,
       if (isEnabled != null) 'is_enabled': isEnabled,
+      if (pendingEnabled != null) 'pending_enabled': pendingEnabled,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -287,6 +346,7 @@ class MonitoredAppsCompanion extends UpdateCompanion<MonitoredAppRow> {
     Value<String>? packageName,
     Value<String>? displayName,
     Value<bool>? isEnabled,
+    Value<bool?>? pendingEnabled,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
   }) {
@@ -294,6 +354,7 @@ class MonitoredAppsCompanion extends UpdateCompanion<MonitoredAppRow> {
       packageName: packageName ?? this.packageName,
       displayName: displayName ?? this.displayName,
       isEnabled: isEnabled ?? this.isEnabled,
+      pendingEnabled: pendingEnabled ?? this.pendingEnabled,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -311,6 +372,9 @@ class MonitoredAppsCompanion extends UpdateCompanion<MonitoredAppRow> {
     if (isEnabled.present) {
       map['is_enabled'] = Variable<bool>(isEnabled.value);
     }
+    if (pendingEnabled.present) {
+      map['pending_enabled'] = Variable<bool>(pendingEnabled.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -326,6 +390,7 @@ class MonitoredAppsCompanion extends UpdateCompanion<MonitoredAppRow> {
           ..write('packageName: $packageName, ')
           ..write('displayName: $displayName, ')
           ..write('isEnabled: $isEnabled, ')
+          ..write('pendingEnabled: $pendingEnabled, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -967,6 +1032,7 @@ typedef $$MonitoredAppsTableCreateCompanionBuilder =
       required String packageName,
       required String displayName,
       Value<bool> isEnabled,
+      Value<bool?> pendingEnabled,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -975,6 +1041,7 @@ typedef $$MonitoredAppsTableUpdateCompanionBuilder =
       Value<String> packageName,
       Value<String> displayName,
       Value<bool> isEnabled,
+      Value<bool?> pendingEnabled,
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
@@ -1000,6 +1067,11 @@ class $$MonitoredAppsTableFilterComposer
 
   ColumnFilters<bool> get isEnabled => $composableBuilder(
     column: $table.isEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pendingEnabled => $composableBuilder(
+    column: $table.pendingEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1033,6 +1105,11 @@ class $$MonitoredAppsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get pendingEnabled => $composableBuilder(
+    column: $table.pendingEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -1060,6 +1137,11 @@ class $$MonitoredAppsTableAnnotationComposer
 
   GeneratedColumn<bool> get isEnabled =>
       $composableBuilder(column: $table.isEnabled, builder: (column) => column);
+
+  GeneratedColumn<bool> get pendingEnabled => $composableBuilder(
+    column: $table.pendingEnabled,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -1099,12 +1181,14 @@ class $$MonitoredAppsTableTableManager
                 Value<String> packageName = const Value.absent(),
                 Value<String> displayName = const Value.absent(),
                 Value<bool> isEnabled = const Value.absent(),
+                Value<bool?> pendingEnabled = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MonitoredAppsCompanion(
                 packageName: packageName,
                 displayName: displayName,
                 isEnabled: isEnabled,
+                pendingEnabled: pendingEnabled,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),
@@ -1113,12 +1197,14 @@ class $$MonitoredAppsTableTableManager
                 required String packageName,
                 required String displayName,
                 Value<bool> isEnabled = const Value.absent(),
+                Value<bool?> pendingEnabled = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MonitoredAppsCompanion.insert(
                 packageName: packageName,
                 displayName: displayName,
                 isEnabled: isEnabled,
+                pendingEnabled: pendingEnabled,
                 updatedAt: updatedAt,
                 rowid: rowid,
               ),

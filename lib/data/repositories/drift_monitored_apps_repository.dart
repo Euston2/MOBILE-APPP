@@ -19,6 +19,7 @@ class DriftMonitoredAppsRepository implements MonitoredAppsRepository {
           packageName: row.packageName,
           displayName: row.displayName,
           isEnabled: row.isEnabled,
+          pendingEnabled: row.pendingEnabled,
         ),
       ),
     );
@@ -32,6 +33,7 @@ class DriftMonitoredAppsRepository implements MonitoredAppsRepository {
           packageName: app.packageName,
           displayName: app.displayName,
           isEnabled: Value(app.isEnabled),
+          pendingEnabled: Value(app.pendingEnabled),
         ),
     ]);
   }

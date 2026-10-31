@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-0.3.0-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-0.4.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -20,14 +20,14 @@ way to talk yourself out of it at 11 p.m.
 | 1 | Permissions & usage tracking | `v0.1.0` | ✅ done |
 | 2 | Limit setting, drift storage, progress ring | `v0.2.0` | ✅ done |
 | 3 | Blocking engine (foreground service + overlay) | `v0.3.0` | ✅ done |
-| 4 | Lock & midnight reset | `v0.4.0` | ⏳ next |
-| 5 | History & stats | `v0.5.0` | ⏳ |
+| 4 | Lock & midnight reset | `v0.4.0` | ✅ done |
+| 5 | History & stats | `v0.5.0` | ⏳ next |
 | 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ⏳ |
 | 7 | Release (signed APK, GitHub Release) | `v1.0.0` | ⏳ |
 
-Until Stage 4 lands, blocking works because today's usage stays at or above the
-limit until midnight; the persisted lock and its alarm-driven reset are next.
-Changing the limit before then can unblock an app early.
+Once the limit is reached, Lockout stamps a persisted lock and keeps the apps
+blocked until local midnight. Limit and app changes made while a limit is active
+are saved for the next day, so today's rules cannot be relaxed at 11 p.m.
 
 ## How it works (v1 target)
 
@@ -39,13 +39,30 @@ Changing the limit before then can unblock an app early.
   a full-screen native `BlockActivity` is launched above it. If a ROM silently
   refuses background activity starts, a full-screen overlay covers the app
   instead; both surfaces are native so blocking survives the Flutter process.
-- **Lock** — once the limit is hit, `isLocked` is stamped with a timestamp and
-  `next_reset_at` is written next to it in `shared_preferences`. Settings are
-  read-only until then, including across reboots, because the service and the UI
-  both trust the persisted timestamp rather than the alarm.
-- **Reset** — `AlarmManager.setExactAndAllowWhileIdle` fires at 00:00 local time;
-  a `BOOT_COMPLETED` receiver re-arms it; any start of the app or service
-  recovers a missed reset by comparing `now` with `next_reset_at`.
+- **Lock** — once the limit is hit, the native service stamps `is_locked`,
+  `locked_at` and `next_reset_at` in `shared_preferences` and in its own config
+  cache. The block decision then trusts the persisted lock, not the live usage
+  counter, so changing or removing the limit cannot unblock an app before
+  midnight. The setting is read-only while locked.
+- **Next-day changes** — while a limit is active, editing the limit or app
+  selection saves a complete pending configuration for the next local midnight
+  (`pending_limit_seconds`, `pending_effective_at`, and `pending_enabled` per
+  app). Kotlin receives both the current and pending configurations and switches
+  by clock, so the change lands at 00:00 even if Flutter is not running.
+- **Reset** — `AlarmManager.setExactAndAllowWhileIdle` fires at 00:00 local time
+  (with a doze-safe inexact fallback when exact-alarm access is unavailable); a
+  `BOOT_COMPLETED`/`TIME_SET`/`TIMEZONE_CHANGED` receiver re-arms it. Any start
+  of the app or service recovers a missed reset by comparing `now` with
+  `next_reset_at`, clears the expired lock, folds the pending config into the
+  active one, and archives yesterday's per-app totals for the history screen.
+
+History is archived natively into a small JSON queue and imported into drift on
+the next launch (drift is Dart-owned). The lock and its reset timestamp are
+checked lazily, so a reboot, OEM task kill or a missed alarm cannot leave an
+expired lock in place once Lockout runs again. A user force-stop disables
+alarms/services until the app is opened, which Android does not allow an app to
+override; the persisted state still recovers on that launch. If the device is
+off for several days, only the most recent missing day is archived.
 
 ## Tech stack
 
@@ -61,11 +78,12 @@ Changing the limit before then can unblock an app early.
 | Tests | `flutter_test`, Kotlin JUnit |
 | CI/CD | GitHub Actions |
 
-Storage split: settings and lock state (`daily_limit_seconds`, `is_locked`,
-`locked_at`, `next_reset_at`, onboarding flag) live in `shared_preferences`
-because the service reads them on every check; the monitored-app list and all
-daily usage history live in a drift/SQLite database so they can grow and be
-queried. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#storage).
+Storage split: settings and lock state (`daily_limit_seconds`,
+`pending_limit_seconds`, `pending_effective_at`, `is_locked`, `locked_at`,
+`next_reset_at`, onboarding flag) live in `shared_preferences` because the
+service reads them on every check; the monitored-app list and all daily usage
+history live in a drift/SQLite database so they can grow and be queried. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#storage).
 
 ## Project structure
 
@@ -146,7 +164,7 @@ short version:
 | `SYSTEM_ALERT_WINDOW` ("display over other apps") | Show the full-screen block over the blocked app. | 3 |
 | `POST_NOTIFICATIONS` (Android 13+) | The blocking service must be a foreground service, which requires a visible notification. | 3 |
 | `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_SPECIAL_USE` | Keep the watcher alive while another app is in the foreground. | 3 |
-| `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` | Fire the midnight reset on time. | 4 |
+| `SCHEDULE_EXACT_ALARM` | Fire the midnight reset on time (falls back to a doze-safe inexact alarm when unavailable). | 4 |
 | `RECEIVE_BOOT_COMPLETED` | Re-arm the reset and the service after a reboot. | 4 |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (user-granted) | Prevent OEM battery savers from killing the watcher. | 1/6 |
 | `QUERY_ALL_PACKAGES` | List installed apps so you can choose which ones to monitor. | 1 |

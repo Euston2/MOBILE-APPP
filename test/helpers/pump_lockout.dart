@@ -19,6 +19,7 @@ Future<void> pumpLockoutApp(
   FakeSettingsRepository? settings,
   FakeMonitoredAppsRepository? monitored,
   FakeBlockingRepository? blocking,
+  FakeHistoryRepository? history,
 }) async {
   useTallScreen(tester);
   await tester.pumpWidget(
@@ -34,6 +35,9 @@ Future<void> pumpLockoutApp(
         ),
         blockingRepositoryProvider.overrideWithValue(
           blocking ?? FakeBlockingRepository(),
+        ),
+        historyRepositoryProvider.overrideWithValue(
+          history ?? FakeHistoryRepository(),
         ),
         usagePollIntervalProvider.overrideWithValue(const Duration(hours: 1)),
       ],

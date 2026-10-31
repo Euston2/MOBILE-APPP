@@ -8,6 +8,7 @@ import 'data/local/app_database.dart';
 import 'data/repositories/android_blocking_repository.dart';
 import 'data/repositories/android_permissions_repository.dart';
 import 'data/repositories/android_usage_repository.dart';
+import 'data/repositories/drift_history_repository.dart';
 import 'data/repositories/drift_monitored_apps_repository.dart';
 import 'data/repositories/prefs_settings_repository.dart';
 import 'platform/lockout_platform.dart';
@@ -38,6 +39,9 @@ Future<void> main() async {
         ),
         blockingRepositoryProvider.overrideWithValue(
           AndroidBlockingRepository(platform),
+        ),
+        historyRepositoryProvider.overrideWithValue(
+          DriftHistoryRepository(platform, database),
         ),
       ],
       child: const LockoutApp(),

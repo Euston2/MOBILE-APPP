@@ -9,6 +9,7 @@ import '../../../domain/entities/permission_snapshot.dart';
 import '../../../domain/entities/usage_summary.dart';
 import '../../../domain/usecases/evaluate_limit.dart';
 import '../../blocking/presentation/blocking_controller.dart';
+import '../../history/presentation/archive_import_controller.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
 import '../../limits/presentation/set_limits_screen.dart';
 import '../../limits/presentation/settings_controller.dart';
@@ -26,7 +27,15 @@ class HomeScreen extends ConsumerWidget {
     await Future.wait([
       ref.read(permissionsControllerProvider.notifier).refresh(),
       ref.read(todayUsageControllerProvider.notifier).refresh(),
+      // The native service writes the lock fields into shared_preferences;
+      // re-read them before repainting Home.
+      ref.read(settingsControllerProvider.notifier).reload(),
     ]);
+    if (!ref.context.mounted) return;
+    // Reconcile pending changes (day rollover) and import any day archived
+    // while the app was in the background.
+    ref.invalidate(monitoredAppsControllerProvider);
+    ref.invalidate(archiveImportProvider);
   }
 
   Future<void> _openPermissions(BuildContext context) {
@@ -57,6 +66,14 @@ class HomeScreen extends ConsumerWidget {
     };
     final missing = permissions?.missing ?? const <PermissionKind>[];
     final monitoredCount = monitored?.where((app) => app.isEnabled).length ?? 0;
+    final locked = settings?.isLocked ?? false;
+    final nextResetAt = settings?.nextResetAt;
+    final pendingApps = ref.watch(hasPendingAppChangesProvider);
+    final pendingLimit = settings?.pendingLimitSeconds;
+    final hasPendingChange = !locked && (pendingLimit != null || pendingApps);
+    final scheduledLimit = pendingLimit ?? settings?.dailyLimitSeconds ?? 0;
+    final scheduledAppCount =
+        monitored?.where((app) => app.scheduledEnabled).length ?? 0;
 
     final summary = usage.value;
     final status = evaluateLimit(
@@ -106,9 +123,18 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
               ],
+              if (hasPendingChange) ...[
+                _ScheduledChangeBanner(
+                  limitSeconds: scheduledLimit,
+                  appCount: scheduledAppCount,
+                ),
+                const SizedBox(height: 12),
+              ],
               _LimitCard(
                 status: status,
                 summary: summary,
+                locked: locked,
+                nextResetAt: nextResetAt,
                 onConfigure: () => _openLimits(context),
               ),
               const SizedBox(height: 24),
@@ -174,11 +200,15 @@ class _LimitCard extends StatelessWidget {
   const _LimitCard({
     required this.status,
     required this.summary,
+    required this.locked,
+    required this.nextResetAt,
     required this.onConfigure,
   });
 
   final LimitStatus status;
   final UsageSummary? summary;
+  final bool locked;
+  final DateTime? nextResetAt;
   final VoidCallback onConfigure;
 
   @override
@@ -186,9 +216,12 @@ class _LimitCard extends StatelessWidget {
     final theme = Theme.of(context);
     final reached = status.isReached;
     final appCount = summary?.perApp.length ?? 0;
+    final resetAt = nextResetAt;
 
     final String statusLine;
-    if (!status.hasLimit) {
+    if (locked) {
+      statusLine = 'Locked until 00:00';
+    } else if (!status.hasLimit) {
       statusLine = 'No daily limit set yet';
     } else if (reached) {
       final over = status.overSeconds;
@@ -210,7 +243,7 @@ class _LimitCard extends StatelessWidget {
               statusLine,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
-                color: reached
+                color: reached || locked
                     ? theme.colorScheme.error
                     : theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
@@ -227,7 +260,17 @@ class _LimitCard extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            if (reached) ...[
+            if (locked && resetAt != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Resets in '
+                '${formatCountdown(resetAt.difference(DateTime.now()))}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+            if (locked || reached) ...[
               const SizedBox(height: 8),
               Text(
                 'Monitored apps are blocked until 00:00.',
@@ -246,8 +289,59 @@ class _LimitCard extends StatelessWidget {
             else
               TextButton(
                 onPressed: onConfigure,
-                child: const Text('Edit limit & apps'),
+                child: Text(locked ? 'Locked' : 'Edit limit & apps'),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduledChangeBanner extends StatelessWidget {
+  const _ScheduledChangeBanner({
+    required this.limitSeconds,
+    required this.appCount,
+  });
+
+  final int limitSeconds;
+  final int appCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      color: theme.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.schedule_outlined,
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'New settings start at 00:00',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                  Text(
+                    'Tomorrow: ${formatDuration(limitSeconds)} · '
+                    '$appCount ${appCount == 1 ? 'app' : 'apps'}. '
+                    "Today's settings stay in force until then.",
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

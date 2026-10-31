@@ -9,12 +9,19 @@ import '../../domain/repositories/settings_repository.dart';
 /// Keys mirror the `settings(...)` columns from the data model. Values are
 /// scalars, so prefs are a better fit than SQLite: the service reads them on
 /// every foreground check and they survive process death.
+///
+/// The Kotlin service writes `settings.is_locked`, `settings.locked_at` and
+/// `settings.next_reset_at` into this same prefs file (see
+/// `FlutterSettings.kt`), which is why [reload] exists: the Dart cache must be
+/// refreshed after the app resumes.
 class PrefsSettingsRepository implements SettingsRepository {
   PrefsSettingsRepository(this._prefs);
 
   final SharedPreferences _prefs;
 
   static const String keyDailyLimitSeconds = 'settings.daily_limit_seconds';
+  static const String keyPendingLimitSeconds = 'settings.pending_limit_seconds';
+  static const String keyPendingEffectiveAt = 'settings.pending_effective_at';
   static const String keyIsLocked = 'settings.is_locked';
   static const String keyLockedAt = 'settings.locked_at';
   static const String keyNextResetAt = 'settings.next_reset_at';
@@ -25,6 +32,8 @@ class PrefsSettingsRepository implements SettingsRepository {
     final now = DateTime.now();
     final nextResetAtMs = _prefs.getInt(keyNextResetAt);
     final lockedAtMs = _prefs.getInt(keyLockedAt);
+    final pendingLimit = _prefs.getInt(keyPendingLimitSeconds);
+    final pendingEffectiveAtMs = _prefs.getInt(keyPendingEffectiveAt);
 
     return UsageSettings(
       dailyLimitSeconds: _prefs.getInt(keyDailyLimitSeconds) ?? 0,
@@ -36,6 +45,10 @@ class PrefsSettingsRepository implements SettingsRepository {
           ? nextLocalMidnight(now)
           : DateTime.fromMillisecondsSinceEpoch(nextResetAtMs),
       onboardingCompleted: _prefs.getBool(keyOnboardingCompleted) ?? false,
+      pendingLimitSeconds: pendingLimit,
+      pendingEffectiveAt: pendingEffectiveAtMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(pendingEffectiveAtMs),
     );
   }
 
@@ -55,6 +68,27 @@ class PrefsSettingsRepository implements SettingsRepository {
       keyNextResetAt,
       settings.nextResetAt.millisecondsSinceEpoch,
     );
+
+    final pendingLimit = settings.pendingLimitSeconds;
+    if (pendingLimit == null) {
+      await _prefs.remove(keyPendingLimitSeconds);
+    } else {
+      await _prefs.setInt(keyPendingLimitSeconds, pendingLimit);
+    }
+
+    final pendingEffectiveAt = settings.pendingEffectiveAt;
+    if (pendingEffectiveAt == null) {
+      await _prefs.remove(keyPendingEffectiveAt);
+    } else {
+      await _prefs.setInt(
+        keyPendingEffectiveAt,
+        pendingEffectiveAt.millisecondsSinceEpoch,
+      );
+    }
+
     await _prefs.setBool(keyOnboardingCompleted, settings.onboardingCompleted);
   }
+
+  @override
+  Future<void> reload() => _prefs.reload();
 }
