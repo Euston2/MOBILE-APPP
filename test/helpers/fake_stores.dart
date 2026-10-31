@@ -1,8 +1,10 @@
 import 'package:lockout/domain/entities/blocking_config.dart';
+import 'package:lockout/domain/entities/daily_archive.dart';
 import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
 import 'package:lockout/domain/entities/usage_settings.dart';
 import 'package:lockout/domain/repositories/blocking_repository.dart';
+import 'package:lockout/domain/repositories/history_repository.dart';
 import 'package:lockout/domain/repositories/monitored_apps_repository.dart';
 import 'package:lockout/domain/repositories/settings_repository.dart';
 
@@ -22,6 +24,7 @@ class FakeSettingsRepository implements SettingsRepository {
 
   UsageSettings settings;
   int saveCalls = 0;
+  int reloadCalls = 0;
 
   @override
   Future<UsageSettings> load() async => settings;
@@ -30,6 +33,11 @@ class FakeSettingsRepository implements SettingsRepository {
   Future<void> save(UsageSettings settings) async {
     this.settings = settings;
     saveCalls++;
+  }
+
+  @override
+  Future<void> reload() async {
+    reloadCalls++;
   }
 }
 
@@ -71,18 +79,48 @@ class FakeBlockingRepository implements BlockingRepository {
   }
 }
 
+/// In-memory archive queue + drift sink for the history import.
+class FakeHistoryRepository implements HistoryRepository {
+  FakeHistoryRepository({List<DailyArchive> pending = const []})
+    : pending = List.of(pending);
+
+  List<DailyArchive> pending;
+  final List<DailyArchive> saved = [];
+  int clearCalls = 0;
+
+  @override
+  Future<List<DailyArchive>> readPendingArchives() async =>
+      List.unmodifiable(pending);
+
+  @override
+  Future<void> saveArchive(DailyArchive archive) async {
+    saved.add(archive);
+  }
+
+  @override
+  Future<void> clearPendingArchives() async {
+    pending = [];
+    clearCalls++;
+  }
+}
+
 /// Convenience settings for tests that only care about one field.
 UsageSettings settingsWith({
   int dailyLimitSeconds = 0,
   bool isLocked = false,
   DateTime? lockedAt,
   bool onboardingCompleted = false,
+  int? pendingLimitSeconds,
+  DateTime? pendingEffectiveAt,
+  DateTime? nextResetAt,
 }) => UsageSettings(
   dailyLimitSeconds: dailyLimitSeconds,
   isLocked: isLocked,
   lockedAt: lockedAt,
-  nextResetAt: DateTime.now().add(const Duration(hours: 8)),
+  nextResetAt: nextResetAt ?? DateTime.now().add(const Duration(hours: 8)),
   onboardingCompleted: onboardingCompleted,
+  pendingLimitSeconds: pendingLimitSeconds,
+  pendingEffectiveAt: pendingEffectiveAt,
 );
 
 /// Snapshot with only usage access granted, useful for the onboarding flow.

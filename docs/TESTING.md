@@ -19,13 +19,15 @@ What must always be covered by unit tests:
 | ---- | -------- |
 | Time windows | "today" from 00:00 local time, DST transitions, timezone changes mid-day, clock moved backwards |
 | Limit logic | total == limit (blocked), total > limit, limit changed mid-day, no monitored apps |
-| Lock logic | lock set once, cannot be cleared while `now < next_reset_at`, persists across cold start |
+| Lock logic | lock set once, cannot be cleared while `now < next_reset_at`, persists across cold start (`reconcileSettings`, `BlockPolicyTest`) |
 | Blocking decisions | unmonitored app, exact limit, over limit, active/expired lock, no limit (`BlockPolicyTest`) |
-| Reset logic | alarm fired at 00:00, missed alarm recovered on start, double reset is idempotent |
-| History | daily totals summed correctly held per app, week aggregation, CSV escaping |
+| Next-day settings | pending limit applied at its effective midnight, app add/remove planned and reconciled (`reconcile_settings_test`, `monitored_apps_planning_test`) |
+| Reset logic | alarm fired at 00:00, missed alarm recovered on start, pending config materialised, double reset is idempotent (`DayMathTest`, manual matrix) |
+| Archive | native queue imported once, drift upsert idempotent (`drift_monitored_apps_repository_test`, `archive_import_test`) |
 
-Use an injected `Clock` (`package:clock` or a small interface) instead of
-`DateTime.now()` in domain code so these are deterministic.
+Domain functions take the clock instant as a parameter (`reconcileSettings`,
+`reconcileMonitoredApps`) so their tests are deterministic. Widget tests use
+relative dates (`DateTime.now() + …`) and fake repositories.
 
 ## Device matrix (manual)
 
@@ -39,12 +41,16 @@ Run before every release. Record device, Android version and OEM.
 | 4 | Block screen: press Back, Home, Recents, rotate | block reappears / cannot reach the app |
 | 5 | Limit hit, kill Lockout from Recents | service restarts, block still enforced |
 | 6 | Limit hit, reboot device | still locked after boot, block persists |
-| 7 | Wait for 00:00 (or use debug time simulation, Stage 4) | counter resets, lock clears, history row written |
+| 7 | Wait for 00:00 (or set the device clock) | counter resets, lock clears, pending settings take over, yesterday archived |
 | 8 | Change timezone forward past midnight | reset recognised once, not twice |
 | 9 | Battery optimisation on vs off | service survives at least 10 min idle with optimisation off |
 | 10 | OEM battery manager (Xiaomi/Tecno/Infinix/Samsung) | guidance screen shown, service survives after following it |
-| 11 | Settings while locked | all edit controls disabled, "Locked until 00:00" visible |
-| 12 | History after several simulated days | charts and CSV match database rows |
+| 11 | Settings while locked | all edit controls disabled, "Locked until 00:00" visible; rejected by the controller too |
+| 12 | Change limit/apps while a limit is active | "starts tomorrow" notice; today's ring and blocking unchanged; new values at 00:00 |
+| 13 | Reboot while locked, open a monitored app | still blocked after boot; lock clears only at/after 00:00 |
+| 14 | Turn the device off over midnight, boot the next day | lock is cleared on boot; yesterday's archive is imported into drift |
+| 15 | Deny "Alarms & reminders" special access | midnight still recovers via the 2 s service poll / next start |
+| 16 | History after several simulated days | charts and CSV match database rows (Stage 5) |
 
 ## Stage acceptance log
 

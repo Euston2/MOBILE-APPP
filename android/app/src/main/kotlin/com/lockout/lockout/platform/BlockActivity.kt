@@ -133,7 +133,8 @@ class BlockActivity : Activity() {
         worker.execute {
             val config = BlockingStore.load(this)
             val nowMs = System.currentTimeMillis()
-            val usedSeconds = BlockUsage.usedSecondsToday(this, nowMs, config.monitoredPackages)
+            val active = config.effectiveAt(nowMs)
+            val usedSeconds = BlockUsage.usedSecondsToday(this, nowMs, active.packages)
             val reason = BlockPolicy.reasonFor(config, usedSeconds, nowMs)
 
             runOnUiThread {
@@ -146,7 +147,7 @@ class BlockActivity : Activity() {
                 detailView.text = BlockCopy.detail(
                     reason,
                     usedSeconds,
-                    config.dailyLimitSeconds.toLong(),
+                    active.limitSeconds.toLong(),
                 )
             }
         }

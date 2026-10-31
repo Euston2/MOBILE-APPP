@@ -153,6 +153,82 @@ void main() {
     await disposeTestApp(tester);
   });
 
+  testWidgets('shows the lock state instead of the remaining time', (
+    tester,
+  ) async {
+    await pumpLockoutApp(
+      tester,
+      usage: FakeUsageRepository(
+        summary: summaryOf([
+          (packageName: 'com.instagram.android', seconds: 3900),
+        ]),
+      ),
+      permissions: FakePermissionsRepository(allGranted),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 3600,
+          isLocked: true,
+          lockedAt: DateTime.now(),
+          nextResetAt: DateTime.now().add(const Duration(hours: 8)),
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+    );
+
+    expect(find.text('Locked until 00:00'), findsOneWidget);
+    expect(find.text('Locked'), findsOneWidget);
+    expect(find.text('Edit limit & apps'), findsNothing);
+    expect(
+      find.text('Monitored apps are blocked until 00:00.'),
+      findsOneWidget,
+    );
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('announces settings scheduled for midnight', (tester) async {
+    await pumpLockoutApp(
+      tester,
+      usage: FakeUsageRepository(
+        summary: summaryOf([
+          (packageName: 'com.instagram.android', seconds: 900),
+        ]),
+      ),
+      permissions: FakePermissionsRepository(allGranted),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 1800,
+          pendingLimitSeconds: 3600,
+          pendingEffectiveAt: DateTime.now().add(const Duration(hours: 8)),
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+        MonitoredApp(
+          packageName: 'com.zhiliaoapp.musically',
+          displayName: 'TikTok',
+          isEnabled: false,
+          pendingEnabled: true,
+        ),
+      ]),
+    );
+
+    expect(find.text('New settings start at 00:00'), findsOneWidget);
+    expect(find.textContaining('Tomorrow: 1h · 2 apps'), findsOneWidget);
+    // Today's limit is still the active one.
+    expect(find.text('15m left today'), findsOneWidget);
+
+    await disposeTestApp(tester);
+  });
+
   testWidgets('shows a retry banner when the native blocker fails', (
     tester,
   ) async {

@@ -72,4 +72,86 @@ void main() {
     expect(prefs.getInt(PrefsSettingsRepository.keyLockedAt), isNull);
     expect((await repository.load()).lockedAt, isNull);
   });
+
+  test('round-trips the scheduled limit and effective date', () async {
+    final repository = await freshRepository();
+    final effectiveAt = DateTime(2026, 10, 31);
+
+    await repository.save(
+      UsageSettings(
+        dailyLimitSeconds: 1800,
+        isLocked: false,
+        lockedAt: null,
+        nextResetAt: DateTime(2026, 11, 1),
+        onboardingCompleted: true,
+        pendingLimitSeconds: 3600,
+        pendingEffectiveAt: effectiveAt,
+      ),
+    );
+
+    final loaded = await repository.load();
+    expect(loaded.dailyLimitSeconds, 1800);
+    expect(loaded.pendingLimitSeconds, 3600);
+    expect(loaded.pendingEffectiveAt, effectiveAt);
+  });
+
+  test('clearing the scheduled limit removes its keys', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = PrefsSettingsRepository(prefs);
+
+    await repository.save(
+      UsageSettings(
+        dailyLimitSeconds: 1800,
+        isLocked: false,
+        lockedAt: null,
+        nextResetAt: DateTime(2026, 11, 1),
+        onboardingCompleted: true,
+        pendingLimitSeconds: 3600,
+        pendingEffectiveAt: DateTime(2026, 10, 31),
+      ),
+    );
+
+    await repository.save(
+      UsageSettings(
+        dailyLimitSeconds: 3600,
+        isLocked: false,
+        lockedAt: null,
+        nextResetAt: DateTime(2026, 11, 1),
+        onboardingCompleted: true,
+      ),
+    );
+
+    expect(
+      prefs.getInt(PrefsSettingsRepository.keyPendingLimitSeconds),
+      isNull,
+    );
+    expect(prefs.getInt(PrefsSettingsRepository.keyPendingEffectiveAt), isNull);
+    final loaded = await repository.load();
+    expect(loaded.pendingLimitSeconds, isNull);
+    expect(loaded.pendingEffectiveAt, isNull);
+  });
+
+  test('reload refreshes values written by the native layer', () async {
+    SharedPreferences.setMockInitialValues({
+      PrefsSettingsRepository.keyDailyLimitSeconds: 1800,
+      PrefsSettingsRepository.keyIsLocked: false,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final repository = PrefsSettingsRepository(prefs);
+    expect((await repository.load()).isLocked, isFalse);
+
+    // Simulate Kotlin writing the lock into the same prefs file, then Dart's
+    // cache being refreshed when the app resumes.
+    await prefs.setBool(PrefsSettingsRepository.keyIsLocked, true);
+    await prefs.setInt(
+      PrefsSettingsRepository.keyLockedAt,
+      DateTime(2026, 10, 30, 14).millisecondsSinceEpoch,
+    );
+    await repository.reload();
+
+    final loaded = await repository.load();
+    expect(loaded.isLocked, isTrue);
+    expect(loaded.lockedAt, DateTime(2026, 10, 30, 14));
+  });
 }

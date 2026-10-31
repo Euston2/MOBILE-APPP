@@ -13,10 +13,25 @@ final blockingConfigProvider = Provider<BlockingConfig?>((ref) {
   final settings = ref.watch(settingsControllerProvider).value;
   if (settings == null) return null;
 
+  final hasPendingApps = ref.watch(hasPendingAppChangesProvider);
+  final pendingEffectiveAt = settings.pendingEffectiveAt;
+  final hasPending =
+      pendingEffectiveAt != null &&
+      (settings.pendingLimitSeconds != null || hasPendingApps);
+
+  final pendingLimit =
+      settings.pendingLimitSeconds ?? settings.dailyLimitSeconds;
+
   return BlockingConfig(
     monitoredPackages: ref.watch(enabledPackagesProvider),
     dailyLimitSeconds: settings.dailyLimitSeconds,
+    pendingPackages: hasPending
+        ? ref.watch(scheduledPackagesProvider)
+        : const <String>{},
+    pendingLimitSeconds: hasPending ? pendingLimit : 0,
+    pendingEffectiveAt: hasPending ? pendingEffectiveAt : null,
     isLocked: settings.isLocked,
+    lockedAt: settings.lockedAt,
     nextResetAt: settings.nextResetAt,
   );
 });

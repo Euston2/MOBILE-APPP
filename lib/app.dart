@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'core/widgets/app_resume_observer.dart';
 import 'features/blocking/presentation/blocking_controller.dart';
 import 'features/home/presentation/home_screen.dart';
+import 'features/history/presentation/archive_import_controller.dart';
 import 'features/limits/presentation/settings_controller.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
 import 'features/onboarding/presentation/permissions_controller.dart';
@@ -44,6 +45,8 @@ class _AppGate extends ConsumerWidget {
     // Watched here (not in a screen) so it happens on every change, including
     // the initial load, no matter which route is visible.
     ref.watch(blockingSyncProvider);
+    // Side effect: import days archived by the native midnight reset.
+    ref.watch(archiveImportProvider);
 
     if (settings.hasError) {
       return Scaffold(

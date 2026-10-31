@@ -12,7 +12,11 @@ class AndroidBlockingRepository implements BlockingRepository {
   Future<void> sync(BlockingConfig config) => _platform.setBlockingConfig(
     monitoredPackages: config.monitoredPackages,
     dailyLimitSeconds: config.dailyLimitSeconds,
+    pendingPackages: config.pendingPackages,
+    pendingLimitSeconds: config.pendingLimitSeconds,
+    pendingEffectiveAt: config.pendingEffectiveAt,
     isLocked: config.isLocked,
+    lockedAt: config.lockedAt,
     nextResetAt: config.nextResetAt,
   );
 

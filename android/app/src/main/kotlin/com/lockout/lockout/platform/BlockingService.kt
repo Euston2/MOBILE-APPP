@@ -56,8 +56,10 @@ class BlockingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val config = BlockingStore.load(this)
+        val recovery = MidnightReset.recover(this)
+        val config = recovery.config
         if (!config.isActive) {
+            MidnightAlarm.cancel(this)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -71,6 +73,7 @@ class BlockingService : Service() {
             return START_NOT_STICKY
         }
 
+        MidnightAlarm.scheduleNext(this, System.currentTimeMillis())
         worker.removeCallbacks(pollRunnable)
         worker.post(pollRunnable)
         return START_STICKY
@@ -87,20 +90,42 @@ class BlockingService : Service() {
 
     /** Runs on the worker thread; never touches views directly. */
     private fun poll() {
-        val config = BlockingStore.load(this)
+        var config = BlockingStore.load(this)
+        val nowMs = System.currentTimeMillis()
+
+        // Self-healing reset: archives yesterday and clears an expired lock even
+        // when the midnight alarm never fired (force-stop, reboot, clock jump).
+        val recovery = MidnightReset.recover(this, config, nowMs)
+        config = recovery.config
         if (!config.isActive) {
+            MidnightAlarm.cancel(this)
             stopSelf()
             return
         }
+        if (recovery.changed) {
+            MidnightAlarm.scheduleNext(this, nowMs)
+        }
 
-        val nowMs = System.currentTimeMillis()
+        val active = config.effectiveAt(nowMs)
         val foreground = tracker.currentPackage(this, nowMs)
-        if (foreground == null || foreground !in config.monitoredPackages) {
+        if (foreground == null || foreground !in active.packages) {
             mainHandler.post { BlockOverlay.hide() }
             return
         }
 
-        val usedSeconds = BlockUsage.usedSecondsToday(this, nowMs, config.monitoredPackages)
+        val usedSeconds = BlockUsage.usedSecondsToday(
+            this,
+            nowMs,
+            active.packages,
+        )
+
+        // Crossing the limit turns into a persisted lock. From here on the
+        // violation no longer depends on the current usage counter, so changing
+        // the limit cannot unblock the app before midnight.
+        if (BlockPolicy.shouldLock(config, usedSeconds, nowMs)) {
+            config = LockState.lock(this, config, nowMs)
+        }
+
         val reason = BlockPolicy.reasonForForeground(
             foregroundPackage = foreground,
             config = config,
@@ -112,14 +137,16 @@ class BlockingService : Service() {
             return
         }
 
-        mainHandler.post { presentBlock(reason, usedSeconds, config) }
+        mainHandler.post {
+            presentBlock(reason, usedSeconds, config.effectiveAt(nowMs).limitSeconds)
+        }
     }
 
     /** Main thread: decide which block surface to show. */
     private fun presentBlock(
         reason: BlockReason,
         usedSeconds: Long,
-        config: BlockingConfig,
+        limitSeconds: Int,
     ) {
         if (BlockActivity.isVisible) {
             BlockOverlay.hide()
@@ -139,7 +166,7 @@ class BlockingService : Service() {
         // has not resumed shortly after the launch, fall back to the overlay.
         mainHandler.postDelayed({
             if (!BlockActivity.isVisible && !BlockOverlay.isShowing) {
-                showFallbackOverlay(reason, usedSeconds, config)
+                showFallbackOverlay(reason, usedSeconds, limitSeconds)
             }
         }, OVERLAY_DELAY_MS)
     }
@@ -162,13 +189,13 @@ class BlockingService : Service() {
     private fun showFallbackOverlay(
         reason: BlockReason,
         usedSeconds: Long,
-        config: BlockingConfig,
+        limitSeconds: Int,
     ) {
         if (!Settings.canDrawOverlays(this)) return
         BlockOverlay.show(
             this,
             BlockCopy.title(reason),
-            BlockCopy.detail(reason, usedSeconds, config.dailyLimitSeconds.toLong()),
+            BlockCopy.detail(reason, usedSeconds, limitSeconds.toLong()),
         )
     }
 
@@ -193,8 +220,17 @@ class BlockingService : Service() {
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val appCount = config.monitoredPackages.size
-        val limit = BlockCopy.formatDuration(config.dailyLimitSeconds.toLong())
+        // Show the configuration in force now; before the first pending
+        // midnight the active set is empty, so fall back to the scheduled one.
+        val now = System.currentTimeMillis()
+        val active = config.effectiveAt(now)
+        val display = if (active.isActive) {
+            active
+        } else {
+            ActiveLimit(config.pendingPackages, config.pendingLimitSeconds)
+        }
+        val appCount = display.packages.size
+        val limit = BlockCopy.formatDuration(display.limitSeconds.toLong())
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Lockout is watching")
@@ -250,6 +286,7 @@ class BlockingService : Service() {
         }
 
         fun stop(context: Context) {
+            MidnightAlarm.cancel(context)
             context.stopService(Intent(context, BlockingService::class.java))
         }
     }

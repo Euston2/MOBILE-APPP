@@ -33,18 +33,21 @@ Non-negotiables:
 
 | Data | Where | Why |
 | ---- | ----- | --- |
-| Settings + lock (`daily_limit_seconds`, `is_locked`, `locked_at`, `next_reset_at`, onboarding flag) | `shared_preferences` via `PrefsSettingsRepository` | A handful of scalars that the blocking service reads on every check; prefs reads are cheap and survive process death. |
-| Monitored apps (`monitored_apps`) | drift via `DriftMonitoredAppsRepository` | Edited and queried as a set, with display names kept for history labels. |
+| Settings + lock (`daily_limit_seconds`, `pending_limit_seconds`, `pending_effective_at`, `is_locked`, `locked_at`, `next_reset_at`, onboarding flag) | `shared_preferences` via `PrefsSettingsRepository` | A handful of scalars that the blocking service reads on every check; prefs reads are cheap and survive process death. |
+| Monitored apps (`monitored_apps`) | drift via `DriftMonitoredAppsRepository` | Edited and queried as a set, with display names kept for history labels; `pending_enabled` schedules a next-day change. |
 | Per-app daily totals (`daily_usage`) and per-day summary (`daily_summary`) | drift | Grows over time; feeds the history screen and charts in Stage 5. |
+| Days finished by the native reset | native JSON queue (`ArchiveStore`) | drift/SQLite is Dart-owned, so Kotlin appends a compact record; Dart drains it into drift on launch. |
 
 The schema lives in `lib/data/local/app_database.dart`. `app_database.g.dart` is
 generated with `dart run build_runner build` and committed so CI does not need a
-codegen step. Schema changes bump `schemaVersion` and add a migration.
+codegen step. Schema changes bump `schemaVersion` and add a migration (v2 added
+`monitored_apps.pending_enabled`).
 
-Stage 2 note: a saved limit and app selection apply immediately while unlocked.
-Enforcing the lock, the midnight reset and the "changes take effect the next
-day" rule are Stage 4 behaviour; the editor already becomes read-only when
-`is_locked` is true so the UI contract will not change.
+The lock has two readers: the service cannot wake Dart when it stamps a lock, so
+`FlutterSettings.kt` writes `settings.is_locked` / `locked_at` /
+`next_reset_at` into Flutter's prefs file, and `PrefsSettingsRepository.reload()`
+refreshes the Dart cache on resume. Kotlin also keeps its own authoritative copy
+in `BlockingStore` so enforcement does not depend on the Flutter engine.
 
 ## Native layer
 
@@ -68,8 +71,14 @@ com.lockout.lockout/
     ├── BlockActivity.kt       # full-screen block screen
     ├── BlockOverlay.kt        # overlay fallback when activity starts are dropped
     ├── BlockCopy.kt           # native strings + duration formatting (JVM-tested)
-    ├── MidnightAlarm.kt       # exact alarm scheduling/cancellation (Stage 4)
-    └── BootReceiver.kt        # BOOT_COMPLETED / TIME_SET / TIMEZONE_CHANGED (Stage 4)
+    ├── DayMath.kt             # local-day arithmetic (JVM-tested)
+    ├── MidnightAlarm.kt       # exact alarm scheduling/cancellation
+    ├── MidnightReceiver.kt    # alarm target: archive, clear lock, re-arm
+    ├── MidnightReset.kt       # idempotent recovery/archive/materialise
+    ├── LockState.kt           # stamp/clear the persisted lock
+    ├── FlutterSettings.kt     # mirror lock fields into Flutter's prefs
+    ├── ArchiveStore.kt        # native queue of finished days for drift
+    └── BootReceiver.kt        # BOOT_COMPLETED / TIME_SET / TIMEZONE_CHANGED
 ```
 
 The Kotlin layer owns *facts* (which app is in front, how many seconds were
@@ -81,33 +90,45 @@ logic testable in Dart and the Android-specific code as thin as possible.
 
 1. The Dart gate watches settings and the app selection, then pushes the
    resulting `BlockingConfig` to Kotlin (`setBlockingConfig`). Kotlin caches it
-   in its own prefs file and starts or stops `BlockingService`.
+   in its own prefs file and starts or stops `BlockingService`. A scheduled
+   change is sent as a complete second config (`pendingPackages`,
+   `pendingLimitSeconds`, `pendingEffectiveAtMs`).
 2. Every 2 s the service resolves the foreground package from `UsageEvents`,
    sums today's monitored usage, and asks the pure `BlockPolicy` for a verdict.
    The usage query only runs while a monitored app is actually in front; Stage 6
    profiles the cost and may cache increments between queries.
-3. On a verdict it launches `BlockActivity`; if that activity does not reach the
-   foreground (some ROMs drop background activity starts), `BlockOverlay` covers
-   the app instead. Both read the same cached config and policy, so they cannot
-   disagree with Home.
+3. When usage reaches the effective limit, the service calls `LockState.lock`
+   once: it writes `is_locked`, `locked_at`, `next_reset_at` to `BlockingStore`
+   and to Flutter's prefs, then launches `BlockActivity`. If that activity does
+   not reach the foreground (some ROMs drop background activity starts),
+   `BlockOverlay` covers the app instead. Both read the same cached config and
+   policy, so they cannot disagree with Home.
 4. The block surfaces re-evaluate every 2 s and close themselves when the
-   verdict clears. Stage 4 replaces "usage is still high" with a persisted lock:
-   crossing the limit writes `is_locked`, `locked_at` and `next_reset_at` in
-   `shared_preferences`, and a midnight alarm (or a recovery check on app/service
-   start) clears it, writes `daily_summary`/`daily_usage` and arms the next run.
+   verdict clears. `BlockPolicy` trusts the persisted lock until
+   `now >= next_reset_at`, so changing the limit cannot unblock early.
+5. At midnight (or on the next service/app start if the alarm was missed),
+   `MidnightReset.recover` archives yesterday's per-app totals into
+   `ArchiveStore`, materialises the pending config into the active one, clears
+   the expired lock, writes the new `next_reset_at` back to Flutter's prefs and
+   re-arms the alarm. The app gate drains `ArchiveStore` into drift on launch
+   and Home's refresh imports any day archived while the app stayed open.
+6. Dart and Kotlin both compare the clock with `next_reset_at`; the alarm only
+   makes the transition prompt, it is never required for correctness.
 
 ## Testing strategy
 
 | Risk | Where | How |
 | ---- | ----- | --- |
-| "Used today" time window (midnight, DST, timezone change) | domain + Kotlin helper | `flutter_test` on a pure function; JUnit for the Kotlin mirror |
+| "Used today" time window (midnight, DST, timezone change) | domain + Kotlin helper | `flutter_test` on a pure function; JUnit for `DayMath` |
 | Limit reached exactly at the boundary | domain + native | Dart table-driven tests and Kotlin `BlockPolicyTest` |
 | Settings survive an app restart | data | `PrefsSettingsRepository` round-trip with mock `shared_preferences` |
+| Native lock reaches the UI | data | prefs round-trip + `reload()`; native `FlutterSettings` keeps the same file/prefix (documented in code) |
 | App selection is replaced atomically | data | drift in-memory database test |
-| Lock cannot be bypassed | domain + data | repository contract tests with fakes |
+| Next-day changes | domain | `planMonitoredApps` / `reconcileMonitoredApps`, `reconcileSettings` |
+| Lock cannot be bypassed | domain + native | `reconcileSettings` tests and `BlockPolicyTest` (active/expired lock) |
 | Block surfaces cannot disagree | native | shared `BlockPolicy`/`BlockCopy` used by service, activity and overlay |
-| Midnight reset, missed alarm | domain | clock-injected use case tests |
-| Block screen scheduling | native | instrumentation/manual matrix in `docs/TESTING.md` |
+| Missed midnight / reboot | native | `DayMath` tests plus manual reboot/time-change matrix |
+| Archive import is idempotent | data | drift `saveDailyArchive` upsert test + fake history import test |
 
 Widget tests cover screens with fake repositories; no test depends on the real
 device clock.

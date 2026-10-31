@@ -111,6 +111,84 @@ void main() {
     await disposeTestApp(tester);
   });
 
+  testWidgets('pushes scheduled settings to the native watcher', (
+    tester,
+  ) async {
+    final blocking = FakeBlockingRepository();
+    final effectiveAt = DateTime.now().add(const Duration(hours: 8));
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 1800,
+          pendingLimitSeconds: 3600,
+          pendingEffectiveAt: effectiveAt,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+        MonitoredApp(
+          packageName: 'com.zhiliaoapp.musically',
+          displayName: 'TikTok',
+          isEnabled: false,
+          pendingEnabled: true,
+        ),
+      ]),
+      blocking: blocking,
+    );
+
+    final config = blocking.synced.last;
+    expect(config.dailyLimitSeconds, 1800);
+    expect(config.monitoredPackages, {'com.instagram.android'});
+    expect(config.pendingLimitSeconds, 3600);
+    expect(config.pendingPackages, {
+      'com.instagram.android',
+      'com.zhiliaoapp.musically',
+    });
+    expect(config.pendingEffectiveAt, effectiveAt);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('pushes the persisted lock to the native watcher', (
+    tester,
+  ) async {
+    final blocking = FakeBlockingRepository();
+    final resetAt = DateTime.now().add(const Duration(hours: 8));
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 3600,
+          isLocked: true,
+          lockedAt: DateTime.now(),
+          nextResetAt: resetAt,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+      blocking: blocking,
+    );
+
+    final config = blocking.synced.last;
+    expect(config.isLocked, isTrue);
+    expect(config.lockedAt, isNotNull);
+    expect(config.nextResetAt, resetAt);
+
+    await disposeTestApp(tester);
+  });
+
   testWidgets('stops the native watcher when no limit is configured', (
     tester,
   ) async {

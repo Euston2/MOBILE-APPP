@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/repositories/blocking_repository.dart';
+import '../domain/repositories/history_repository.dart';
 import '../domain/repositories/monitored_apps_repository.dart';
 import '../domain/repositories/permissions_repository.dart';
 import '../domain/repositories/settings_repository.dart';
@@ -38,6 +39,12 @@ final monitoredAppsRepositoryProvider = Provider<MonitoredAppsRepository>(
 final blockingRepositoryProvider = Provider<BlockingRepository>(
   (ref) => throw StateError(
     'blockingRepositoryProvider must be overridden in the composition root.',
+  ),
+);
+
+final historyRepositoryProvider = Provider<HistoryRepository>(
+  (ref) => throw StateError(
+    'historyRepositoryProvider must be overridden in the composition root.',
   ),
 );
 

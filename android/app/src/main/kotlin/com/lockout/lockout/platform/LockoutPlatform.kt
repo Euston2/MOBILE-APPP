@@ -88,21 +88,71 @@ class LockoutPlatform(
                 val packages = call.argument<List<String>>("monitoredPackages")?.toSet()
                     ?: emptySet()
                 val limitSeconds = call.argument<Number>("dailyLimitSeconds")?.toInt() ?: 0
+                val pendingPackages = call.argument<List<String>>("pendingPackages")?.toSet()
+                    ?: emptySet()
+                val pendingLimitSeconds = call.argument<Number>("pendingLimitSeconds")?.toInt()
+                    ?: 0
+                val pendingEffectiveAtMs = call.argument<Number>("pendingEffectiveAtMs")?.toLong()
+                    ?: 0L
                 val isLocked = call.argument<Boolean>("isLocked") == true
+                val lockedAtMs = call.argument<Number>("lockedAtMs")?.toLong() ?: 0L
                 val nextResetAtMs = call.argument<Number>("nextResetAtMs")?.toLong() ?: 0L
-                if (limitSeconds < 0 || nextResetAtMs < 0) {
-                    result.error("bad_args", "limitSeconds and nextResetAtMs must be >= 0", null)
+                if (
+                    limitSeconds < 0 ||
+                    pendingLimitSeconds < 0 ||
+                    pendingEffectiveAtMs < 0 ||
+                    lockedAtMs < 0 ||
+                    nextResetAtMs < 0
+                ) {
+                    result.error(
+                        "bad_args",
+                        "limits and timestamps must be >= 0",
+                        null,
+                    )
                     return
                 }
 
                 try {
+                    // The lock is native-authoritative: it is stamped while
+                    // Flutter is not running, so a config push built from a
+                    // stale Dart snapshot must not clear a lock that is still
+                    // valid. An expired native lock is allowed to be replaced
+                    // by the pushed (unlocked) state, which is how midnight is
+                    // observed if Dart is open.
+                    val previous = BlockingStore.load(activity)
+                    val nowMs = System.currentTimeMillis()
+                    val keepNativeLock = previous.isLocked &&
+                        nowMs < previous.nextResetAtMs
+                    val keepDartLock = isLocked && nowMs < nextResetAtMs
+                    val locked = keepNativeLock || keepDartLock
                     val config = BlockingConfig(
                         monitoredPackages = packages,
                         dailyLimitSeconds = limitSeconds,
-                        isLocked = isLocked,
-                        nextResetAtMs = nextResetAtMs,
+                        pendingPackages = pendingPackages,
+                        pendingLimitSeconds = pendingLimitSeconds,
+                        pendingEffectiveAtMs = pendingEffectiveAtMs,
+                        isLocked = locked,
+                        lockedAtMs = when {
+                            keepNativeLock -> previous.lockedAtMs
+                            locked -> lockedAtMs
+                            else -> 0L
+                        },
+                        nextResetAtMs = when {
+                            keepNativeLock -> previous.nextResetAtMs
+                            else -> nextResetAtMs
+                        },
                     )
                     BlockingStore.save(activity, config)
+                    if (keepNativeLock && !isLocked) {
+                        // Correct Flutter's cache so the UI shows the lock on
+                        // the next reload instead of believing its stale copy.
+                        FlutterSettings.writeLock(
+                            activity,
+                            true,
+                            config.lockedAtMs,
+                            config.nextResetAtMs,
+                        )
+                    }
                     if (config.isActive) {
                         BlockingService.start(activity)
                     } else {
@@ -120,6 +170,28 @@ class LockoutPlatform(
 
             "stopBlocking" -> {
                 BlockingService.stop(activity)
+                result.success(null)
+            }
+
+            // Days archived by the native midnight reset and not yet imported
+            // into drift. Dart calls this on launch and clears the queue after
+            // writing the rows.
+            "getPendingArchives" -> runAsync(result) {
+                ArchiveStore.readAll(activity).map { archive ->
+                    mapOf(
+                        "date" to archive.date,
+                        "totalSeconds" to archive.totalSeconds,
+                        "limitSeconds" to archive.limitSeconds,
+                        "limitHitAtMs" to archive.limitHitAtMs,
+                        "apps" to archive.apps.map { (packageName, seconds) ->
+                            mapOf("packageName" to packageName, "seconds" to seconds)
+                        },
+                    )
+                }
+            }
+
+            "clearPendingArchives" -> {
+                ArchiveStore.clearPending(activity)
                 result.success(null)
             }
 

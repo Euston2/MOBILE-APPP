@@ -71,18 +71,42 @@ class LockoutPlatform {
   /// Stores the blocking config on the native side and starts (or restarts) the
   /// foreground watcher. Kotlin keeps its own copy so enforcement survives this
   /// Flutter process being killed.
+  ///
+  /// The pending fields describe the config that takes over at
+  /// [pendingEffectiveAt]; the service checks the clock itself, so no Dart call
+  /// is needed at midnight.
   Future<void> setBlockingConfig({
     required Set<String> monitoredPackages,
     required int dailyLimitSeconds,
+    required Set<String> pendingPackages,
+    required int pendingLimitSeconds,
+    required DateTime? pendingEffectiveAt,
     required bool isLocked,
+    required DateTime? lockedAt,
     required DateTime nextResetAt,
-  }) => _channel.invokeMethod<void>('setBlockingConfig', <String, Object>{
+  }) => _channel.invokeMethod<void>('setBlockingConfig', <String, Object?>{
     'monitoredPackages': monitoredPackages.toList(growable: false),
     'dailyLimitSeconds': dailyLimitSeconds,
+    'pendingPackages': pendingPackages.toList(growable: false),
+    'pendingLimitSeconds': pendingLimitSeconds,
+    'pendingEffectiveAtMs': pendingEffectiveAt?.millisecondsSinceEpoch,
     'isLocked': isLocked,
+    'lockedAtMs': lockedAt?.millisecondsSinceEpoch,
     'nextResetAtMs': nextResetAt.millisecondsSinceEpoch,
   });
 
   /// Stops the foreground watcher when there is nothing to enforce.
   Future<void> stopBlocking() => _channel.invokeMethod<void>('stopBlocking');
+
+  /// Days archived by the native midnight reset and not yet imported into drift.
+  Future<List<Map<Object?, Object?>>> getPendingArchives() async {
+    final raw =
+        await _channel.invokeListMethod<Object?>('getPendingArchives') ??
+        const <Object?>[];
+    return raw.whereType<Map<Object?, Object?>>().toList(growable: false);
+  }
+
+  /// Drops the native archive queue after a successful import.
+  Future<void> clearPendingArchives() =>
+      _channel.invokeMethod<void>('clearPendingArchives');
 }

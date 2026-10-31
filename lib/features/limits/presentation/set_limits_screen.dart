@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/day_window.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../domain/entities/installed_app.dart';
@@ -82,16 +83,28 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
 
   bool get _locked => widget.settings.isLocked;
 
+  bool get _hasPendingChange =>
+      widget.settings.pendingLimitSeconds != null ||
+      widget.monitored.any((app) => app.pendingEnabled != null);
+
+  /// A limit is already in force today, so new values must wait for the next
+  /// day. The first setup applies immediately. (Apps selected without a limit
+  /// enforce nothing, so they do not count as configured.)
+  bool get _alreadyConfigured => widget.settings.hasLimit;
+
+  int get _activeAppCount =>
+      widget.monitored.where((app) => app.isEnabled).length;
+
   @override
   void initState() {
     super.initState();
-    final initialSeconds = widget.settings.hasLimit
-        ? widget.settings.dailyLimitSeconds
-        : 3600;
-    _minutes = (initialSeconds / 60).round().clamp(15, 480);
+    final scheduledSeconds =
+        widget.settings.pendingLimitSeconds ??
+        (widget.settings.hasLimit ? widget.settings.dailyLimitSeconds : 3600);
+    _minutes = (scheduledSeconds / 60).round().clamp(15, 480);
     _selected = {
       for (final app in widget.monitored)
-        if (app.isEnabled) app.packageName,
+        if (app.scheduledEnabled) app.packageName,
     };
     _labelByPackage = {
       for (final app in widget.installed) app.packageName: app.displayName,
@@ -138,15 +151,31 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
           ),
         );
 
+    final applyToday = !_alreadyConfigured;
+
     try {
-      await ref.read(monitoredAppsControllerProvider.notifier).replaceAll(apps);
-      await ref
-          .read(settingsControllerProvider.notifier)
-          .saveLimit(_minutes * 60);
+      final appsController = ref.read(monitoredAppsControllerProvider.notifier);
+      final settingsController = ref.read(settingsControllerProvider.notifier);
+
+      if (applyToday) {
+        await appsController.applySelectionNow(apps);
+        await settingsController.applyLimitNow(_minutes * 60);
+      } else {
+        final effectiveAt = nextLocalMidnight(DateTime.now());
+        await appsController.scheduleSelection(apps);
+        await settingsController.scheduleLimit(_minutes * 60, effectiveAt);
+      }
+
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Limit and apps saved')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            applyToday
+                ? 'Limit and apps saved'
+                : 'Saved. Starts tomorrow at 00:00.',
+          ),
+        ),
+      );
       Navigator.of(context).pop();
     } on Object catch (error) {
       if (!mounted) return;
@@ -170,6 +199,13 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
             children: [
               if (_locked) ...[
                 _LockedNotice(nextResetAt: widget.settings.nextResetAt),
+                const SizedBox(height: 12),
+              ],
+              if (_hasPendingChange && !_locked) ...[
+                _ScheduledNotice(
+                  activeLimitSeconds: widget.settings.dailyLimitSeconds,
+                  activeAppCount: _activeAppCount,
+                ),
                 const SizedBox(height: 12),
               ],
               Text('Daily limit', style: theme.textTheme.titleMedium),
@@ -310,11 +346,56 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
                         ? 'Locked'
                         : _selected.isEmpty
                         ? 'Select at least one app'
+                        : _alreadyConfigured
+                        ? 'Save for tomorrow'
                         : 'Save changes',
                   ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ScheduledNotice extends StatelessWidget {
+  const _ScheduledNotice({
+    required this.activeLimitSeconds,
+    required this.activeAppCount,
+  });
+
+  final int activeLimitSeconds;
+  final int activeAppCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final today = activeLimitSeconds > 0
+        ? '${formatDuration(activeLimitSeconds)} · $activeAppCount '
+              '${activeAppCount == 1 ? 'app' : 'apps'}'
+        : 'no limit';
+    return Card(
+      color: theme.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.schedule_outlined,
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'These changes start tomorrow at 00:00. '
+                "Today's limit is $today.",
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

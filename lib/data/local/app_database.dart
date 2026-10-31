@@ -7,8 +7,8 @@ import 'package:path_provider/path_provider.dart';
 
 part 'app_database.g.dart';
 
-/// Apps the user chose to track. [isEnabled] is kept so a selection can be
-/// retained while temporarily switched off (used by the limit screen).
+/// Apps the user chose to track. [isEnabled] is the selection that applies
+/// today; [pendingEnabled] schedules a change for the next local midnight.
 @DataClassName('MonitoredAppRow')
 class MonitoredApps extends Table {
   @override
@@ -20,14 +20,17 @@ class MonitoredApps extends Table {
 
   BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
 
+  /// Null = no scheduled change. True = add at next midnight. False = remove.
+  BoolColumn get pendingEnabled => boolean().nullable()();
+
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column<Object>> get primaryKey => {packageName};
 }
 
-/// Per-app totals for one local day. Written at the midnight reset (Stage 4)
-/// and read by the history screen (Stage 5).
+/// Per-app totals for one local day. Written at the midnight reset and read by
+/// the history screen (Stage 5).
 @DataClassName('DailyUsageRow')
 class DailyUsages extends Table {
   @override
@@ -76,7 +79,18 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Stage 4: scheduled selection changes.
+        await m.addColumn(monitoredApps, monitoredApps.pendingEnabled);
+      }
+    },
+  );
 
   /// Opens the on-device database file.
   static AppDatabase open() => AppDatabase(_openConnection());
@@ -101,6 +115,48 @@ class AppDatabase extends _$AppDatabase {
     await transaction(() async {
       await delete(monitoredApps).go();
       await batch((batch) => batch.insertAll(monitoredApps, rows));
+    });
+  }
+
+  /// Writes one archived day, replacing rows with the same date.
+  ///
+  /// The native reset can deliver the same archive twice (for example when the
+  /// import is retried), so every write is an upsert.
+  Future<void> saveDailyArchive({
+    required String date,
+    required int totalSeconds,
+    required int limitSeconds,
+    required DateTime? limitHitAt,
+    required Map<String, int> apps,
+  }) async {
+    await transaction(() async {
+      await into(dailySummaries).insertOnConflictUpdate(
+        DailySummariesCompanion.insert(
+          date: date,
+          totalSeconds: totalSeconds,
+          limitSeconds: limitSeconds,
+          limitHitAt: Value(limitHitAt),
+        ),
+      );
+      for (final entry in apps.entries) {
+        await into(dailyUsages).insertOnConflictUpdate(
+          DailyUsagesCompanion.insert(
+            date: date,
+            packageName: entry.key,
+            totalSeconds: entry.value,
+          ),
+        );
+      }
+      // Remove stale per-app rows for this date when an archive is retried
+      // with a smaller app set.
+      if (apps.isNotEmpty) {
+        await (delete(dailyUsages)..where(
+              (t) =>
+                  t.date.equals(date) &
+                  t.packageName.isNotIn(apps.keys.toList()),
+            ))
+            .go();
+      }
     });
   }
 }
