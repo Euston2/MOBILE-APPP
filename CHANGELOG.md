@@ -9,7 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 
-- Stage 5: history screen and weekly charts (`fl_chart`), CSV export.
+- Stage 6: OEM/battery hardening, edge cases, logging.
+
+## [0.5.0] - 2026-10-31
+
+### Added
+
+- History screen, opened from Home: a 7-day/30-day window with total time,
+  tracked-day average and limit-hit count, plus `fl_chart` bars for each
+  archived day, tooltips, and a dashed guide when the limit stayed unchanged.
+- Per-day expansion showing the time spent in each app with friendly labels.
+- CSV export: `historyCsv` builds an RFC 4180 snapshot with the date, daily
+  totals, limit, hit time and per-app seconds. The system share sheet receives
+  it as plain text through a new `shareText` MethodChannel (`ACTION_SEND`), so
+  no storage permission or FileProvider is needed.
+- `HistoryRepository.loadDays` and `DriftHistoryRepository.loadDays` join
+  `daily_summary` with `daily_usage` over a local date range.
+- `buildHistoryReport` pads missing calendar days with zeroes (stable chart
+  width) and `summarizeHistory` averages only tracked days. Strict
+  `localDateKey`/`parseLocalDateKey` helpers keep query keys aligned with the
+  native archive format.
+- Tests: report padding/statistics/month rollover, CSV quoting, drift range and
+  join queries, and history navigation, range switching, app expansion, CSV
+  sharing and error recovery. Dart tests are now 102; the 31 `:app` JVM tests,
+  analyze and the debug APK build also pass.
+
+### Changed
+
+- Home's app bar now includes a History action.
+- History reports only finished days; the screen states that today's usage
+  lives on Home until the midnight reset.
+
+### Notes
+
+- CSV is shared as plain text, not as a file attachment.
+- Only days archived by the native reset are shown. Days before Lockout was
+  installed, or days skipped by a long force-stop/offline gap, are not
+  reconstructed.
+- Device acceptance for the share sheet and chart rendering was not run in this
+  environment: no Android device was attached.
 
 ## [0.4.0] - 2026-10-31
 
@@ -169,6 +207,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release signing plumbing in Gradle via git-ignored `android/key.properties`.
 - Widget tests for app boot and small-screen layout.
 
-[Unreleased]: https://github.com/Euston2/MOBILE-APPP/compare/v0.1.0...develop
+[Unreleased]: https://github.com/Euston2/MOBILE-APPP/compare/v0.5.0...develop
+[0.5.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/Euston2/MOBILE-APPP/releases/tag/v0.0.1

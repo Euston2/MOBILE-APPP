@@ -10,6 +10,7 @@ import '../../../domain/entities/usage_summary.dart';
 import '../../../domain/usecases/evaluate_limit.dart';
 import '../../blocking/presentation/blocking_controller.dart';
 import '../../history/presentation/archive_import_controller.dart';
+import '../../history/presentation/history_screen.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
 import '../../limits/presentation/set_limits_screen.dart';
 import '../../limits/presentation/settings_controller.dart';
@@ -50,6 +51,12 @@ class HomeScreen extends ConsumerWidget {
     ).push(MaterialPageRoute<void>(builder: (_) => const SetLimitsScreen()));
   }
 
+  Future<void> _openHistory(BuildContext context) {
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const HistoryScreen()));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -85,6 +92,11 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Today'),
         actions: [
+          IconButton(
+            tooltip: 'History',
+            onPressed: () => _openHistory(context),
+            icon: const Icon(Icons.bar_chart),
+          ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: () => _refresh(ref),

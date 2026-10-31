@@ -54,4 +54,33 @@ void main() {
       );
     });
   });
+
+  group('localDateKey', () {
+    test('pads month and day', () {
+      expect(localDateKey(DateTime(2026, 1, 5, 23, 59)), '2026-01-05');
+    });
+
+    test('round-trips through parseLocalDateKey', () {
+      final date = DateTime(2026, 10, 30);
+      expect(parseLocalDateKey(localDateKey(date)), date);
+    });
+  });
+
+  group('parseLocalDateKey', () {
+    test('rejects malformed keys', () {
+      expect(parseLocalDateKey('2026-2-03'), isNull);
+      expect(parseLocalDateKey('2026/10/30'), isNull);
+      expect(parseLocalDateKey('not-a-date'), isNull);
+      expect(parseLocalDateKey(''), isNull);
+    });
+
+    test('rejects impossible calendar dates', () {
+      expect(parseLocalDateKey('2026-02-30'), isNull);
+      expect(parseLocalDateKey('2026-13-01'), isNull);
+    });
+
+    test('accepts a leap day', () {
+      expect(parseLocalDateKey('2028-02-29'), DateTime(2028, 2, 29));
+    });
+  });
 }

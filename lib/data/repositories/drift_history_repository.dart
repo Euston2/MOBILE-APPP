@@ -1,4 +1,8 @@
+import 'package:drift/drift.dart';
+
+import '../../core/utils/day_window.dart';
 import '../../domain/entities/daily_archive.dart';
+import '../../domain/entities/history_day.dart';
 import '../../domain/repositories/history_repository.dart';
 import '../../platform/lockout_platform.dart';
 import '../local/app_database.dart';
@@ -64,4 +68,55 @@ class DriftHistoryRepository implements HistoryRepository {
 
   @override
   Future<void> clearPendingArchives() => _platform.clearPendingArchives();
+
+  @override
+  Future<List<HistoryDay>> loadDays({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    if (!end.isAfter(start)) return const [];
+
+    final startKey = localDateKey(start);
+    final endKey = localDateKey(end);
+
+    final summaries =
+        await (_database.select(_database.dailySummaries)
+              ..where(
+                (row) =>
+                    row.date.isBiggerOrEqualValue(startKey) &
+                    row.date.isSmallerThanValue(endKey),
+              )
+              ..orderBy([(row) => OrderingTerm(expression: row.date)]))
+            .get();
+    if (summaries.isEmpty) return const [];
+
+    final usageRows =
+        await (_database.select(_database.dailyUsages)..where(
+              (row) =>
+                  row.date.isBiggerOrEqualValue(startKey) &
+                  row.date.isSmallerThanValue(endKey),
+            ))
+            .get();
+
+    final appsByDate = <String, Map<String, int>>{};
+    for (final row in usageRows) {
+      (appsByDate[row.date] ??= {})[row.packageName] = row.totalSeconds;
+    }
+
+    final days = <HistoryDay>[];
+    for (final row in summaries) {
+      final date = parseLocalDateKey(row.date);
+      if (date == null) continue;
+      days.add(
+        HistoryDay(
+          date: date,
+          totalSeconds: row.totalSeconds,
+          limitSeconds: row.limitSeconds,
+          limitHitAt: row.limitHitAt,
+          apps: Map.unmodifiable(appsByDate[row.date] ?? const {}),
+        ),
+      );
+    }
+    return List.unmodifiable(days);
+  }
 }

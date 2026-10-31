@@ -109,4 +109,11 @@ class LockoutPlatform {
   /// Drops the native archive queue after a successful import.
   Future<void> clearPendingArchives() =>
       _channel.invokeMethod<void>('clearPendingArchives');
+
+  /// Opens the system share sheet with plain text (used for the CSV export).
+  Future<void> shareText({required String subject, required String text}) =>
+      _channel.invokeMethod<void>('shareText', <String, Object?>{
+        'subject': subject,
+        'text': text,
+      });
 }

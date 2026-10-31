@@ -35,7 +35,7 @@ Non-negotiables:
 | ---- | ----- | --- |
 | Settings + lock (`daily_limit_seconds`, `pending_limit_seconds`, `pending_effective_at`, `is_locked`, `locked_at`, `next_reset_at`, onboarding flag) | `shared_preferences` via `PrefsSettingsRepository` | A handful of scalars that the blocking service reads on every check; prefs reads are cheap and survive process death. |
 | Monitored apps (`monitored_apps`) | drift via `DriftMonitoredAppsRepository` | Edited and queried as a set, with display names kept for history labels; `pending_enabled` schedules a next-day change. |
-| Per-app daily totals (`daily_usage`) and per-day summary (`daily_summary`) | drift | Grows over time; feeds the history screen and charts in Stage 5. |
+| Per-app daily totals (`daily_usage`) and per-day summary (`daily_summary`) | drift | Grows over time; read by the history screen (`loadDays`) and padded/aggregated by the domain report. |
 | Days finished by the native reset | native JSON queue (`ArchiveStore`) | drift/SQLite is Dart-owned, so Kotlin appends a compact record; Dart drains it into drift on launch. |
 
 The schema lives in `lib/data/local/app_database.dart`. `app_database.g.dart` is
@@ -48,6 +48,20 @@ The lock has two readers: the service cannot wake Dart when it stamps a lock, so
 `next_reset_at` into Flutter's prefs file, and `PrefsSettingsRepository.reload()`
 refreshes the Dart cache on resume. Kotlin also keeps its own authoritative copy
 in `BlockingStore` so enforcement does not depend on the Flutter engine.
+
+## History
+
+The History screen never invents days. It awaits the pending-archive import,
+queries `[today - N, today)` as local calendar keys, and builds a report with
+`buildHistoryReport`. That function pads missing days with zero usage so the
+chart keeps a stable width, and `summarizeHistory` averages only days with an
+archived total. Each row also carries the limit that applied that day, which is
+why a changed limit does not draw a misleading chart guide.
+
+`historyCsv` lives in the domain and produces a CRLF, RFC 4180 snapshot. The
+Android implementation sends it as plain text through `ACTION_SEND` via the
+`shareText` channel method; plain text avoids a FileProvider and any storage
+permission. The CSV excludes zero-usage padding rows.
 
 ## Native layer
 
@@ -80,6 +94,10 @@ com.lockout.lockout/
     ├── ArchiveStore.kt        # native queue of finished days for drift
     └── BootReceiver.kt        # BOOT_COMPLETED / TIME_SET / TIMEZONE_CHANGED
 ```
+
+`LockoutPlatform.kt` also handles `shareText`: it opens the system
+`ACTION_SEND` chooser with the CSV as plain text, so the history export needs no
+FileProvider or storage permission.
 
 The Kotlin layer owns *facts* (which app is in front, how many seconds were
 used, is the alarm armed). The Dart layer owns *policy* (is the limit hit, what
@@ -114,6 +132,10 @@ logic testable in Dart and the Android-specific code as thin as possible.
    and Home's refresh imports any day archived while the app stayed open.
 6. Dart and Kotlin both compare the clock with `next_reset_at`; the alarm only
    makes the transition prompt, it is never required for correctness.
+7. The History screen awaits `archiveImportProvider`, reads the selected window
+   from drift, and renders the padded report. Its CSV action generates the text
+   in Dart and calls `shareText`, which opens the Android chooser; the share
+   sheet is the only part that depends on the device.
 
 ## Testing strategy
 
@@ -129,6 +151,10 @@ logic testable in Dart and the Android-specific code as thin as possible.
 | Block surfaces cannot disagree | native | shared `BlockPolicy`/`BlockCopy` used by service, activity and overlay |
 | Missed midnight / reboot | native | `DayMath` tests plus manual reboot/time-change matrix |
 | Archive import is idempotent | data | drift `saveDailyArchive` upsert test + fake history import test |
+| History window is stable | domain | `buildHistoryReport` tests: padding, rollover, exact limit, tracked-only average |
+| History query joins the right rows | data | in-memory drift range/join test, including invalid dates |
+| CSV stays valid | domain | `historyCsv` tests for ordering and RFC 4180 quoting |
+| History screen recovers | presentation | widget tests with fake repository/exporter: empty, range switch, share failure, retry |
 
 Widget tests cover screens with fake repositories; no test depends on the real
 device clock.
