@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/repositories/blocking_repository.dart';
+import '../domain/repositories/history_exporter.dart';
 import '../domain/repositories/history_repository.dart';
 import '../domain/repositories/monitored_apps_repository.dart';
 import '../domain/repositories/permissions_repository.dart';
@@ -45,6 +46,13 @@ final blockingRepositoryProvider = Provider<BlockingRepository>(
 final historyRepositoryProvider = Provider<HistoryRepository>(
   (ref) => throw StateError(
     'historyRepositoryProvider must be overridden in the composition root.',
+  ),
+);
+
+/// Outbound share port used by the history screen's CSV action.
+final historyExporterProvider = Provider<HistoryExporter>(
+  (ref) => throw StateError(
+    'historyExporterProvider must be overridden in the composition root.',
   ),
 );
 

@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-0.4.0-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-0.5.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -21,8 +21,8 @@ way to talk yourself out of it at 11 p.m.
 | 2 | Limit setting, drift storage, progress ring | `v0.2.0` | ✅ done |
 | 3 | Blocking engine (foreground service + overlay) | `v0.3.0` | ✅ done |
 | 4 | Lock & midnight reset | `v0.4.0` | ✅ done |
-| 5 | History & stats | `v0.5.0` | ⏳ next |
-| 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ⏳ |
+| 5 | History & stats | `v0.5.0` | ✅ done |
+| 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ⏳ next |
 | 7 | Release (signed APK, GitHub Release) | `v1.0.0` | ⏳ |
 
 Once the limit is reached, Lockout stamps a persisted lock and keeps the apps
@@ -55,6 +55,12 @@ are saved for the next day, so today's rules cannot be relaxed at 11 p.m.
   of the app or service recovers a missed reset by comparing `now` with
   `next_reset_at`, clears the expired lock, folds the pending config into the
   active one, and archives yesterday's per-app totals for the history screen.
+- **History** — archived days are imported into drift and shown in a 7-day or
+  30-day chart with total/average/limit-hit stats and expandable per-app
+  breakdowns. Missing calendar days are padded with zeroes so the chart keeps a
+  stable width, while averages count only days that were actually tracked. The
+  CSV action builds an RFC 4180 snapshot and hands it to the system share sheet
+  as plain text.
 
 History is archived natively into a small JSON queue and imported into drift on
 the next launch (drift is Dart-owned). The lock and its reset timestamp are

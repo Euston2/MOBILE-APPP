@@ -1,6 +1,7 @@
 package com.lockout.lockout.platform
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import io.flutter.plugin.common.BinaryMessenger
@@ -193,6 +194,33 @@ class LockoutPlatform(
             "clearPendingArchives" -> {
                 ArchiveStore.clearPending(activity)
                 result.success(null)
+            }
+
+            // History CSV export. Sending plain text keeps the app free of a
+            // FileProvider and storage permissions; the receiving app decides
+            // whether to save it as a file.
+            "shareText" -> {
+                val subject = call.argument<String>("subject") ?: "Lockout history"
+                val text = call.argument<String>("text")
+                if (text.isNullOrBlank()) {
+                    result.error("bad_args", "text is required", null)
+                    return
+                }
+                try {
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                    activity.startActivity(Intent.createChooser(send, subject))
+                    result.success(null)
+                } catch (error: Exception) {
+                    result.error(
+                        "share_error",
+                        error.message ?: error.javaClass.simpleName,
+                        null,
+                    )
+                }
             }
 
             else -> result.notImplemented()

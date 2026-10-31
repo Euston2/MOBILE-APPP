@@ -1,12 +1,15 @@
 import 'package:lockout/domain/entities/blocking_config.dart';
 import 'package:lockout/domain/entities/daily_archive.dart';
+import 'package:lockout/domain/entities/history_day.dart';
 import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
 import 'package:lockout/domain/entities/usage_settings.dart';
 import 'package:lockout/domain/repositories/blocking_repository.dart';
+import 'package:lockout/domain/repositories/history_exporter.dart';
 import 'package:lockout/domain/repositories/history_repository.dart';
 import 'package:lockout/domain/repositories/monitored_apps_repository.dart';
 import 'package:lockout/domain/repositories/settings_repository.dart';
+import 'package:lockout/core/utils/day_window.dart';
 
 /// In-memory settings store; [save] is observable so tests can assert that a
 /// change was actually persisted.
@@ -81,10 +84,16 @@ class FakeBlockingRepository implements BlockingRepository {
 
 /// In-memory archive queue + drift sink for the history import.
 class FakeHistoryRepository implements HistoryRepository {
-  FakeHistoryRepository({List<DailyArchive> pending = const []})
-    : pending = List.of(pending);
+  FakeHistoryRepository({
+    List<DailyArchive> pending = const [],
+    List<HistoryDay> days = const [],
+    this.loadError,
+  }) : pending = List.of(pending),
+       days = List.of(days);
 
   List<DailyArchive> pending;
+  List<HistoryDay> days;
+  Object? loadError;
   final List<DailyArchive> saved = [];
   int clearCalls = 0;
 
@@ -95,12 +104,54 @@ class FakeHistoryRepository implements HistoryRepository {
   @override
   Future<void> saveArchive(DailyArchive archive) async {
     saved.add(archive);
+    final date = parseLocalDateKey(archive.date);
+    if (date == null) return;
+    days.removeWhere((day) => day.date == date);
+    days.add(
+      HistoryDay(
+        date: date,
+        totalSeconds: archive.totalSeconds,
+        limitSeconds: archive.limitSeconds,
+        limitHitAt: archive.limitHitAt,
+        apps: Map.unmodifiable(archive.apps),
+      ),
+    );
   }
 
   @override
   Future<void> clearPendingArchives() async {
     pending = [];
     clearCalls++;
+  }
+
+  @override
+  Future<List<HistoryDay>> loadDays({
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    if (loadError case final error?) throw error;
+    final result =
+        days
+            .where((day) => !day.date.isBefore(start) && day.date.isBefore(end))
+            .toList()
+          ..sort((a, b) => a.date.compareTo(b.date));
+    return List.unmodifiable(result);
+  }
+}
+
+/// Records CSV shares instead of opening the Android chooser.
+class FakeHistoryExporter implements HistoryExporter {
+  FakeHistoryExporter({this.error});
+
+  final List<String> subjects = [];
+  final List<String> csvs = [];
+  Object? error;
+
+  @override
+  Future<void> shareCsv({required String subject, required String csv}) async {
+    if (error case final error?) throw error;
+    subjects.add(subject);
+    csvs.add(csv);
   }
 }
 
