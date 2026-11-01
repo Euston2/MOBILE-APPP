@@ -24,10 +24,13 @@ What must always be covered by unit tests:
 | Next-day settings | pending limit applied at its effective midnight, app add/remove planned and reconciled (`reconcile_settings_test`, `monitored_apps_planning_test`) |
 | Reset logic | alarm fired at 00:00, missed alarm recovered on start, pending config materialised, double reset is idempotent (`DayMathTest`, manual matrix) |
 | Archive | native queue imported once, drift upsert idempotent (`drift_monitored_apps_repository_test`, `archive_import_test`) |
+| Archive catch-up | first run, gap, 14-day cap, month/year rollover, invalid/future marker (`ArchivePlannerTest`) |
+| Diagnostics | native log sanitising/cap (`LockoutLogTest`), channel-map parsing and report formatting, Protection screen actions |
 | History report | missing days padded, month/year rollover, exact-limit day, tracked-day average and limit counts (`history_report_test`) |
 | History query | range is start-inclusive/end-exclusive, summaries join per-app rows, invalid dates skipped (`drift_history_repository_test`) |
 | CSV export | header-only empty export, oldest-first rows, RFC 4180 quoting (`history_csv_test`) |
 | History UI | navigation from Home, 7/30-day switch, app expansion, share success/failure, load-error retry (`history_screen_test`) |
+| Protection UI | status/OEM copy, event list, autostart/battery/exact-alarm shortcuts, copied report (`protection_screen_test`, `oem_guidance_test`) |
 
 Domain functions take the clock instant as a parameter (`reconcileSettings`,
 `reconcileMonitoredApps`) so their tests are deterministic. Widget tests use
@@ -48,13 +51,15 @@ Run before every release. Record device, Android version and OEM.
 | 7 | Wait for 00:00 (or set the device clock) | counter resets, lock clears, pending settings take over, yesterday archived |
 | 8 | Change timezone forward past midnight | reset recognised once, not twice |
 | 9 | Battery optimisation on vs off | service survives at least 10 min idle with optimisation off |
-| 10 | OEM battery manager (Xiaomi/Tecno/Infinix/Samsung) | guidance screen shown, service survives after following it |
+| 10 | OEM battery manager (Xiaomi/Tecno/Infinix/Samsung/Oppo/Huawei) | Protection check shows the right device guidance; shortcut opens the OEM/app-details screen; service survives after following the steps |
 | 11 | Settings while locked | all edit controls disabled, "Locked until 00:00" visible; rejected by the controller too |
 | 12 | Change limit/apps while a limit is active | "starts tomorrow" notice; today's ring and blocking unchanged; new values at 00:00 |
 | 13 | Reboot while locked, open a monitored app | still blocked after boot; lock clears only at/after 00:00 |
-| 14 | Turn the device off over midnight, boot the next day | lock is cleared on boot; yesterday's archive is imported into drift |
-| 15 | Deny "Alarms & reminders" special access | midnight still recovers via the 2 s service poll / next start |
+| 14 | Turn the device off over several midnights, then boot | lock is recovered; each missing day is archived (up to 14) and imported into drift |
+| 15 | Deny "Alarms & reminders" special access | Protection check shows fallback; midnight still recovers via the 2 s service poll / next start |
 | 16 | History after several simulated days | 7/30-day chart, stats and CSV match the drift rows; empty history shows the midnight explanation; share sheet opens with the CSV text |
+| 17 | Protection check status and report | permission rows match Settings; recent events appear after a service start; Copy diagnostics puts the report on the clipboard |
+| 18 | Revoke a permission while Lockout is closed, then open Protection check | the affected essential check turns red and its button opens the right system screen |
 
 ## Stage acceptance log
 

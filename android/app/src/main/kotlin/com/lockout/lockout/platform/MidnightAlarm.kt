@@ -28,33 +28,66 @@ object MidnightAlarm {
         scheduleAt(context, DayMath.nextLocalMidnight(nowMs))
     }
 
+    /** Whether the OS will honour an exact alarm right now. */
+    fun canScheduleExact(context: Context): Boolean {
+        val manager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            manager.canScheduleExactAlarms()
+    }
+
     fun scheduleAt(context: Context, atMs: Long) {
         val manager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
             ?: return
         val target = maxOf(atMs, System.currentTimeMillis() + 1_000L)
+        val pending = pendingIntent(context)
+        val exact = canScheduleExact(context)
 
         try {
-            val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                manager.canScheduleExactAlarms()
-            if (canExact) {
+            if (exact) {
                 manager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     target,
-                    pendingIntent(context),
+                    pending,
                 )
             } else {
                 manager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     target,
-                    pendingIntent(context),
+                    pending,
+                )
+                LockoutLog.warn(
+                    context,
+                    "exact alarms unavailable; armed a doze-safe inexact reset",
                 )
             }
-        } catch (_: SecurityException) {
+            LockoutLog.info(
+                context,
+                "reset alarm armed for ${DayMath.localDate(target)}",
+            )
+        } catch (error: SecurityException) {
             // Exact-alarm access can be revoked between the check and the call.
-            manager.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                target,
-                pendingIntent(context),
+            try {
+                manager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    target,
+                    pending,
+                )
+                LockoutLog.warn(
+                    context,
+                    "exact alarm was revoked; armed a doze-safe inexact reset",
+                )
+            } catch (fallbackError: Exception) {
+                LockoutLog.error(
+                    context,
+                    "could not arm the reset alarm: " +
+                        fallbackError.javaClass.simpleName,
+                )
+            }
+        } catch (error: Exception) {
+            LockoutLog.error(
+                context,
+                "could not arm the reset alarm: ${error.javaClass.simpleName}",
             )
         }
     }

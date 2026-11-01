@@ -11,6 +11,8 @@ Statuses are checked with:
 - Notifications: `NotificationManagerCompat.areNotificationsEnabled()` +
   `POST_NOTIFICATIONS` runtime permission on Android 13+ (API 33)
 - Battery: `PowerManager.isIgnoringBatteryOptimizations(packageName)`
+- Exact alarms: `AlarmManager.canScheduleExactAlarms()` on Android 12+ (displayed
+  on the Protection check screen; not a hard requirement)
 
 ## Permission catalogue
 
@@ -69,7 +71,8 @@ restarts the blocking service.
 services aggressively. Exemption is the only sanctioned way to keep the watcher
 alive.
 **How requested:** `Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` after
-an explanation screen; also linked to OEM-specific settings on Stage 6.
+an explanation screen; the Protection check screen also links to it alongside
+manufacturer-specific autostart instructions.
 
 ### `android.permission.QUERY_ALL_PACKAGES`
 **Why:** the app picker must list launchable apps. Android 11+ package
@@ -82,16 +85,30 @@ broad permission is used and disclosed in the README.
 There is no backend in v1. If a later version adds crash reporting, this
 permission must be added with an explicit changelog note.
 
+## Local diagnostics
+
+`LockoutLog` keeps the newest 50 native event lines in a private prefs file and
+mirrors them to Logcat under the `Lockout` tag. Lines contain event types and
+counts (service start/stop, config sync, lock/reset/archive, alarm problems,
+OEM shortcuts), never app contents or package names. The Protection check screen
+shows the latest entries and can copy a report to the clipboard on request. There
+is no network permission and nothing is uploaded automatically.
+
 ## Out of scope in v1
 
 - `BIND_ACCESSIBILITY_SERVICE`: only if foreground polling proves unreliable
   (Stage 3 contingency). It is far more invasive and Play-restricted.
-- Device Admin (`BIND_DEVICE_ADMIN`): optional Stage 6 toggle to make
-  uninstalling harder while locked.
+- Device Admin (`BIND_DEVICE_ADMIN`): considered for v0.6.0 but deliberately not
+  added. It would make uninstalling harder while locked, at the cost of a much
+  more invasive permission; v1 relies on the persisted lock instead.
 
-## OEM guidance (Stage 6)
+## OEM guidance (implemented in v0.6.0)
 
-Per-manufacturer paths for autostart / battery saving are documented in the
-in-app help screen: Xiaomi (Autostart + no battery restriction), Tecno/Infinix
-(Phone Master → Power saving → allow), Samsung (Battery → unrestricted), Oppo/
-Realme (Auto-launch), Huawei (App launch → manage manually).
+Per-manufacturer paths for autostart / battery saving are shown in the in-app
+Protection check screen: Xiaomi (Autostart + no battery restriction), Tecno/
+Infinix/itel (Phone Master → Power saving → allow), Samsung (Background usage
+limits → Never sleeping apps), Oppo/Realme (Auto-launch + background activity),
+OnePlus (battery optimization + app launch), Huawei/Honor (App launch → manage
+manually) and Vivo/iQOO (background power consumption). Where a known ROM
+component exists, the screen offers an explicit-intent shortcut and falls back to
+the app-details screen when the ROM hides or blocks it.

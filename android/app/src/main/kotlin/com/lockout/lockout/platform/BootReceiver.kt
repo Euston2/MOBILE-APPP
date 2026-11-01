@@ -17,6 +17,9 @@ import android.content.Intent
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
+        val action = intent?.action ?: "unknown"
+        LockoutLog.info(context, "system event: $action")
+
         val result = MidnightReset.recover(context)
         val nowMs = System.currentTimeMillis()
 
@@ -28,9 +31,14 @@ class BootReceiver : BroadcastReceiver() {
         MidnightAlarm.scheduleNext(context, nowMs)
         try {
             BlockingService.start(context)
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             // Background-start restriction or missing permission; the service
             // will be started by the next config push.
+            LockoutLog.warn(
+                context,
+                "could not restart watcher after $action: " +
+                    error.javaClass.simpleName,
+            )
         }
     }
 }

@@ -73,4 +73,32 @@ class DayMathTest {
 
         assertEquals("2026-10-30", DayMath.localDate(afternoon))
     }
+
+    @Test
+    fun `parseLocalDate returns local midnight`() {
+        val parsed = DayMath.parseLocalDate("2026-10-31")
+        val calendar = Calendar.getInstance().apply { timeInMillis = parsed!! }
+
+        assertEquals(2026, calendar.part(Calendar.YEAR))
+        assertEquals(Calendar.OCTOBER, calendar.part(Calendar.MONTH))
+        assertEquals(31, calendar.part(Calendar.DAY_OF_MONTH))
+        assertEquals(0, calendar.part(Calendar.HOUR_OF_DAY))
+        assertEquals(0, calendar.part(Calendar.MINUTE))
+    }
+
+    @Test
+    fun `parseLocalDate rejects malformed and impossible dates`() {
+        assertEquals(null, DayMath.parseLocalDate("2026-2-03"))
+        assertEquals(null, DayMath.parseLocalDate("2026-13-01"))
+        assertEquals(null, DayMath.parseLocalDate("2026-02-30"))
+        assertEquals(null, DayMath.parseLocalDate("2026-10-31x"))
+        assertEquals(null, DayMath.parseLocalDate(""))
+    }
+
+    @Test
+    fun `parseLocalDate round-trips leap day`() {
+        val parsed = DayMath.parseLocalDate("2028-02-29")
+
+        assertEquals("2028-02-29", DayMath.localDate(parsed!!))
+    }
 }

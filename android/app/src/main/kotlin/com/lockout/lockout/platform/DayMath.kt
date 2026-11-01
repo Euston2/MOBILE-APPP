@@ -1,5 +1,6 @@
 package com.lockout.lockout.platform
 
+import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -52,4 +53,21 @@ object DayMath {
     /** Local date key (`yyyy-MM-dd`) used by the archive and drift. */
     fun localDate(nowMs: Long): String =
         SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(nowMs))
+
+    /**
+     * Parses a strict `yyyy-MM-dd` key back to local midnight.
+     *
+     * Returns null for malformed or impossible dates, and for trailing text, so
+     * a corrupt preference cannot make the catch-up archive loop forever.
+     */
+    fun parseLocalDate(date: String): Long? {
+        if (date.length != 10) return null
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            isLenient = false
+        }
+        val position = ParsePosition(0)
+        val parsed = format.parse(date, position) ?: return null
+        if (position.index != date.length) return null
+        return startOfLocalDay(parsed.time)
+    }
 }

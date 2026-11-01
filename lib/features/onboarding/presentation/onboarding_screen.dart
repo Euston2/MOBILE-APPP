@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../domain/entities/permission_snapshot.dart';
 import '../../limits/presentation/settings_controller.dart';
+import '../../protection/presentation/protection_screen.dart';
 import 'permissions_controller.dart';
 import 'widgets/permission_tile.dart';
 
@@ -89,6 +90,16 @@ class OnboardingScreen extends ConsumerWidget {
                   ),
                 ),
               ],
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ProtectionScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.battery_saver_outlined),
+                label: const Text('Device-specific battery help'),
+              ),
               if (isRoot) ...[
                 const SizedBox(height: 4),
                 TextButton(

@@ -71,6 +71,21 @@ class LockoutPlatform(
                 result.success(null)
             }
 
+            "openExactAlarmSettings" -> {
+                PermissionController.openExactAlarmSettings(activity)
+                result.success(null)
+            }
+
+            "openOemAutostartSettings" -> {
+                PermissionController.openOemAutostartSettings(activity)
+                result.success(null)
+            }
+
+            // Read-only health snapshot for the Protection check screen:
+            // device/OEM, special-access states, exact-alarm availability,
+            // enforcement config and the bounded event log.
+            "getDiagnostics" -> runAsync(result) { Diagnostics.snapshot(activity) }
+
             "getInstalledApps" -> runAsync(result) { AppCatalog.installedApps(activity) }
 
             "getUsageSince" -> {
@@ -144,6 +159,11 @@ class LockoutPlatform(
                         },
                     )
                     BlockingStore.save(activity, config)
+                    LockoutLog.info(
+                        activity,
+                        "config synced: ${config.monitoredPackages.size} apps, " +
+                            "pending=${pendingEffectiveAtMs > 0L}",
+                    )
                     if (keepNativeLock && !isLocked) {
                         // Correct Flutter's cache so the UI shows the lock on
                         // the next reload instead of believing its stale copy.
@@ -161,6 +181,10 @@ class LockoutPlatform(
                     }
                     result.success(null)
                 } catch (error: Exception) {
+                    LockoutLog.error(
+                        activity,
+                        "config sync failed: ${error.javaClass.simpleName}",
+                    )
                     result.error(
                         "blocking_error",
                         error.message ?: error.javaClass.simpleName,
@@ -171,6 +195,7 @@ class LockoutPlatform(
 
             "stopBlocking" -> {
                 BlockingService.stop(activity)
+                LockoutLog.info(activity, "blocking stopped by user")
                 result.success(null)
             }
 
