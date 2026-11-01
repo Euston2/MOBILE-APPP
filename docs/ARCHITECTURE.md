@@ -37,6 +37,7 @@ Non-negotiables:
 | Monitored apps (`monitored_apps`) | drift via `DriftMonitoredAppsRepository` | Edited and queried as a set, with display names kept for history labels; `pending_enabled` schedules a next-day change. |
 | Per-app daily totals (`daily_usage`) and per-day summary (`daily_summary`) | drift | Grows over time; read by the history screen (`loadDays`) and padded/aggregated by the domain report. |
 | Days finished by the native reset | native JSON queue (`ArchiveStore`) | drift/SQLite is Dart-owned, so Kotlin appends a compact record; Dart drains it into drift on launch. |
+| Diagnostic events | private native prefs (`LockoutLog`) | A bounded 50-line ring buffer for support; no app contents or package names, no network. |
 
 The schema lives in `lib/data/local/app_database.dart`. `app_database.g.dart` is
 generated with `dart run build_runner build` and committed so CI does not need a
@@ -63,6 +64,20 @@ Android implementation sends it as plain text through `ACTION_SEND` via the
 `shareText` channel method; plain text avoids a FileProvider and any storage
 permission. The CSV excludes zero-usage padding rows.
 
+## Diagnostics
+
+The Protection check screen is a read-only consumer of `Diagnostics.snapshot`:
+device/OEM, the four essential permissions, exact-alarm access, power-save mode,
+the cached enforcement config, the last archived date and the newest event
+lines. `AndroidDiagnosticsRepository` parses that channel map into
+`DeviceDiagnostics`; OEM copy lives in presentation, so the domain stays free of
+wording.
+
+`LockoutLog` writes one sanitised line per event to Logcat and to a private
+prefs JSON array capped at 50 entries. It records state transitions and failures,
+not every poll, so the two-second loop does not flood the buffer. The screen can
+copy a plain-text report; nothing is uploaded and no network permission exists.
+
 ## Native layer
 
 Planned Kotlin packages (same namespaces as the Dart side):
@@ -86,6 +101,9 @@ com.lockout.lockout/
     ├── BlockOverlay.kt        # overlay fallback when activity starts are dropped
     ├── BlockCopy.kt           # native strings + duration formatting (JVM-tested)
     ├── DayMath.kt             # local-day arithmetic (JVM-tested)
+    ├── ArchivePlanner.kt      # bounded catch-up dates for missed midnights (JVM-tested)
+    ├── LockoutLog.kt          # bounded on-device event log + Logcat
+    ├── Diagnostics.kt         # read-only snapshot for Protection check
     ├── MidnightAlarm.kt       # exact alarm scheduling/cancellation
     ├── MidnightReceiver.kt    # alarm target: archive, clear lock, re-arm
     ├── MidnightReset.kt       # idempotent recovery/archive/materialise
@@ -97,7 +115,9 @@ com.lockout.lockout/
 
 `LockoutPlatform.kt` also handles `shareText`: it opens the system
 `ACTION_SEND` chooser with the CSV as plain text, so the history export needs no
-FileProvider or storage permission.
+FileProvider or storage permission. `getDiagnostics` returns the Protection
+check snapshot, while `openOemAutostartSettings` and
+`openExactAlarmSettings` open the two protection system screens.
 
 The Kotlin layer owns *facts* (which app is in front, how many seconds were
 used, is the alarm armed). The Dart layer owns *policy* (is the limit hit, what
@@ -113,8 +133,8 @@ logic testable in Dart and the Android-specific code as thin as possible.
    `pendingLimitSeconds`, `pendingEffectiveAtMs`).
 2. Every 2 s the service resolves the foreground package from `UsageEvents`,
    sums today's monitored usage, and asks the pure `BlockPolicy` for a verdict.
-   The usage query only runs while a monitored app is actually in front; Stage 6
-   profiles the cost and may cache increments between queries.
+   The usage query only runs while a monitored app is actually in front, keeping
+   the poll cheap.
 3. When usage reaches the effective limit, the service calls `LockState.lock`
    once: it writes `is_locked`, `locked_at`, `next_reset_at` to `BlockingStore`
    and to Flutter's prefs, then launches `BlockActivity`. If that activity does
@@ -125,17 +145,20 @@ logic testable in Dart and the Android-specific code as thin as possible.
    verdict clears. `BlockPolicy` trusts the persisted lock until
    `now >= next_reset_at`, so changing the limit cannot unblock early.
 5. At midnight (or on the next service/app start if the alarm was missed),
-   `MidnightReset.recover` archives yesterday's per-app totals into
-   `ArchiveStore`, materialises the pending config into the active one, clears
-   the expired lock, writes the new `next_reset_at` back to Flutter's prefs and
-   re-arms the alarm. The app gate drains `ArchiveStore` into drift on launch
-   and Home's refresh imports any day archived while the app stayed open.
+   `MidnightReset.recover` archives every finished day still missing from
+   `ArchiveStore` (capped at 14), materialises the pending config into the active
+   one, clears the expired lock, writes the new `next_reset_at` back to Flutter's
+   prefs and re-arms the alarm. The app gate drains `ArchiveStore` into drift on
+   launch and Home's refresh imports any day archived while the app stayed open.
 6. Dart and Kotlin both compare the clock with `next_reset_at`; the alarm only
    makes the transition prompt, it is never required for correctness.
 7. The History screen awaits `archiveImportProvider`, reads the selected window
    from drift, and renders the padded report. Its CSV action generates the text
    in Dart and calls `shareText`, which opens the Android chooser; the share
    sheet is the only part that depends on the device.
+8. Protection check loads `getDiagnostics` on open and resume. Permission and
+   OEM buttons open system screens; the native layer falls back to app details
+   when a ROM hides an intent. The event log is read-only and bounded.
 
 ## Testing strategy
 
@@ -150,6 +173,11 @@ logic testable in Dart and the Android-specific code as thin as possible.
 | Lock cannot be bypassed | domain + native | `reconcileSettings` tests and `BlockPolicyTest` (active/expired lock) |
 | Block surfaces cannot disagree | native | shared `BlockPolicy`/`BlockCopy` used by service, activity and overlay |
 | Missed midnight / reboot | native | `DayMath` tests plus manual reboot/time-change matrix |
+| Catch-up archive stays bounded | native | `ArchivePlannerTest`: first run, current date, gap, 14-day cap, month/year boundary, invalid/future marker |
+| Diagnostic log is safe | native | `LockoutLogTest`: newline flattening, trimming, 240-char cap |
+| Diagnostics channel shape | data | `AndroidDiagnosticsRepository.parse` tests: defaults, events, malformed entries |
+| OEM guidance mapping | presentation | `oem_guidance_test`: Xiaomi, Transsion, Samsung, Oppo, Huawei, OnePlus, generic fallback |
+| Protection screen actions | presentation | widget test: status, OEM copy, event log, autostart/battery/exact-alarm shortcuts, copied report |
 | Archive import is idempotent | data | drift `saveDailyArchive` upsert test + fake history import test |
 | History window is stable | domain | `buildHistoryReport` tests: padding, rollover, exact limit, tracked-only average |
 | History query joins the right rows | data | in-memory drift range/join test, including invalid dates |

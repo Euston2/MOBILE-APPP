@@ -39,6 +39,29 @@ class LockoutPlatform {
   Future<void> openAppSettings() =>
       _channel.invokeMethod<void>('openAppSettings');
 
+  /// Best-effort manufacturer autostart/background-launch screen.
+  Future<void> openOemAutostartSettings() =>
+      _channel.invokeMethod<void>('openOemAutostartSettings');
+
+  /// Android 12+ "Alarms & reminders" special access.
+  Future<void> openExactAlarmSettings() =>
+      _channel.invokeMethod<void>('openExactAlarmSettings');
+
+  /// Raw diagnostics payload: device/OEM, permission flags, enforcement config
+  /// and the bounded native event log. Parsed by [AndroidDiagnosticsRepository].
+  Future<Map<Object?, Object?>> getDiagnostics() async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>(
+      'getDiagnostics',
+    );
+    if (raw == null) {
+      throw PlatformException(
+        code: 'null_result',
+        message: 'Android returned no diagnostics.',
+      );
+    }
+    return raw;
+  }
+
   /// Raw launcher-app list: `{ packageName, label, isSystem }`.
   Future<List<Map<Object?, Object?>>> getInstalledApps() async {
     final raw =

@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-0.5.0-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-0.6.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -22,8 +22,8 @@ way to talk yourself out of it at 11 p.m.
 | 3 | Blocking engine (foreground service + overlay) | `v0.3.0` | ✅ done |
 | 4 | Lock & midnight reset | `v0.4.0` | ✅ done |
 | 5 | History & stats | `v0.5.0` | ✅ done |
-| 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ⏳ next |
-| 7 | Release (signed APK, GitHub Release) | `v1.0.0` | ⏳ |
+| 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ✅ done |
+| 7 | Release (signed APK, GitHub Release) | `v1.0.0` | ⏳ next |
 
 Once the limit is reached, Lockout stamps a persisted lock and keeps the apps
 blocked until local midnight. Limit and app changes made while a limit is active
@@ -54,7 +54,14 @@ are saved for the next day, so today's rules cannot be relaxed at 11 p.m.
   `BOOT_COMPLETED`/`TIME_SET`/`TIMEZONE_CHANGED` receiver re-arms it. Any start
   of the app or service recovers a missed reset by comparing `now` with
   `next_reset_at`, clears the expired lock, folds the pending config into the
-  active one, and archives yesterday's per-app totals for the history screen.
+  active one, and archives each finished day's per-app totals for the history
+  screen (up to 14 missed days per recovery pass).
+- **Protection check** — a dedicated screen shows the four essential accesses,
+  exact-alarm access, the cached enforcement state and a bounded on-device event
+  log. It includes manufacturer-specific autostart/battery steps for Xiaomi,
+  Tecno/Infinix/itel, Samsung, Oppo/Realme, OnePlus, Huawei/Honor and Vivo/iQOO,
+  with best-effort deep links and an app-details fallback. A copied report stays
+  local until the user pastes it.
 - **History** — archived days are imported into drift and shown in a 7-day or
   30-day chart with total/average/limit-hit stats and expandable per-app
   breakdowns. Missing calendar days are padded with zeroes so the chart keeps a
@@ -67,8 +74,9 @@ the next launch (drift is Dart-owned). The lock and its reset timestamp are
 checked lazily, so a reboot, OEM task kill or a missed alarm cannot leave an
 expired lock in place once Lockout runs again. A user force-stop disables
 alarms/services until the app is opened, which Android does not allow an app to
-override; the persisted state still recovers on that launch. If the device is
-off for several days, only the most recent missing day is archived.
+override; the persisted state still recovers on that launch. After a long gap,
+the newest 14 missing days are archived; older days and days before installation
+are not reconstructed.
 
 ## Tech stack
 
@@ -81,6 +89,7 @@ off for several days, only the most recent missing day is archived.
 | Scheduling | `AlarmManager` exact alarm, `BOOT_COMPLETED` receiver |
 | Storage | `drift` (SQLite) for history, `shared_preferences` for settings |
 | Charts | `fl_chart` |
+| Diagnostics | Bounded on-device event log (`LockoutLog`) + Logcat; no network |
 | Tests | `flutter_test`, Kotlin JUnit |
 | CI/CD | GitHub Actions |
 
@@ -115,7 +124,8 @@ lib/
     ├── home/{data,domain,presentation}
     ├── limits/{data,domain,presentation}
     ├── blocking/{data,domain,presentation}
-    └── history/{data,domain,presentation}
+    ├── history/{data,domain,presentation}
+    └── protection/presentation
 
 android/app/src/main/kotlin/com/lockout/lockout/
 ├── MainActivity.kt            # Flutter host activity
@@ -172,10 +182,12 @@ short version:
 | `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_SPECIAL_USE` | Keep the watcher alive while another app is in the foreground. | 3 |
 | `SCHEDULE_EXACT_ALARM` | Fire the midnight reset on time (falls back to a doze-safe inexact alarm when unavailable). | 4 |
 | `RECEIVE_BOOT_COMPLETED` | Re-arm the reset and the service after a reboot. | 4 |
-| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (user-granted) | Prevent OEM battery savers from killing the watcher. | 1/6 |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (user-granted) | Prevent OEM battery savers from killing the watcher. | 1, 6 |
 | `QUERY_ALL_PACKAGES` | List installed apps so you can choose which ones to monitor. | 1 |
 
-Lockout never sends data off the device.
+Lockout never sends data off the device. The Protection check screen can copy a
+diagnostics report to the clipboard on request; only the event types, device
+model and permission/config state are included.
 
 ## Branching & releases
 

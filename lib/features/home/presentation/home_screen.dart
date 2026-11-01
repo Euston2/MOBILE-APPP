@@ -17,6 +17,7 @@ import '../../limits/presentation/settings_controller.dart';
 import '../../onboarding/presentation/onboarding_screen.dart';
 import '../../onboarding/presentation/permission_copy.dart';
 import '../../onboarding/presentation/permissions_controller.dart';
+import '../../protection/presentation/protection_screen.dart';
 import 'today_usage_controller.dart';
 import 'widgets/usage_ring.dart';
 
@@ -55,6 +56,12 @@ class HomeScreen extends ConsumerWidget {
     return Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const HistoryScreen()));
+  }
+
+  Future<void> _openProtection(BuildContext context) {
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const ProtectionScreen()));
   }
 
   @override
@@ -190,6 +197,18 @@ class HomeScreen extends ConsumerWidget {
                             ),
                         ],
                       ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.health_and_safety_outlined),
+                  title: const Text('Protection check'),
+                  subtitle: const Text(
+                    'OEM battery help, permissions and recent events',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openProtection(context),
+                ),
               ),
               const SizedBox(height: 16),
               Text(

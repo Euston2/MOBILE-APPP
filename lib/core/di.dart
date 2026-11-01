@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/repositories/blocking_repository.dart';
+import '../domain/repositories/diagnostics_repository.dart';
 import '../domain/repositories/history_exporter.dart';
 import '../domain/repositories/history_repository.dart';
 import '../domain/repositories/monitored_apps_repository.dart';
@@ -46,6 +47,13 @@ final blockingRepositoryProvider = Provider<BlockingRepository>(
 final historyRepositoryProvider = Provider<HistoryRepository>(
   (ref) => throw StateError(
     'historyRepositoryProvider must be overridden in the composition root.',
+  ),
+);
+
+/// Read-only health snapshot for the Protection check screen.
+final diagnosticsRepositoryProvider = Provider<DiagnosticsRepository>(
+  (ref) => throw StateError(
+    'diagnosticsRepositoryProvider must be overridden in the composition root.',
   ),
 );
 

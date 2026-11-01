@@ -56,9 +56,14 @@ class BlockingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        LockoutLog.info(
+            this,
+            if (intent == null) "service restarted by the system" else "service start requested",
+        )
         val recovery = MidnightReset.recover(this)
         val config = recovery.config
         if (!config.isActive) {
+            LockoutLog.info(this, "service stopped: no active configuration")
             MidnightAlarm.cancel(this)
             stopSelf()
             return START_NOT_STICKY
@@ -66,24 +71,45 @@ class BlockingService : Service() {
 
         try {
             startInForeground(config)
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             // Android 12+ can refuse a foreground start from the background.
             // Dart retries on the next config push; nothing to enforce here.
+            LockoutLog.error(
+                this,
+                "foreground service start failed: ${error.javaClass.simpleName}",
+            )
             stopSelf()
             return START_NOT_STICKY
         }
 
-        MidnightAlarm.scheduleNext(this, System.currentTimeMillis())
+        val nowMs = System.currentTimeMillis()
+        val active = config.effectiveAt(nowMs)
+        val appCount = if (active.isActive) {
+            active.packages.size
+        } else {
+            config.pendingPackages.size
+        }
+        LockoutLog.info(this, "service started: $appCount apps")
+        MidnightAlarm.scheduleNext(this, nowMs)
         worker.removeCallbacks(pollRunnable)
         worker.post(pollRunnable)
         return START_STICKY
     }
 
     override fun onDestroy() {
+        LockoutLog.info(this, "service destroyed")
         worker.removeCallbacksAndMessages(null)
         workerThread.quitSafely()
         mainHandler.post { BlockOverlay.hide() }
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // stopWithTask=false keeps enforcement alive after the recent-apps
+        // swipe. Record it so a later support report can distinguish a task
+        // removal from a system kill.
+        LockoutLog.info(this, "task removed; service kept running")
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

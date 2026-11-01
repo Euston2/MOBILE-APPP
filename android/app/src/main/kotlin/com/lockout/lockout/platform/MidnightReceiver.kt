@@ -15,6 +15,7 @@ import android.content.Intent
  */
 class MidnightReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
+        LockoutLog.info(context, "midnight alarm received")
         val result = MidnightReset.recover(context)
         val nowMs = System.currentTimeMillis()
         if (result.config.isActive) {

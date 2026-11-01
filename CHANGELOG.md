@@ -9,7 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 
-- Stage 6: OEM/battery hardening, edge cases, logging.
+- v1.0.0 release validation: signed APK, device matrix and GitHub Release.
+
+## [0.6.0] - 2026-11-01
+
+### Added
+
+- Protection check screen, linked from Home and onboarding: four essential
+  special accesses, exact-alarm precision, cached enforcement state, OEM
+  autostart/battery guidance, recent events and a copyable diagnostics report.
+- OEM guidance for Xiaomi/Redmi/POCO, Tecno/Infinix/itel, Samsung, Oppo/Realme,
+  OnePlus, Huawei/Honor and Vivo/iQOO, with generic Android steps as fallback.
+  Best-effort explicit-intent shortcuts open the manufacturer screen; a missing
+  or blocked screen falls back to app details.
+- Native diagnostics snapshot (`getDiagnostics`) and the
+  `openOemAutostartSettings` / `openExactAlarmSettings` channel methods.
+- Bounded on-device event log (`LockoutLog`): 50 entries, 240 characters each,
+  newline sanitising, Logcat under the `Lockout` tag and a private prefs copy.
+  Service start/stop, config sync, lock stamp/clear, alarm arming, reset/archive,
+  boot/time changes and failures are recorded; no app contents or package names.
+- Catch-up archiving for up to 14 missed days (`ArchivePlanner`), using the
+  configuration that governed each day and attributing a carried-over lock to
+  that day's start.
+- Safe intent handling for settings screens: `SecurityException` and missing
+  activities fall back instead of crashing, and exact-alarm scheduling has a
+  final failure path.
+- Kotlin tests for the catch-up planner, log sanitising and strict date parsing;
+  Dart tests for OEM mapping, diagnostics parsing/reporting and the Protection
+  screen. Dart tests are now 113; the 46 `:app` JVM tests, `flutter analyze` and
+  the debug APK build also pass.
+
+### Changed
+
+- Home now has a Protection check card, and onboarding links to the
+  device-specific battery help.
+- Reset recovery archives every missing day in its bounded window instead of
+  only the most recent one.
+- Documentation now describes the diagnostics log, OEM shortcuts, exact-alarm
+  status and the 14-day catch-up limit.
+
+### Notes
+
+- The event log stays on the device; the optional clipboard report is the only
+  way it leaves, and it contains no app contents or package names.
+- A user force-stop still disables alarms/services until Lockout is opened.
+  Android does not allow an app to override that.
+- Catch-up is capped at the newest 14 missing days; older history and days
+  before installation are not reconstructed.
+- Device Admin remains out of scope for v1.
+- Device acceptance for OEM killing, reboots and the real midnight was not run
+  in this environment: no Android device was attached.
 
 ## [0.5.0] - 2026-10-31
 
@@ -207,7 +256,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release signing plumbing in Gradle via git-ignored `android/key.properties`.
 - Widget tests for app boot and small-screen layout.
 
-[Unreleased]: https://github.com/Euston2/MOBILE-APPP/compare/v0.5.0...develop
+[Unreleased]: https://github.com/Euston2/MOBILE-APPP/compare/v0.6.0...develop
+[0.6.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Euston2/MOBILE-APPP/compare/v0.2.0...v0.3.0

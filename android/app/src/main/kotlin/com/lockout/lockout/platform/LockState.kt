@@ -31,6 +31,10 @@ object LockState {
         BlockingStore.saveLock(context, locked)
         FlutterSettings.writeLock(context, true, nowMs, resetAtMs)
         MidnightAlarm.scheduleNext(context, nowMs)
+        LockoutLog.info(
+            context,
+            "limit lock set until ${DayMath.localDate(resetAtMs)}",
+        )
         return locked
     }
 
@@ -44,6 +48,7 @@ object LockState {
         )
         BlockingStore.saveLock(context, cleared)
         FlutterSettings.writeLock(context, false, 0L, resetAtMs)
+        LockoutLog.info(context, "daily lock cleared")
         return cleared
     }
 }

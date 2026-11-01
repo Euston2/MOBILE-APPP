@@ -7,16 +7,18 @@ import android.content.Context
  *
  * Called from the alarm, from `BOOT_COMPLETED`/time-change receivers, from the
  * service start and from every poll. It is deliberately idempotent:
- * - yesterday is archived at most once per local date (`last_archived_date`);
+ * - finished days are archived at most once per local date
+ *   (`last_archived_date`), including up to [ArchivePlanner.MAX_CATCH_UP_DAYS]
+ *   missed days after a force-stop, reboot or long power-off;
  * - an expired lock is cleared only when `now >= next_reset_at`;
  * - a pending configuration is folded into the active one once due.
  *
  * Order matters. Archiving happens before the pending configuration is
- * materialised, and before the lock is cleared, because the archived day must
+ * materialised, and before the lock is cleared, because each archived day must
  * use the app set/limit that governed it and the lock timestamp is part of the
- * record. The pending set is used for yesterday only when it was already in
- * force at yesterday's midnight (for example when the app was not opened for a
- * few days).
+ * record. [BlockingConfig.effectiveAt] resolves the configuration at the end of
+ * each missing day, so a pending change saved before that day's midnight is
+ * applied to the right historical day.
  */
 object MidnightReset {
 
@@ -38,68 +40,70 @@ object MidnightReset {
         var current = config
         var archived = false
 
-        val yesterdayStartMs = DayMath.startOfPreviousLocalDay(nowMs)
-        val todayStartMs = DayMath.startOfLocalDay(nowMs)
-        val yesterdayDate = DayMath.localDate(yesterdayStartMs)
+        // Recover every finished day that has no archive record yet. The
+        // planner bounds the work to the most recent 14 missed days, so a device
+        // that was off for months does not run a huge UsageStats query.
+        val missingDays = ArchivePlanner.datesToArchive(
+            lastArchivedDate = ArchiveStore.lastArchivedDate(context),
+            nowMs = nowMs,
+        )
+        for (date in missingDays) {
+            val dayStartMs = DayMath.parseLocalDate(date) ?: continue
+            val dayEndMs = DayMath.nextLocalMidnight(dayStartMs)
 
-        val pendingUsable = current.pendingEffectiveAtMs > 0L &&
-            current.pendingLimitSeconds > 0 &&
-            current.pendingPackages.isNotEmpty()
-
-        // Which configuration governed yesterday? A pending config saved before
-        // yesterday's midnight was already active for the whole day.
-        val archivePending = pendingUsable &&
-            current.pendingEffectiveAtMs <= yesterdayStartMs
-        val archivePackages = if (archivePending) {
-            current.pendingPackages
-        } else {
-            current.monitoredPackages
-        }
-        val archiveLimit = if (archivePending) {
-            current.pendingLimitSeconds
-        } else {
-            current.dailyLimitSeconds
-        }
-
-        if (archivePackages.isNotEmpty() &&
-            archiveLimit > 0 &&
-            ArchiveStore.lastArchivedDate(context) != yesterdayDate
-        ) {
-            val apps = BlockUsage.secondsByPackage(
-                context,
-                yesterdayStartMs,
-                todayStartMs,
-                archivePackages,
-            )
-            val total = apps.values.sum()
-            if (total > 0) {
-                val hitAtMs = if (
-                    current.isLocked &&
-                    current.lockedAtMs >= yesterdayStartMs &&
-                    current.lockedAtMs < todayStartMs
-                ) {
-                    current.lockedAtMs
-                } else {
-                    0L
+            // "End of day minus one millisecond" is the configuration that
+            // governed the day. A change effective at the next midnight belongs
+            // to the next day.
+            val dayConfig = current.effectiveAt(dayEndMs - 1L)
+            if (dayConfig.isActive) {
+                val apps = runCatching {
+                    BlockUsage.secondsByPackage(
+                        context,
+                        dayStartMs,
+                        dayEndMs,
+                        dayConfig.packages,
+                    )
+                }.onFailure { error ->
+                    LockoutLog.warn(
+                        context,
+                        "usage query failed for $date: " +
+                            error.javaClass.simpleName,
+                    )
+                }.getOrDefault(emptyMap())
+                val total = apps.values.sum()
+                if (total > 0) {
+                    ArchiveStore.append(
+                        context,
+                        UsageArchive(
+                            date = date,
+                            totalSeconds = total,
+                            limitSeconds = dayConfig.limitSeconds,
+                            limitHitAtMs = hitAtMsFor(
+                                current,
+                                dayStartMs,
+                                dayEndMs,
+                            ),
+                            apps = apps,
+                        ),
+                    )
+                    archived = true
+                    val noun = if (apps.size == 1) "app" else "apps"
+                    LockoutLog.info(
+                        context,
+                        "archived $date across ${apps.size} $noun",
+                    )
                 }
-                ArchiveStore.append(
-                    context,
-                    UsageArchive(
-                        date = yesterdayDate,
-                        totalSeconds = total,
-                        limitSeconds = archiveLimit,
-                        limitHitAtMs = hitAtMs,
-                        apps = apps,
-                    ),
-                )
-                archived = true
             }
-            // Mark even when the day had no usage, so the query is not repeated
-            // on every poll.
-            ArchiveStore.markArchived(context, yesterdayDate)
+
+            // Mark even a day with no config or no usage, so the query is not
+            // repeated on every two-second poll.
+            ArchiveStore.markArchived(context, date)
         }
 
         var materialised = false
+        val pendingUsable = current.pendingEffectiveAtMs > 0L &&
+            current.pendingLimitSeconds > 0 &&
+            current.pendingPackages.isNotEmpty()
         if (pendingUsable && nowMs >= current.pendingEffectiveAtMs) {
             current = current.copy(
                 monitoredPackages = current.pendingPackages,
@@ -110,6 +114,7 @@ object MidnightReset {
             )
             BlockingStore.save(context, current)
             materialised = true
+            LockoutLog.info(context, "scheduled app/limit change applied")
         }
 
         var cleared = false
@@ -119,5 +124,28 @@ object MidnightReset {
         }
 
         return Result(current, archived, cleared, materialised)
+    }
+
+    /**
+     * Timestamp to show for the day's limit hit.
+     *
+     * - A lock stamped during the day stores its exact time.
+     * - A lock that was already in force at 00:00 (a multi-day lock or a missed
+     *   reset) is attributed to the start of that day; the real hit happened
+     *   earlier and the schema has only one instant.
+     */
+    private fun hitAtMsFor(
+        config: BlockingConfig,
+        dayStartMs: Long,
+        dayEndMs: Long,
+    ): Long {
+        if (!config.isLocked || config.lockedAtMs <= 0L) return 0L
+        if (config.lockedAtMs in dayStartMs until dayEndMs) {
+            return config.lockedAtMs
+        }
+        if (config.lockedAtMs < dayStartMs && config.nextResetAtMs > dayStartMs) {
+            return dayStartMs
+        }
+        return 0L
     }
 }

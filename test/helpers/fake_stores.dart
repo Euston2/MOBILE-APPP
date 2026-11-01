@@ -1,10 +1,12 @@
 import 'package:lockout/domain/entities/blocking_config.dart';
 import 'package:lockout/domain/entities/daily_archive.dart';
+import 'package:lockout/domain/entities/device_diagnostics.dart';
 import 'package:lockout/domain/entities/history_day.dart';
 import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
 import 'package:lockout/domain/entities/usage_settings.dart';
 import 'package:lockout/domain/repositories/blocking_repository.dart';
+import 'package:lockout/domain/repositories/diagnostics_repository.dart';
 import 'package:lockout/domain/repositories/history_exporter.dart';
 import 'package:lockout/domain/repositories/history_repository.dart';
 import 'package:lockout/domain/repositories/monitored_apps_repository.dart';
@@ -79,6 +81,35 @@ class FakeBlockingRepository implements BlockingRepository {
   @override
   Future<void> stop() async {
     stopCalls++;
+  }
+}
+
+/// Diagnostics fake with observable settings shortcuts.
+class FakeDiagnosticsRepository implements DiagnosticsRepository {
+  FakeDiagnosticsRepository({DeviceDiagnostics? diagnostics, this.error})
+    : diagnostics = diagnostics ?? const DeviceDiagnostics();
+
+  DeviceDiagnostics diagnostics;
+  Object? error;
+  int loadCalls = 0;
+  int autostartCalls = 0;
+  int exactAlarmCalls = 0;
+
+  @override
+  Future<DeviceDiagnostics> load() async {
+    loadCalls++;
+    if (error case final error?) throw error;
+    return diagnostics;
+  }
+
+  @override
+  Future<void> openOemAutostartSettings() async {
+    autostartCalls++;
+  }
+
+  @override
+  Future<void> openExactAlarmSettings() async {
+    exactAlarmCalls++;
   }
 }
 
