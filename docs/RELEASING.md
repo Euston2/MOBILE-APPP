@@ -1,10 +1,61 @@
 # Releasing
 
 Releases are tag-driven. Pushing a tag that matches `vX.Y.Z` triggers
-`.github/workflows/release.yml`, which builds a signed APK and publishes a
+`.github/workflows/release.yml`, which builds a release APK and publishes a
 GitHub Release with auto-generated notes and the APK attached.
 
-## One-time signing setup
+## Current status: friends-and-family preview
+
+Lockout 1.0.0 is currently a **friends-and-family preview**, not a Play Store
+release. It is built from `develop`, updates over a previous build only if the
+signing key matches, and is meant for feedback on real phones.
+
+Without `android/key.properties`, Gradle falls back to the local debug key. That
+is acceptable for a private preview but **not** for public distribution. The
+preview is intentionally not tagged until:
+
+- release signing secrets are configured;
+- the device matrix in [`TESTING.md`](TESTING.md) has been run on the target
+  phones; and
+- the feedback round is complete.
+
+### Build and verify the preview
+
+```powershell
+C:\src\flutter\bin\flutter.bat build apk --release
+Copy-Item build\app\outputs\flutter-apk\app-release.apk `
+  build\app\outputs\flutter-apk\lockout-1.0.0-preview.apk
+```
+
+Verify the APK and its version with the SDK build-tools:
+
+```powershell
+$sdk = "$env:LOCALAPPDATA\Android\sdk"
+$buildTools = Get-ChildItem "$sdk\build-tools" | Sort-Object Name | Select-Object -Last 1
+& "$($buildTools.FullName)\apksigner.bat" verify --verbose --print-certs `
+  build\app\outputs\flutter-apk\lockout-1.0.0-preview.apk
+& "$($buildTools.FullName)\aapt.exe" dump badging `
+  build\app\outputs\flutter-apk\lockout-1.0.0-preview.apk |
+  Select-String "package:|application-label"
+```
+
+`CN=Android Debug` in the certificate output means the APK is debug-signed.
+Install it with `adb install -r <apk>` or by transferring the file and allowing
+"install unknown apps" for the file manager.
+
+### Sideload notes for testers
+
+- Grant usage access, overlay, notifications and battery exemption during
+  onboarding; the in-app **Protection check** shows what is missing.
+- Follow the OEM battery/autostart steps for the phone. A user force-stop still
+  disables alarms and the watcher until Lockout is opened again.
+- The app has no account or cloud sync. History and diagnostics stay local.
+- Report the phone model, Android version, what happened, and the copied
+  diagnostics report from Protection check.
+
+## Public release signing
+
+Do this once, before tagging a public release.
 
 1. Create a keystore (keep it out of the repo and back it up):
 
@@ -46,20 +97,21 @@ GitHub Release with auto-generated notes and the APK attached.
    storeFile=release-keystore.jks
    ```
 
-   and place `release-keystore.jks` in `android/app/`.
+   Place `release-keystore.jks` in `android/app/`.
 
 Until the secrets are configured, `release.yml` still builds and publishes an
-APK, but signs it with the debug key and emits a warning annotation. Configure
-the secrets before the first public release (Stage 7).
+APK, but signs it with the debug key, emits a warning, and records the
+certificate in the workflow log. Do not call that a public release.
 
 ## Release checklist
 
 ```bash
 git switch develop
 git pull
-# 1. bump version in pubspec.yaml (e.g. 0.2.0+1 -> 0.3.0+1)
-# 2. move CHANGELOG "Unreleased" notes under "## [0.3.0] - YYYY-MM-DD"
-git commit -am "chore(release): 0.3.0"
+# 1. bump pubspec.yaml version and AppConstants.appVersion
+# 2. move CHANGELOG "Unreleased" notes under the version heading
+# 3. update README version/status
+git commit -am "chore(release): 1.0.0"
 git push
 
 git switch main
@@ -67,12 +119,25 @@ git pull
 git merge --ff-only develop
 git push
 
-git tag -a v0.3.0 -m "Lockout v0.3.0"
-git push origin v0.3.0
+git tag -a v1.0.0 -m "Lockout v1.0.0"
+git push origin v1.0.0
+```
+
+Before tagging, run the full gate:
+
+```bash
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze --fatal-infos
+flutter test
+cd android && ./gradlew :app:testDebugUnitTest
+cd .. && flutter build apk --release
 ```
 
 Then verify:
 
 - CI is green on the tag commit.
-- The Release workflow produced a signed APK (check `apksigner verify`).
+- The Release workflow produced the APK and the signature check passed.
+- `apksigner verify` reports the release certificate, not `CN=Android Debug`,
+  for a public build.
 - `CHANGELOG.md` links for the new version resolve.
+- The device matrix has a recorded result for at least one target OEM.

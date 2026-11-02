@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
+### Release 1.0.0 preview
 
-- v1.0.0 release validation: signed APK, device matrix and GitHub Release.
+- Version `1.0.0+8`, with the app version shown in the Protection check
+  diagnostics footer.
+- Friends-and-family preview APK built with release optimizations; it is
+  debug-signed and is not a Play Store release.
+- Release workflow now runs formatting, analysis, Flutter tests and the
+  `:app` Kotlin tests before building, and records the APK certificate.
+- Release docs now cover preview builds, sideload verification, public signing
+  setup and the deferred release checklist.
+- Public tag, release signing and the device matrix remain pending until
+  tester feedback is in.
 
 ## [0.6.0] - 2026-11-01
 
