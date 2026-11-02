@@ -44,9 +44,11 @@ class ErrorRetryView extends StatelessWidget {
   const ErrorRetryView({
     required this.message,
     required this.onRetry,
+    this.title = 'Something went wrong',
     super.key,
   });
 
+  final String title;
   final String message;
   final VoidCallback onRetry;
 
@@ -62,7 +64,7 @@ class ErrorRetryView extends StatelessWidget {
             Icon(Icons.error_outline, size: 40, color: theme.colorScheme.error),
             const SizedBox(height: 12),
             Text(
-              "Couldn't reach the Android layer",
+              title,
               style: theme.textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),

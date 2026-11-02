@@ -88,7 +88,7 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        isGranted ? 'Granted' : 'Required',
+        isGranted ? 'Ready' : 'Needs setup',
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w600,

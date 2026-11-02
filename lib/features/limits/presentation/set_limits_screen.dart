@@ -28,22 +28,34 @@ class SetLimitsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Limit & apps')),
       body: settings.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => ErrorRetryView(
-          message: '$error',
-          onRetry: () => ref.invalidate(settingsControllerProvider),
-        ),
+        error: (error, _) {
+          debugPrint('Limit settings load failed: $error');
+          return ErrorRetryView(
+            title: "Couldn't load your limit",
+            message: 'Please try again.',
+            onRetry: () => ref.invalidate(settingsControllerProvider),
+          );
+        },
         data: (settingsValue) => monitored.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => ErrorRetryView(
-            message: '$error',
-            onRetry: () => ref.invalidate(monitoredAppsControllerProvider),
-          ),
+          error: (error, _) {
+            debugPrint('Monitored apps load failed: $error');
+            return ErrorRetryView(
+              title: "Couldn't load your apps",
+              message: 'Please try again.',
+              onRetry: () => ref.invalidate(monitoredAppsControllerProvider),
+            );
+          },
           data: (monitoredApps) => installed.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => ErrorRetryView(
-              message: '$error',
-              onRetry: () => ref.invalidate(installedAppsProvider),
-            ),
+            error: (error, _) {
+              debugPrint('Installed apps load failed: $error');
+              return ErrorRetryView(
+                title: "Couldn't load your apps",
+                message: 'Please try again.',
+                onRetry: () => ref.invalidate(installedAppsProvider),
+              );
+            },
             data: (installedApps) => _LimitsEditor(
               settings: settingsValue,
               monitored: monitoredApps,
@@ -172,17 +184,20 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
           content: Text(
             applyToday
                 ? 'Limit and apps saved'
-                : 'Saved. Starts tomorrow at 00:00.',
+                : 'Saved. Starts tomorrow at midnight.',
           ),
         ),
       );
       Navigator.of(context).pop();
     } on Object catch (error) {
+      debugPrint('Limit save failed: $error');
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not save: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Couldn't save your changes. Please try again."),
+        ),
+      );
     }
   }
 
@@ -278,7 +293,7 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
                 controller: _search,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search),
-                  hintText: 'Search installed apps',
+                  hintText: 'Search your apps',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -322,8 +337,8 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
                 ),
               const SizedBox(height: 8),
               Text(
-                'Only the selected apps count towards the limit. Lockout '
-                'never monitors itself.',
+                'Only the apps you choose count toward your limit. '
+                "Lockout doesn't track itself.",
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -386,7 +401,7 @@ class _ScheduledNotice extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'These changes start tomorrow at 00:00. '
+                'These changes start tomorrow at midnight. '
                 "Today's limit is $today.",
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSecondaryContainer,
@@ -419,8 +434,8 @@ class _LockedNotice extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Locked until 00:00 (${formatCountdown(remaining)}). '
-                'The limit and apps cannot be changed.',
+                'Locked until midnight (${formatCountdown(remaining)}). '
+                "You can't change the limit or apps yet.",
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onErrorContainer,
                 ),

@@ -115,7 +115,7 @@ class HomeScreen extends ConsumerWidget {
             icon: const Icon(Icons.tune),
           ),
           IconButton(
-            tooltip: 'Permissions and setup',
+            tooltip: 'Access and setup',
             onPressed: () => _openPermissions(context),
             icon: const Icon(Icons.shield_outlined),
           ),
@@ -165,7 +165,7 @@ class HomeScreen extends ConsumerWidget {
                   Text(
                     monitoredCount == 0
                         ? 'all apps'
-                        : '$monitoredCount monitored',
+                        : '$monitoredCount ${monitoredCount == 1 ? 'app' : 'apps'}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -178,11 +178,18 @@ class HomeScreen extends ConsumerWidget {
                   padding: EdgeInsets.symmetric(vertical: 40),
                   child: Center(child: CircularProgressIndicator()),
                 ),
-                error: (error, _) => ErrorRetryView(
-                  message: '$error',
-                  onRetry: () =>
-                      ref.read(todayUsageControllerProvider.notifier).refresh(),
-                ),
+                error: (error, _) {
+                  debugPrint('Today usage load failed: $error');
+                  return ErrorRetryView(
+                    title: "Couldn't load today's usage",
+                    message:
+                        'Your app time is not available right now. '
+                        'Please try again.',
+                    onRetry: () => ref
+                        .read(todayUsageControllerProvider.notifier)
+                        .refresh(),
+                  );
+                },
                 data: (summary) => summary.isEmpty
                     ? const _EmptyUsageCard()
                     : Column(
@@ -204,7 +211,7 @@ class HomeScreen extends ConsumerWidget {
                   leading: const Icon(Icons.health_and_safety_outlined),
                   title: const Text('Protection check'),
                   subtitle: const Text(
-                    'OEM battery help, permissions and recent events',
+                    'Battery help, access and recent activity',
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _openProtection(context),
@@ -213,7 +220,7 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               Text(
                 'Updates every few seconds while Lockout is open. '
-                'The counter resets at 00:00.',
+                'Your time resets at midnight.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -251,7 +258,7 @@ class _LimitCard extends StatelessWidget {
 
     final String statusLine;
     if (locked) {
-      statusLine = 'Locked until 00:00';
+      statusLine = 'Locked until midnight';
     } else if (!status.hasLimit) {
       statusLine = 'No daily limit set yet';
     } else if (reached) {
@@ -285,8 +292,9 @@ class _LimitCard extends StatelessWidget {
               summary == null
                   ? 'Reading usage…'
                   : appCount == 0
-                  ? 'Since 00:00'
-                  : 'Since 00:00 · $appCount ${appCount == 1 ? 'app' : 'apps'}',
+                  ? 'Since midnight'
+                  : 'Since midnight · $appCount '
+                        '${appCount == 1 ? 'app' : 'apps'}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -304,7 +312,7 @@ class _LimitCard extends StatelessWidget {
             if (locked || reached) ...[
               const SizedBox(height: 8),
               Text(
-                'Monitored apps are blocked until 00:00.',
+                'Your chosen apps are blocked until midnight.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.error,
@@ -357,7 +365,7 @@ class _ScheduledChangeBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'New settings start at 00:00',
+                    'New settings start at midnight',
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: theme.colorScheme.onSecondaryContainer,
                     ),
@@ -405,13 +413,14 @@ class _BlockerBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "The blocker couldn't start",
+                    "Protection couldn't start",
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: theme.colorScheme.onErrorContainer,
                     ),
                   ),
                   Text(
-                    'Check notification and overlay permissions, then retry.',
+                    'Allow notifications and display over other apps, then '
+                    'try again.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onErrorContainer,
                     ),
@@ -457,8 +466,8 @@ class _PermissionBanner extends StatelessWidget {
                 children: [
                   Text(
                     missing.length == 1
-                        ? '1 permission missing'
-                        : '${missing.length} permissions missing',
+                        ? '1 setting needs attention'
+                        : '${missing.length} settings need attention',
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: theme.colorScheme.onErrorContainer,
                     ),
@@ -472,7 +481,7 @@ class _PermissionBanner extends StatelessWidget {
                 ],
               ),
             ),
-            TextButton(onPressed: onFix, child: const Text('Fix')),
+            TextButton(onPressed: onFix, child: const Text('Review')),
           ],
         ),
       ),

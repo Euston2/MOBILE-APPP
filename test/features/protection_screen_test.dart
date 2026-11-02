@@ -31,7 +31,9 @@ DeviceDiagnostics _diagnostics() => DeviceDiagnostics(
 );
 
 void main() {
-  testWidgets('shows OEM guidance, checks and recent events', (tester) async {
+  testWidgets('shows phone guidance, checks and recent activity', (
+    tester,
+  ) async {
     final diagnostics = FakeDiagnosticsRepository(diagnostics: _diagnostics());
 
     await pumpLockoutApp(
@@ -45,28 +47,29 @@ void main() {
     await tester.tap(find.text('Protection check'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Protection needs work'), findsOneWidget);
-    expect(find.text('3 of 4 essential checks passed'), findsOneWidget);
+    expect(find.text('Protection needs attention'), findsOneWidget);
+    expect(find.text('3 of 4 checks ready'), findsOneWidget);
     expect(
       find.textContaining('Keep Lockout running on Xiaomi / Redmi / POCO'),
       findsOneWidget,
     );
-    expect(find.text('Open autostart settings'), findsOneWidget);
+    expect(find.text('Open startup settings'), findsOneWidget);
     expect(find.text('Open battery settings'), findsOneWidget);
-    expect(find.text('service started: 2 apps, 3600s limit'), findsOneWidget);
+    expect(find.text('Protection started'), findsOneWidget);
+    expect(find.text('service started: 2 apps, 3600s limit'), findsNothing);
     expect(diagnostics.loadCalls, greaterThanOrEqualTo(1));
 
-    await tester.tap(find.text('Open autostart settings'));
+    await tester.tap(find.text('Open startup settings'));
     await tester.pump();
     expect(diagnostics.autostartCalls, 1);
 
-    final batteryTile = find.widgetWithText(ListTile, 'Battery optimisation');
+    final batteryTile = find.widgetWithText(ListTile, 'Battery saver');
     await tester.tap(
       find.descendant(of: batteryTile, matching: find.text('Open')),
     );
     await tester.pump();
 
-    final exactTile = find.widgetWithText(ListTile, 'Exact alarms');
+    final exactTile = find.widgetWithText(ListTile, 'On-time reset');
     await tester.tap(
       find.descendant(of: exactTile, matching: find.text('Open')),
     );
@@ -76,7 +79,7 @@ void main() {
     await disposeTestApp(tester);
   });
 
-  testWidgets('copies the diagnostics report', (tester) async {
+  testWidgets('copies the support report', (tester) async {
     final diagnostics = FakeDiagnosticsRepository(diagnostics: _diagnostics());
     String? copied;
 
@@ -105,16 +108,16 @@ void main() {
     await tester.tap(find.text('Protection check'));
     await tester.pumpAndSettle();
 
-    final copyButton = find.text('Copy diagnostics');
+    final copyButton = find.text('Copy support report');
     await tester.ensureVisible(copyButton);
     await tester.tap(copyButton);
     await tester.pump();
 
     expect(copied, isNotNull);
-    expect(copied, contains('Lockout diagnostics'));
+    expect(copied, contains('Lockout support report'));
     expect(copied, contains('Device: Xiaomi Note 12 (Android SDK 33)'));
     expect(copied, contains('service started: 2 apps, 3600s limit'));
-    expect(find.text('Diagnostics copied to the clipboard.'), findsOneWidget);
+    expect(find.text('Support report copied.'), findsOneWidget);
 
     await disposeTestApp(tester);
   });

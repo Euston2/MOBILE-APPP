@@ -7,14 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Release 1.0.0 preview
+### Release 1.0.1 preview
 
-- Version `1.0.0+8`, with the app version shown in the Protection check
-  diagnostics footer.
+- Version `1.0.1+9`, with the app version shown in the Protection check support
+  report footer.
 - Friends-and-family preview APK built with release optimizations; it is
   debug-signed and is not a Play Store release.
+- Fixed History and Limit & apps failing with a missing `libsqlite3.so`.
+  `sqlite3_flutter_libs` is now pinned to the last functional 2.x release
+  (`0.5.42`); `0.6.0+eol` is an empty migration stub.
+- Replaced technical wording across onboarding, Home, History, limits and
+  Protection check with plain-language copy.
+- Raw platform and database errors are no longer shown in the app. They are
+  logged with `debugPrint`, while screens show a simple retry message.
+- Recent activity now uses friendly event names and `Update` / `Notice` /
+  `Issue` labels; technical details remain in the copied support report.
 - Release workflow now runs formatting, analysis, Flutter tests and the
-  `:app` Kotlin tests before building, and records the APK certificate.
+  `:app` Kotlin tests before building, records the APK certificate, and fails
+  if the APK is missing the bundled SQLite library.
 - Release docs now cover preview builds, sideload verification, public signing
   setup and the deferred release checklist.
 - Public tag, release signing and the device matrix remain pending until

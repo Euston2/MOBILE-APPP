@@ -19,7 +19,7 @@ void main() {
     final button = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(button.onPressed, isNull);
     expect(
-      find.text('Usage access is required before anything can be counted.'),
+      find.text('Allow app activity access so Lockout can count your time.'),
       findsOneWidget,
     );
   });

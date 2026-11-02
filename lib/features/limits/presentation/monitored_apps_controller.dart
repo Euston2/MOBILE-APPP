@@ -56,7 +56,7 @@ class MonitoredAppsController extends AsyncNotifier<List<MonitoredApp>> {
       DateTime.now(),
     );
     if (settings.isLocked) {
-      throw StateError('The limit is locked until 00:00.');
+      throw StateError('The limit is locked until midnight.');
     }
   }
 }

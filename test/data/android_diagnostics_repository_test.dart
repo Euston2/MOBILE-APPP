@@ -70,7 +70,7 @@ void main() {
   });
 
   group('buildDiagnosticsReport', () {
-    test('includes device, checks, enforcement and recent events', () {
+    test('includes device, checks, enforcement and recent activity', () {
       final diagnostics = DeviceDiagnostics(
         manufacturer: 'Xiaomi',
         brand: 'Redmi',
@@ -99,10 +99,11 @@ void main() {
 
       final report = buildDiagnosticsReport(diagnostics);
 
+      expect(report, contains('Lockout support report'));
       expect(report, contains('Device: Xiaomi Note 12 (Android SDK 33)'));
-      expect(report, contains('Essential checks: 3/4'));
-      expect(report, contains('Battery optimisation ignored: no'));
-      expect(report, contains('Pending change: yes'));
+      expect(report, contains('Setup checks: 3/4'));
+      expect(report, contains('Battery saver exemption: no'));
+      expect(report, contains('Scheduled change: yes'));
       expect(report, contains('Last archived day: 2026-10-31'));
       expect(report, contains('2026-10-31 12:03:04 INFO service started'));
     });
@@ -110,7 +111,40 @@ void main() {
     test('marks an empty event log explicitly', () {
       final report = buildDiagnosticsReport(const DeviceDiagnostics());
 
-      expect(report, contains('Recent events:\n  (none)'));
+      expect(report, contains('Recent activity:\n  (none)'));
+    });
+  });
+
+  group('friendly diagnostics', () {
+    DiagnosticEvent event(String level, String message) => DiagnosticEvent(
+      at: DateTime(2026, 10, 31),
+      level: level,
+      message: message,
+    );
+
+    test('maps native events to plain-language activity', () {
+      expect(
+        friendlyDiagnosticMessage(event('INFO', 'service started: 2 apps')),
+        'Protection started',
+      );
+      expect(
+        friendlyDiagnosticMessage(event('INFO', 'service start requested')),
+        'Protection starting',
+      );
+      expect(
+        friendlyDiagnosticMessage(event('WARN', 'could not restart watcher')),
+        'Protection needs a restart',
+      );
+      expect(
+        friendlyDiagnosticMessage(event('ERROR', 'something unexpected')),
+        'Something went wrong',
+      );
+    });
+
+    test('maps log levels to friendly labels', () {
+      expect(friendlyDiagnosticLevel('INFO'), 'Update');
+      expect(friendlyDiagnosticLevel('WARN'), 'Notice');
+      expect(friendlyDiagnosticLevel('ERROR'), 'Issue');
     });
   });
 }

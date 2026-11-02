@@ -42,7 +42,7 @@ class HistoryScreen extends ConsumerWidget {
         title: const Text('History'),
         actions: [
           IconButton(
-            tooltip: 'Share CSV',
+            tooltip: 'Share history',
             onPressed: (report.value?.hasData ?? false)
                 ? () => _shareCsv(context, ref, report.value!)
                 : null,
@@ -52,10 +52,12 @@ class HistoryScreen extends ConsumerWidget {
       ),
       body: report.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _HistoryError(
-          error: '$error',
-          onRetry: () => ref.invalidate(historyControllerProvider),
-        ),
+        error: (error, _) {
+          debugPrint('History load failed: $error');
+          return _HistoryError(
+            onRetry: () => ref.invalidate(historyControllerProvider),
+          );
+        },
         data: (report) => RefreshIndicator(
           onRefresh: () =>
               ref.read(historyControllerProvider.notifier).refresh(),
@@ -110,9 +112,12 @@ class HistoryScreen extends ConsumerWidget {
             csv: historyCsv(report.days),
           );
     } on Object catch (error) {
+      debugPrint('History share failed: $error');
       if (!context.mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not share history: $error')),
+        const SnackBar(
+          content: Text("Couldn't share your history. Please try again."),
+        ),
       );
     }
   }
@@ -169,7 +174,7 @@ class _StatsCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${stats.trackedDays} of $range tracked',
+                  '${stats.trackedDays} of $range days recorded',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -188,7 +193,7 @@ class _StatsCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: _Metric(
-                    label: 'Daily avg',
+                    label: 'Daily average',
                     value: formatDuration(stats.averageSeconds),
                   ),
                 ),
@@ -438,9 +443,8 @@ class _EmptyHistory extends StatelessWidget {
 }
 
 class _HistoryError extends StatelessWidget {
-  const _HistoryError({required this.error, required this.onRetry});
+  const _HistoryError({required this.onRetry});
 
-  final String error;
   final VoidCallback onRetry;
 
   @override
@@ -454,16 +458,14 @@ class _HistoryError extends StatelessWidget {
         Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
         const SizedBox(height: 16),
         Text(
-          'Couldn\'t load history',
+          'Couldn\'t load your history',
           textAlign: TextAlign.center,
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         Text(
-          error,
+          'Your history is still on this phone. Please try again.',
           textAlign: TextAlign.center,
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

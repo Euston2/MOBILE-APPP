@@ -6,7 +6,7 @@ GitHub Release with auto-generated notes and the APK attached.
 
 ## Current status: friends-and-family preview
 
-Lockout 1.0.0 is currently a **friends-and-family preview**, not a Play Store
+Lockout 1.0.1 is currently a **friends-and-family preview**, not a Play Store
 release. It is built from `develop`, updates over a previous build only if the
 signing key matches, and is meant for feedback on real phones.
 
@@ -24,22 +24,29 @@ preview is intentionally not tagged until:
 ```powershell
 C:\src\flutter\bin\flutter.bat build apk --release
 Copy-Item build\app\outputs\flutter-apk\app-release.apk `
-  build\app\outputs\flutter-apk\lockout-1.0.0-preview.apk
+  build\app\outputs\flutter-apk\lockout-1.0.1-preview.apk
 ```
 
-Verify the APK and its version with the SDK build-tools:
+Verify the APK, its version, its signature, and that the SQLite native library
+was packaged:
 
 ```powershell
 $sdk = "$env:LOCALAPPDATA\Android\sdk"
 $buildTools = Get-ChildItem "$sdk\build-tools" | Sort-Object Name | Select-Object -Last 1
-& "$($buildTools.FullName)\apksigner.bat" verify --verbose --print-certs `
-  build\app\outputs\flutter-apk\lockout-1.0.0-preview.apk
-& "$($buildTools.FullName)\aapt.exe" dump badging `
-  build\app\outputs\flutter-apk\lockout-1.0.0-preview.apk |
+$apk = "build\app\outputs\flutter-apk\lockout-1.0.1-preview.apk"
+& "$($buildTools.FullName)\apksigner.bat" verify --verbose --print-certs $apk
+& "$($buildTools.FullName)\aapt.exe" dump badging $apk |
   Select-String "package:|application-label"
+tar -tf $apk | Select-String "lib/arm64-v8a/libsqlite3.so"
 ```
 
-`CN=Android Debug` in the certificate output means the APK is debug-signed.
+The last command must print `lib/arm64-v8a/libsqlite3.so`. A missing library
+causes History and Limit & apps to fail on the phone. `CN=Android Debug` in the
+certificate output means the APK is debug-signed.
+
+`sqlite3_flutter_libs` is pinned to `0.5.42` while the app uses drift 2.30 and
+sqlite3 2.x. Do not move it to `0.6.0+eol`; that release is an empty migration
+stub with no native libraries.
 Install it with `adb install -r <apk>` or by transferring the file and allowing
 "install unknown apps" for the file manager.
 
@@ -111,7 +118,7 @@ git pull
 # 1. bump pubspec.yaml version and AppConstants.appVersion
 # 2. move CHANGELOG "Unreleased" notes under the version heading
 # 3. update README version/status
-git commit -am "chore(release): 1.0.0"
+git commit -am "chore(release): 1.0.1"
 git push
 
 git switch main
@@ -119,8 +126,8 @@ git pull
 git merge --ff-only develop
 git push
 
-git tag -a v1.0.0 -m "Lockout v1.0.0"
-git push origin v1.0.0
+git tag -a v1.0.1 -m "Lockout v1.0.1"
+git push origin v1.0.1
 ```
 
 Before tagging, run the full gate:
