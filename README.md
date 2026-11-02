@@ -9,7 +9,7 @@ way to talk yourself out of it at 11 p.m.
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
   <img alt="version" src="https://img.shields.io/badge/version-0.6.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
-  <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
+  
 </p>
 
 ## Status
