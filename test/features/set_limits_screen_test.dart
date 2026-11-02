@@ -101,7 +101,7 @@ void main() {
     expect(byPackage['com.zhiliaoapp.musically']?.isEnabled, isFalse);
     expect(byPackage['com.zhiliaoapp.musically']?.pendingEnabled, isTrue);
 
-    expect(find.text('Saved. Starts tomorrow at 00:00.'), findsOneWidget);
+    expect(find.text('Saved. Starts tomorrow at midnight.'), findsOneWidget);
   });
 
   testWidgets('first setup applies immediately', (tester) async {
@@ -220,7 +220,7 @@ void main() {
       ]),
     );
 
-    expect(find.textContaining('Locked until 00:00'), findsOneWidget);
+    expect(find.textContaining('Locked until midnight'), findsOneWidget);
     expect(find.text('Locked'), findsOneWidget);
 
     final slider = tester.widget<Slider>(find.byType(Slider));

@@ -91,7 +91,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Last 7 days'), findsOneWidget);
-    expect(find.text('2 of 7 tracked'), findsOneWidget);
+    expect(find.text('2 of 7 days recorded'), findsOneWidget);
     expect(find.text('1h 30m'), findsOneWidget); // total
     expect(find.text('45m'), findsOneWidget); // tracked-day average
     expect(find.text('Over limit'), findsOneWidget);
@@ -142,13 +142,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Last 7 days'), findsOneWidget);
-    expect(find.text('7 of 7 tracked'), findsOneWidget);
+    expect(find.text('7 of 7 days recorded'), findsOneWidget);
 
     await tester.tap(find.text('30 days'));
     await tester.pumpAndSettle();
 
     expect(find.text('Last 30 days'), findsOneWidget);
-    expect(find.text('10 of 30 tracked'), findsOneWidget);
+    expect(find.text('10 of 30 days recorded'), findsOneWidget);
 
     await disposeTestApp(tester);
   });
@@ -168,8 +168,12 @@ void main() {
     await tester.tap(find.byTooltip('History'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Couldn\'t load history'), findsOneWidget);
-    expect(find.textContaining('database is locked'), findsOneWidget);
+    expect(find.text('Couldn\'t load your history'), findsOneWidget);
+    expect(
+      find.text('Your history is still on this phone. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('database is locked'), findsNothing);
 
     history.loadError = null;
     await tester.tap(find.text('Try again'));
@@ -199,7 +203,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.ios_share));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Could not share history'), findsOneWidget);
+    expect(
+      find.text("Couldn't share your history. Please try again."),
+      findsOneWidget,
+    );
+    expect(find.textContaining('no share target'), findsNothing);
 
     await disposeTestApp(tester);
   });

@@ -37,9 +37,9 @@ class ProtectionScreen extends ConsumerWidget {
       ClipboardData(text: buildDiagnosticsReport(diagnostics)),
     );
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Diagnostics copied to the clipboard.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Support report copied.')));
   }
 
   Future<void> _run(
@@ -49,9 +49,12 @@ class ProtectionScreen extends ConsumerWidget {
     try {
       await action();
     } on Object catch (error) {
+      debugPrint('Could not open settings: $error');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open that screen: $error')),
+        const SnackBar(
+          content: Text("Couldn't open that setting. Please try again."),
+        ),
       );
     }
   }
@@ -75,12 +78,16 @@ class ProtectionScreen extends ConsumerWidget {
         ),
         body: diagnostics.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
-            child: ErrorRetryView(
-              message: '$error',
-              onRetry: () => ref.invalidate(diagnosticsControllerProvider),
-            ),
-          ),
+          error: (error, _) {
+            debugPrint('Protection check failed: $error');
+            return Center(
+              child: ErrorRetryView(
+                title: "Couldn't check protection",
+                message: 'Please try again.',
+                onRetry: () => ref.invalidate(diagnosticsControllerProvider),
+              ),
+            );
+          },
           data: (snapshot) {
             final guidance = oemGuidanceFor(
               manufacturer: snapshot.manufacturer,
@@ -95,15 +102,16 @@ class ProtectionScreen extends ConsumerWidget {
                   _StatusCard(diagnostics: snapshot),
                   const SizedBox(height: 20),
                   Text(
-                    'Essential checks',
+                    'What Lockout needs',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   _CheckTile(
-                    title: 'Usage access',
+                    title: 'App activity access',
                     detail: snapshot.usageAccess
-                        ? 'Lockout can read per-app foreground time.'
-                        : 'Required to count usage and enforce the limit.',
+                        ? 'Lockout can count time in your chosen apps.'
+                        : 'Needed to count your app time. Android calls this '
+                              '"Usage access".',
                     passed: snapshot.usageAccess,
                     fixLabel: 'Open',
                     onFix: () => ref
@@ -111,10 +119,10 @@ class ProtectionScreen extends ConsumerWidget {
                         .openSettings(PermissionKind.usageAccess),
                   ),
                   _CheckTile(
-                    title: 'Display over other apps',
+                    title: 'Show over other apps',
                     detail: snapshot.overlay
-                        ? 'The block screen can cover a monitored app.'
-                        : 'Required for the block screen fallback.',
+                        ? 'The block screen can appear over an app.'
+                        : 'Needed to show the block screen when time is up.',
                     passed: snapshot.overlay,
                     fixLabel: 'Open',
                     onFix: () => ref
@@ -124,8 +132,8 @@ class ProtectionScreen extends ConsumerWidget {
                   _CheckTile(
                     title: 'Notifications',
                     detail: snapshot.notifications
-                        ? 'The foreground watcher can stay visible.'
-                        : 'Required so Android keeps the watcher running.',
+                        ? 'Lockout can keep running and warn you.'
+                        : 'Needed so Android keeps Lockout running.',
                     passed: snapshot.notifications,
                     fixLabel: 'Open',
                     onFix: () => ref
@@ -133,10 +141,10 @@ class ProtectionScreen extends ConsumerWidget {
                         .openSettings(PermissionKind.notifications),
                   ),
                   _CheckTile(
-                    title: 'Battery optimisation',
+                    title: 'Battery saver',
                     detail: snapshot.batteryOptimizationIgnored
-                        ? 'Battery savers are not allowed to kill the watcher.'
-                        : 'Allow Lockout to run without battery restrictions.',
+                        ? "Battery saver won't stop Lockout."
+                        : 'Let Lockout keep running in the background.',
                     passed: snapshot.batteryOptimizationIgnored,
                     fixLabel: 'Open',
                     onFix: () => ref
@@ -145,16 +153,16 @@ class ProtectionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Reset precision',
+                    'Midnight reset',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   _CheckTile(
-                    title: 'Exact alarms',
+                    title: 'On-time reset',
                     detail: snapshot.exactAlarmsAllowed
-                        ? 'The 00:00 reset can fire on time.'
-                        : 'Optional: Android may delay the reset, but the '
-                              'next check still recovers it.',
+                        ? 'Your time can reset at midnight.'
+                        : 'Optional. If your phone delays the reset, Lockout '
+                              'catches up later.',
                     passed: snapshot.exactAlarmsAllowed,
                     isOptional: true,
                     fixLabel: 'Open',
@@ -180,7 +188,7 @@ class ProtectionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Recent events',
+                    'Recent activity',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
@@ -189,14 +197,13 @@ class ProtectionScreen extends ConsumerWidget {
                   FilledButton.tonalIcon(
                     onPressed: () => unawaited(_copyReport(context, snapshot)),
                     icon: const Icon(Icons.copy_all_outlined),
-                    label: const Text('Copy diagnostics'),
+                    label: const Text('Copy support report'),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Lockout ${AppConstants.appVersion}. The report stays on '
-                    'this device until you paste it somewhere. It contains '
-                    'device, permission and enforcement '
-                    'state, plus recent event types — never app contents.',
+                    'this phone until you share it. It helps fix problems and '
+                    'never includes the content of your apps.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -230,16 +237,14 @@ class _StatusCard extends StatelessWidget {
     final device = [
       diagnostics.manufacturer,
       if (diagnostics.model.isNotEmpty) diagnostics.model,
-    ].join(' ');
-    final android = diagnostics.sdkInt > 0
-        ? 'Android SDK ${diagnostics.sdkInt}'
-        : 'Android';
+    ].join(' ').trim();
+    final deviceLabel = device.isEmpty ? 'This phone' : device;
 
     final String enforcement;
     if (diagnostics.isLocked) {
       enforcement = 'Daily limit locked';
     } else if (!diagnostics.serviceConfigured) {
-      enforcement = 'No active limit configured';
+      enforcement = 'No daily limit set';
     } else {
       enforcement =
           '${diagnostics.monitoredCount} '
@@ -269,14 +274,16 @@ class _StatusCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        allGood ? 'Ready to protect' : 'Protection needs work',
+                        allGood
+                            ? 'Ready to protect'
+                            : 'Protection needs attention',
                         style: theme.textTheme.titleLarge?.copyWith(
                           color: foreground,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$device · $android',
+                        deviceLabel,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: foreground,
                         ),
@@ -301,7 +308,7 @@ class _StatusCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${diagnostics.passedRequiredChecks} of '
-              '${DeviceDiagnostics.requiredCheckCount} essential checks passed',
+              '${DeviceDiagnostics.requiredCheckCount} checks ready',
               style: theme.textTheme.bodySmall?.copyWith(color: foreground),
             ),
             const SizedBox(height: 8),
@@ -320,7 +327,7 @@ class _StatusCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Battery saver is on now. The watcher may be delayed.',
+                      'Battery saver is on. Lockout may be delayed.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: foreground,
                       ),
@@ -342,7 +349,7 @@ class _CheckTile extends StatelessWidget {
     required this.detail,
     required this.passed,
     required this.onFix,
-    this.fixLabel = 'Fix',
+    this.fixLabel = 'Open',
     this.isOptional = false,
   });
 
@@ -383,7 +390,7 @@ class _CheckTile extends StatelessWidget {
         ),
         trailing: passed
             ? Text(
-                'OK',
+                'Ready',
                 style: theme.textTheme.labelSmall?.copyWith(color: colour),
               )
             : TextButton(onPressed: onFix, child: Text(fixLabel)),
@@ -427,8 +434,8 @@ class _OemCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'OEM battery managers can stop the watcher even after Android '
-              'grants the permission. These steps are the ones that matter most.',
+              'Phone makers can stop Lockout even after you give it access. '
+              'These steps matter most.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.4,
@@ -446,7 +453,7 @@ class _OemCard extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onOpenAutostart,
                     icon: const Icon(Icons.rocket_launch_outlined),
-                    label: const Text('Open autostart settings'),
+                    label: const Text('Open startup settings'),
                   ),
                 OutlinedButton.icon(
                   onPressed: onOpenBattery,
@@ -457,7 +464,7 @@ class _OemCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Names vary by ROM. If a shortcut is missing, use the steps '
+              'Names vary by phone. If a shortcut is missing, use the steps '
               'above in your phone settings.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -518,7 +525,7 @@ class _EventsCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         child: visible.isEmpty
             ? Text(
-                'No events recorded yet. Start the watcher and come back if '
+                'No activity yet. Turn on protection and come back if '
                 'something stops working.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -548,7 +555,7 @@ class _EventsCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              event.message,
+                              friendlyDiagnosticMessage(event),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 height: 1.35,
                               ),
@@ -561,7 +568,7 @@ class _EventsCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       'Showing the latest ${visible.length} of '
-                      '${events.length} events.',
+                      '${events.length} updates.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -595,7 +602,7 @@ class _LevelBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        level,
+        friendlyDiagnosticLevel(level),
         style: theme.textTheme.labelSmall?.copyWith(
           color: colour,
           fontWeight: FontWeight.w600,

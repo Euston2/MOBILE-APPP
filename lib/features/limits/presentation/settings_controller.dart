@@ -82,7 +82,7 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
     final repository = ref.read(settingsRepositoryProvider);
     final current = await _loadReconciled(repository, reload: requireUnlocked);
     if (requireUnlocked && current.isLocked) {
-      throw StateError('The limit is locked until 00:00.');
+      throw StateError('The limit is locked until midnight.');
     }
     final updated = change(current);
     await repository.save(updated);

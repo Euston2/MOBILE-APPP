@@ -85,6 +85,11 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           flutter build apk --release --build-name="$VERSION"
 
+      - name: Verify bundled SQLite library
+        run: |
+          unzip -l build/app/outputs/flutter-apk/app-release.apk |
+            grep -q 'lib/arm64-v8a/libsqlite3.so'
+
       - name: Verify APK signature
         run: |
           SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"

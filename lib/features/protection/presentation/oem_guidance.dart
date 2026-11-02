@@ -33,8 +33,8 @@ OemGuidance oemGuidanceFor({
       steps: [
         'Settings → Apps → Manage apps → Lockout → Autostart: allow.',
         'App info → Battery saver → No restrictions.',
-        'Open Recents, long-press Lockout, then tap the lock icon to keep it '
-            'in memory.',
+        'In Recents, long-press Lockout and tap the lock icon so your phone '
+            'keeps it open.',
       ],
     );
   }
@@ -72,7 +72,7 @@ OemGuidance oemGuidanceFor({
         'Settings → Battery → App battery management (or Auto-launch): allow '
             'Lockout.',
         'Allow auto-start and background activity for Lockout.',
-        'Lock Lockout in Recents so the task cleaner leaves it alone.',
+        "In Recents, lock Lockout so your phone doesn't close it.",
       ],
     );
   }
@@ -84,7 +84,7 @@ OemGuidance oemGuidanceFor({
       steps: [
         'Settings → Battery → Battery optimization → Lockout → Don’t optimize.',
         'App launch → Lockout → allow auto-launch and background activity.',
-        'Lock Lockout in Recents.',
+        'In Recents, lock Lockout so your phone keeps it open.',
       ],
     );
   }
@@ -109,7 +109,7 @@ OemGuidance oemGuidanceFor({
         'Settings → Battery → Background power consumption management → '
             'Lockout → Allow.',
         'Allow auto-start for Lockout.',
-        'Lock Lockout in Recents.',
+        'In Recents, lock Lockout so your phone keeps it open.',
       ],
     );
   }
@@ -120,7 +120,7 @@ OemGuidance oemGuidanceFor({
     steps: [
       'Settings → Apps → Lockout → Battery → Unrestricted.',
       'Allow background activity and auto-start if your phone offers them.',
-      'Keep notifications enabled for the ongoing watcher notification.',
+      'Keep notifications on so Lockout can keep running.',
     ],
   );
 }

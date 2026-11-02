@@ -13,36 +13,38 @@ typedef PermissionCopy = ({
 
 PermissionCopy permissionCopy(PermissionKind kind) => switch (kind) {
   PermissionKind.usageAccess => (
-    title: 'Usage access',
-    shortLabel: 'Usage access',
+    title: 'App activity access',
+    shortLabel: 'Activity access',
     description:
-        'Lets Lockout read how long each app has been in the foreground. '
-        'Android hides this behind a special "Usage access" toggle. Without '
-        'it, nothing can be counted.',
+        'Lets Lockout count how long you spend in your chosen apps. '
+        'Sometimes Android calls this "Usage access". Without it, Lockout '
+        "can't count anything.",
     icon: Icons.query_stats,
   ),
   PermissionKind.overlay => (
-    title: 'Display over other apps',
-    shortLabel: 'Overlay',
+    title: 'Show over other apps',
+    shortLabel: 'Block screen',
     description:
-        'Shows the block screen on top of the app that reached the limit. '
-        'Android only allows this with the overlay permission.',
+        'Lets Lockout show the block screen over an app when time runs out. '
+        'Android calls this "Display over other apps".',
     icon: Icons.layers_outlined,
   ),
   PermissionKind.notifications => (
     title: 'Notifications',
     shortLabel: 'Notifications',
     description:
-        'The background watcher must show a persistent notification — that is '
-        'how Android keeps it alive. It also tells you when the limit is hit.',
+        'Lockout shows a small ongoing notification while protection is on. '
+        'This is how Android keeps it running, and it warns you when your '
+        'limit is reached.',
     icon: Icons.notifications_active_outlined,
   ),
   PermissionKind.batteryOptimization => (
-    title: 'Battery optimisation',
+    title: 'Battery saver',
     shortLabel: 'Battery',
     description:
-        'Exempts Lockout from battery saving so the watcher is not killed. '
-        'Especially important on Xiaomi, Tecno, Infinix and Samsung devices.',
+        "Stops your phone's battery saver from shutting Lockout down. "
+        'Sometimes this is called "Battery optimisation". Important on '
+        'Xiaomi, Tecno, Infinix and Samsung phones.',
     icon: Icons.battery_saver_outlined,
   ),
 };

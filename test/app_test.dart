@@ -15,11 +15,11 @@ void main() {
     );
 
     expect(find.text('Set up Lockout'), findsOneWidget);
-    expect(find.text('Usage access'), findsOneWidget);
-    expect(find.text('Display over other apps'), findsOneWidget);
+    expect(find.text('App activity access'), findsOneWidget);
+    expect(find.text('Show over other apps'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('Battery optimisation'), findsOneWidget);
-    expect(find.text('0 of 4 granted'), findsOneWidget);
+    expect(find.text('Battery saver'), findsOneWidget);
+    expect(find.text('0 of 4 ready'), findsOneWidget);
   });
 
   testWidgets('shows Home when every permission is granted', (tester) async {
@@ -55,7 +55,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Today'), findsOneWidget);
-    expect(find.text('4 permissions missing'), findsOneWidget);
+    expect(find.text('4 settings need attention'), findsOneWidget);
     expect(settings.settings.onboardingCompleted, isTrue);
     expect(settings.saveCalls, 1);
 

@@ -41,10 +41,10 @@ class OnboardingScreen extends ConsumerWidget {
       onResume: refresh,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(isRoot ? 'Set up Lockout' : 'Permissions'),
+          title: Text(isRoot ? 'Set up Lockout' : 'Allow access'),
           actions: [
             IconButton(
-              tooltip: 'Re-check permissions',
+              tooltip: 'Check again',
               onPressed: refresh,
               icon: const Icon(Icons.refresh),
             ),
@@ -52,10 +52,14 @@ class OnboardingScreen extends ConsumerWidget {
         ),
         body: permissions.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => ErrorRetryView(
-            message: '$error',
-            onRetry: () => ref.invalidate(permissionsControllerProvider),
-          ),
+          error: (error, _) {
+            debugPrint('Permission check failed: $error');
+            return ErrorRetryView(
+              title: "Couldn't check access",
+              message: 'Please try again.',
+              onRetry: () => ref.invalidate(permissionsControllerProvider),
+            );
+          },
           data: (snapshot) => ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
@@ -83,7 +87,7 @@ class OnboardingScreen extends ConsumerWidget {
               if (!snapshot.canTrack) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Usage access is required before anything can be counted.',
+                  'Allow app activity access so Lockout can count your time.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.error,
@@ -98,7 +102,7 @@ class OnboardingScreen extends ConsumerWidget {
                   ),
                 ),
                 icon: const Icon(Icons.battery_saver_outlined),
-                label: const Text('Device-specific battery help'),
+                label: const Text('Battery help for your phone'),
               ),
               if (isRoot) ...[
                 const SizedBox(height: 4),
@@ -113,8 +117,8 @@ class OnboardingScreen extends ConsumerWidget {
               ],
               const SizedBox(height: 12),
               Text(
-                'Lockout reads usage numbers on this device only. Nothing is '
-                'sent anywhere.',
+                'Lockout counts app time only on this phone. Nothing is sent '
+                'anywhere.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -155,7 +159,7 @@ class _IntroCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'A hard limit needs a few permissions',
+                    'A few settings keep Lockout running',
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
@@ -169,7 +173,7 @@ class _IntroCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '$granted of ${PermissionKind.values.length} granted',
+              '$granted of ${PermissionKind.values.length} ready',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

@@ -36,7 +36,7 @@ void main() {
     expect(find.text('30m'), findsOneWidget);
     expect(find.text('10m'), findsOneWidget);
     expect(find.text('40m'), findsOneWidget);
-    expect(find.text('Since 00:00 · 2 apps'), findsOneWidget);
+    expect(find.text('Since midnight · 2 apps'), findsOneWidget);
     expect(find.text('No daily limit set yet'), findsOneWidget);
 
     await disposeTestApp(tester);
@@ -72,7 +72,8 @@ void main() {
       permissions: FakePermissionsRepository(allGranted),
     );
 
-    expect(find.text("Couldn't reach the Android layer"), findsOneWidget);
+    expect(find.text("Couldn't load today's usage"), findsOneWidget);
+    expect(find.textContaining('usage unavailable'), findsNothing);
     expect(find.text('Retry'), findsOneWidget);
 
     await disposeTestApp(tester);
@@ -116,10 +117,10 @@ void main() {
     expect(find.text('1h 05m'), findsWidgets);
     expect(find.text('of 1h'), findsOneWidget);
     expect(find.text('Limit reached · 5m over'), findsOneWidget);
-    expect(find.text('1 monitored'), findsOneWidget);
+    expect(find.text('1 app'), findsOneWidget);
     expect(find.text('Edit limit & apps'), findsOneWidget);
     expect(
-      find.text('Monitored apps are blocked until 00:00.'),
+      find.text('Your chosen apps are blocked until midnight.'),
       findsOneWidget,
     );
 
@@ -148,7 +149,10 @@ void main() {
 
     expect(find.text('of 1h'), findsOneWidget);
     expect(find.text('45m left today'), findsOneWidget);
-    expect(find.text('Monitored apps are blocked until 00:00.'), findsNothing);
+    expect(
+      find.text('Your chosen apps are blocked until midnight.'),
+      findsNothing,
+    );
 
     await disposeTestApp(tester);
   });
@@ -180,11 +184,11 @@ void main() {
       ]),
     );
 
-    expect(find.text('Locked until 00:00'), findsOneWidget);
+    expect(find.text('Locked until midnight'), findsOneWidget);
     expect(find.text('Locked'), findsOneWidget);
     expect(find.text('Edit limit & apps'), findsNothing);
     expect(
-      find.text('Monitored apps are blocked until 00:00.'),
+      find.text('Your chosen apps are blocked until midnight.'),
       findsOneWidget,
     );
 
@@ -221,7 +225,7 @@ void main() {
       ]),
     );
 
-    expect(find.text('New settings start at 00:00'), findsOneWidget);
+    expect(find.text('New settings start at midnight'), findsOneWidget);
     expect(find.textContaining('Tomorrow: 1h · 2 apps'), findsOneWidget);
     // Today's limit is still the active one.
     expect(find.text('15m left today'), findsOneWidget);
@@ -229,7 +233,7 @@ void main() {
     await disposeTestApp(tester);
   });
 
-  testWidgets('shows a retry banner when the native blocker fails', (
+  testWidgets('shows a retry banner when protection fails to start', (
     tester,
   ) async {
     await pumpLockoutApp(
@@ -248,7 +252,7 @@ void main() {
       blocking: FakeBlockingRepository(error: StateError('service refused')),
     );
 
-    expect(find.text("The blocker couldn't start"), findsOneWidget);
+    expect(find.text("Protection couldn't start"), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
 
     await disposeTestApp(tester);

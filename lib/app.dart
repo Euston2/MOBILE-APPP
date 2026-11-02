@@ -49,9 +49,11 @@ class _AppGate extends ConsumerWidget {
     ref.watch(archiveImportProvider);
 
     if (settings.hasError) {
+      debugPrint('Settings load failed: ${settings.error}');
       return Scaffold(
         body: ErrorRetryView(
-          message: '${settings.error}',
+          title: "Lockout couldn't start",
+          message: "Your settings didn't load. Please try again.",
           onRetry: () => ref.invalidate(settingsControllerProvider),
         ),
       );
@@ -59,12 +61,16 @@ class _AppGate extends ConsumerWidget {
 
     return permissions.when(
       loading: () => const _StartupScreen(),
-      error: (error, _) => Scaffold(
-        body: ErrorRetryView(
-          message: '$error',
-          onRetry: () => ref.invalidate(permissionsControllerProvider),
-        ),
-      ),
+      error: (error, _) {
+        debugPrint('Permission check failed: $error');
+        return Scaffold(
+          body: ErrorRetryView(
+            title: "Lockout couldn't check your phone",
+            message: 'Please try again.',
+            onRetry: () => ref.invalidate(permissionsControllerProvider),
+          ),
+        );
+      },
       data: (snapshot) {
         final current = settings.value;
         if (current == null) return const _StartupScreen();
