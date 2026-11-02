@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../domain/entities/device_diagnostics.dart';
@@ -192,8 +193,9 @@ class ProtectionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'The report stays on this device until you paste it '
-                    'somewhere. It contains device, permission and enforcement '
+                    'Lockout ${AppConstants.appVersion}. The report stays on '
+                    'this device until you paste it somewhere. It contains '
+                    'device, permission and enforcement '
                     'state, plus recent event types — never app contents.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
