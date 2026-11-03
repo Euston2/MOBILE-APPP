@@ -27,9 +27,10 @@ object MidnightReset {
         val archived: Boolean,
         val lockCleared: Boolean,
         val materialised: Boolean,
+        val resetAdvanced: Boolean,
     ) {
         val changed: Boolean
-            get() = archived || lockCleared || materialised
+            get() = archived || lockCleared || materialised || resetAdvanced
     }
 
     fun recover(
@@ -123,7 +124,26 @@ object MidnightReset {
             cleared = true
         }
 
-        return Result(current, archived, cleared, materialised)
+        // The daily limit is persistent, so an unlocked config can outlive the
+        // day its reset timestamp was written for. Roll it forward as well;
+        // otherwise a later lock/config sync would carry a stale reset date.
+        var resetAdvanced = false
+        if (!current.isLocked && nowMs >= current.nextResetAtMs) {
+            val resetAtMs = DayMath.nextLocalMidnight(nowMs)
+            current = current.copy(nextResetAtMs = resetAtMs)
+            BlockingStore.saveLock(context, current)
+            FlutterSettings.writeLock(context, false, 0L, resetAtMs)
+            resetAdvanced = true
+            LockoutLog.info(context, "daily reset date advanced")
+        }
+
+        return Result(
+            current,
+            archived,
+            cleared,
+            materialised,
+            resetAdvanced,
+        )
     }
 
     /**

@@ -62,6 +62,53 @@ void main() {
     expect(afterReset.nextResetAt, DateTime(2026, 11, 3));
   });
 
+  test('keeps the daily limit active on later days', () {
+    final settings = settingsWith(
+      dailyLimitSeconds: 1800,
+      nextResetAt: resetAt,
+    );
+
+    final nextDay = reconcileSettings(settings, DateTime(2026, 10, 31, 9));
+    expect(nextDay.dailyLimitSeconds, 1800);
+    expect(nextDay.isLocked, isFalse);
+    expect(nextDay.nextResetAt, DateTime(2026, 11, 1));
+
+    final laterDay = reconcileSettings(nextDay, DateTime(2026, 11, 3, 18));
+    expect(laterDay.dailyLimitSeconds, 1800);
+    expect(laterDay.pendingLimitSeconds, isNull);
+    expect(laterDay.nextResetAt, DateTime(2026, 11, 4));
+  });
+
+  test('keeps a scheduled limit after it becomes active', () {
+    final settings = settingsWith(
+      dailyLimitSeconds: 1800,
+      pendingLimitSeconds: 3600,
+      pendingEffectiveAt: effectiveAt,
+      nextResetAt: resetAt,
+    );
+
+    final applied = reconcileSettings(settings, DateTime(2026, 10, 30, 0, 1));
+    expect(applied.dailyLimitSeconds, 3600);
+    expect(applied.pendingLimitSeconds, isNull);
+
+    final nextDay = reconcileSettings(applied, DateTime(2026, 11, 1, 9));
+    expect(nextDay.dailyLimitSeconds, 3600);
+    expect(nextDay.pendingLimitSeconds, isNull);
+  });
+
+  test('rolls an expired reset forward even when no lock is active', () {
+    final settings = settingsWith(
+      dailyLimitSeconds: 1800,
+      nextResetAt: resetAt,
+    );
+
+    final result = reconcileSettings(settings, DateTime(2026, 11, 2, 9));
+
+    expect(result.nextResetAt, DateTime(2026, 11, 3));
+    expect(result.lockedAt, isNull);
+    expect(result.isLocked, isFalse);
+  });
+
   test('does nothing when neither transition is due', () {
     final settings = settingsWith(
       dailyLimitSeconds: 1800,

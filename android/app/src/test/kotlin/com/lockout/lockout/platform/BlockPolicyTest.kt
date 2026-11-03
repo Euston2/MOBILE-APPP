@@ -210,6 +210,17 @@ class BlockPolicyTest {
     }
 
     @Test
+    fun `daily limit stays active on later days`() {
+        val threeDaysLater = now + 3L * 24L * 60L * 60L * 1_000L
+
+        val active = config.effectiveAt(threeDaysLater)
+
+        assertTrue(config.isActive)
+        assertEquals(config.dailyLimitSeconds, active.limitSeconds)
+        assertEquals(config.monitoredPackages, active.packages)
+    }
+
+    @Test
     fun `a pending configuration keeps the watcher active`() {
         val pendingOnly = BlockingConfig(
             monitoredPackages = emptySet(),

@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-1.0.1-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-1.0.2-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -23,9 +23,9 @@ way to talk yourself out of it at 11 p.m.
 | 4 | Lock & midnight reset | `v0.4.0` | ✅ done |
 | 5 | History & stats | `v0.5.0` | ✅ done |
 | 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ✅ done |
-| 7 | Release (friends-and-family preview) | `v1.0.1` | 🚧 preview |
+| 7 | Release (friends-and-family preview) | `v1.0.2` | 🚧 preview |
 
-The `1.0.1` APK is currently a friends-and-family preview built from `develop`.
+The `1.0.2` APK is currently a friends-and-family preview built from `develop`.
 It is debug-signed and not on Play Store; use it only for feedback. A tagged
 public release waits until release signing secrets and the device matrix are
 complete.

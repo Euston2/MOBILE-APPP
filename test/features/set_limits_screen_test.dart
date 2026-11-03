@@ -64,6 +64,24 @@ void main() {
     expect(find.text('30m'), findsWidgets);
     expect(find.text('1 selected'), findsOneWidget);
     expect(find.text('combined across 1 app'), findsOneWidget);
+    expect(find.text('Instagram'), findsOneWidget);
+    // Package names are internal identifiers and should not be visible.
+    expect(find.text('com.instagram.android'), findsNothing);
+  });
+
+  testWidgets('search uses app names, not package identifiers', (tester) async {
+    await pumpLimits(
+      tester,
+      settings: FakeSettingsRepository(),
+      monitored: FakeMonitoredAppsRepository(),
+    );
+
+    await tester.enterText(find.byType(TextField), 'com.instagram');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Instagram'), findsNothing);
+    expect(find.text('TikTok'), findsNothing);
+    expect(find.text('No apps match "com.instagram".'), findsOneWidget);
   });
 
   testWidgets('schedules a new limit and selection for tomorrow', (

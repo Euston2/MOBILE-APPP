@@ -8,20 +8,37 @@ import android.content.Intent
  * Receives the exact midnight alarm.
  *
  * The receiver runs without Flutter. It archives yesterday, clears an expired
- * lock, and re-arms the next alarm. It does not try to start the foreground
- * service: Android 12+ restricts background service starts, and the sticky
- * service is normally already running; if it is not, the next poll/start
- * performs the same recovery.
+ * lock, folds in a pending configuration, rolls the daily reset forward and
+ * re-arms the next alarm.
+ *
+ * It also asks the foreground watcher to start. The service is normally already
+ * running, but an OEM battery manager can kill it overnight; without this kick
+ * the next day's persistent limit would not be enforced until the user opened
+ * Lockout again. Exact alarms are one of the platform's allowed background
+ * foreground-service starts, and a restriction failure is harmless because the
+ * sticky service or the next app launch recovers it.
  */
 class MidnightReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         LockoutLog.info(context, "midnight alarm received")
         val result = MidnightReset.recover(context)
         val nowMs = System.currentTimeMillis()
-        if (result.config.isActive) {
-            MidnightAlarm.scheduleNext(context, nowMs)
-        } else {
+        if (!result.config.isActive) {
             MidnightAlarm.cancel(context)
+            return
+        }
+
+        MidnightAlarm.scheduleNext(context, nowMs)
+        try {
+            BlockingService.start(context)
+        } catch (error: Exception) {
+            // Background-start restriction; the next service/app start performs
+            // the same recovery.
+            LockoutLog.warn(
+                context,
+                "could not restart watcher at midnight: " +
+                    error.javaClass.simpleName,
+            )
         }
     }
 }
