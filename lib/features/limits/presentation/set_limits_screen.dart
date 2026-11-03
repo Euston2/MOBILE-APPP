@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/app_names.dart';
 import '../../../core/utils/day_window.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
@@ -119,10 +120,11 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
         if (app.scheduledEnabled) app.packageName,
     };
     _labelByPackage = {
-      for (final app in widget.installed) app.packageName: app.displayName,
+      for (final app in widget.installed)
+        app.packageName: friendlyAppName(app.packageName, app.displayName),
       for (final app in widget.monitored)
         if (!widget.installed.any((i) => i.packageName == app.packageName))
-          app.packageName: app.displayName,
+          app.packageName: friendlyAppName(app.packageName, app.displayName),
     };
   }
 
@@ -137,9 +139,7 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
         _labelByPackage.entries
             .where(
               (entry) =>
-                  _query.isEmpty ||
-                  entry.value.toLowerCase().contains(_query) ||
-                  entry.key.toLowerCase().contains(_query),
+                  _query.isEmpty || entry.value.toLowerCase().contains(_query),
             )
             .toList()
           ..sort(
@@ -155,7 +155,9 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
           for (final packageName in _selected)
             MonitoredApp(
               packageName: packageName,
-              displayName: _labelByPackage[packageName] ?? packageName,
+              displayName:
+                  _labelByPackage[packageName] ??
+                  friendlyAppName(packageName, null),
             ),
         ]..sort(
           (a, b) => a.displayName.toLowerCase().compareTo(
@@ -308,11 +310,6 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(entry.value),
-                  subtitle: Text(
-                    entry.key,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                   value: _selected.contains(entry.key),
                   onChanged: _locked
                       ? null

@@ -123,6 +123,38 @@ void main() {
     await disposeTestApp(tester);
   });
 
+  testWidgets('does not show package identifiers for removed apps', (
+    tester,
+  ) async {
+    final history = FakeHistoryRepository(
+      days: [
+        HistoryDay(
+          date: daysAgo(1),
+          totalSeconds: 600,
+          limitSeconds: 0,
+          apps: const {'com.example.removed': 600},
+        ),
+      ],
+    );
+
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(apps: const []),
+      history: history,
+    );
+
+    await tester.tap(find.byTooltip('History'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('No limit set'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Removed app'), findsOneWidget);
+    expect(find.text('com.example.removed'), findsNothing);
+
+    await disposeTestApp(tester);
+  });
+
   testWidgets('switches the window from 7 to 30 days', (tester) async {
     final history = FakeHistoryRepository(
       days: [

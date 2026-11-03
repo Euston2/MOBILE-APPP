@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Release 1.0.2 preview
+
+- Version `1.0.2+10`, with the app version shown in the Protection check support
+  report footer.
+- App names are the only visible labels in Limit & apps, Home and History.
+  Package identifiers such as `com.twitter` are no longer shown as subtitles or
+  fallback labels; unknown or removed apps use friendly placeholders.
+- A saved daily limit now keeps applying on every later day without opening
+  Limit & apps or saving again. Reset timestamps roll forward on both the Dart
+  and native sides, the midnight alarm restarts the watcher if an OEM battery
+  manager killed it during the night, and opening or refreshing Home re-pushes
+  the saved config.
+- Added regression tests for app-name-only labels and multi-day limit
+  persistence.
+
 ### Release 1.0.1 preview
 
 - Version `1.0.1+9`, with the app version shown in the Protection check support

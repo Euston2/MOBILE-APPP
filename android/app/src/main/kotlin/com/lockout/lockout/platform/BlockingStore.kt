@@ -42,6 +42,10 @@ object BlockingStore {
     }
 
     fun save(context: Context, config: BlockingConfig) {
+        // commit(), not apply(): a config push is followed immediately by a
+        // foreground-service start, and the process can be killed before an
+        // asynchronous disk write lands. Losing this snapshot would drop the
+        // saved daily limit on the next service restart.
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putStringSet(KEY_PACKAGES, config.monitoredPackages)
@@ -52,7 +56,7 @@ object BlockingStore {
             .putBoolean(KEY_LOCKED, config.isLocked)
             .putLong(KEY_LOCKED_AT, config.lockedAtMs)
             .putLong(KEY_RESET_AT, config.nextResetAtMs)
-            .apply()
+            .commit()
     }
 
     /** Persists the lock immediately; the service may be killed right after. */

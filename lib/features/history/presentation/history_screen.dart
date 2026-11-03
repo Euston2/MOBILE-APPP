@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
+import '../../../core/utils/app_names.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../domain/entities/history_day.dart';
 import '../../../domain/entities/installed_app.dart';
@@ -33,8 +34,10 @@ class HistoryScreen extends ConsumerWidget {
         ref.watch(monitoredAppsControllerProvider).value ??
         const <MonitoredApp>[];
     final labels = <String, String>{
-      for (final app in installed) app.packageName: app.displayName,
-      for (final app in monitored) app.packageName: app.displayName,
+      for (final app in installed)
+        app.packageName: friendlyAppName(app.packageName, app.displayName),
+      for (final app in monitored)
+        app.packageName: friendlyAppName(app.packageName, app.displayName),
     };
 
     return Scaffold(
@@ -368,7 +371,12 @@ class _DayTile extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      labels[entry.key] ?? entry.key,
+                      labels[entry.key] ??
+                          friendlyAppName(
+                            entry.key,
+                            null,
+                            fallback: removedAppName,
+                          ),
                       style: theme.textTheme.bodyMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

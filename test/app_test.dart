@@ -111,6 +111,69 @@ void main() {
     await disposeTestApp(tester);
   });
 
+  testWidgets('keeps a saved limit active after its reset date has passed', (
+    tester,
+  ) async {
+    final blocking = FakeBlockingRepository();
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 3600,
+          nextResetAt: DateTime.now().subtract(const Duration(days: 2)),
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+      blocking: blocking,
+    );
+
+    final config = blocking.synced.last;
+    expect(config.dailyLimitSeconds, 3600);
+    expect(config.monitoredPackages, {'com.instagram.android'});
+    expect(config.isActive, isTrue);
+    expect(config.nextResetAt.isAfter(DateTime.now()), isTrue);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('refreshing Home re-sends the saved limit to the watcher', (
+    tester,
+  ) async {
+    final blocking = FakeBlockingRepository();
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(dailyLimitSeconds: 3600),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+      blocking: blocking,
+    );
+
+    final before = blocking.synced.length;
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pumpAndSettle();
+
+    expect(blocking.synced.length, greaterThan(before));
+    expect(blocking.synced.last.dailyLimitSeconds, 3600);
+    expect(blocking.synced.last.isActive, isTrue);
+
+    await disposeTestApp(tester);
+  });
+
   testWidgets('pushes scheduled settings to the native watcher', (
     tester,
   ) async {

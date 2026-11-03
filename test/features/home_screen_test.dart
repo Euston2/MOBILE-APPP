@@ -42,7 +42,7 @@ void main() {
     await disposeTestApp(tester);
   });
 
-  testWidgets('falls back to the package name when the label is unknown', (
+  testWidgets('uses a friendly placeholder when the app name is unknown', (
     tester,
   ) async {
     final usage = FakeUsageRepository(
@@ -56,7 +56,8 @@ void main() {
       permissions: FakePermissionsRepository(allGranted),
     );
 
-    expect(find.text('com.example.unknown'), findsOneWidget);
+    expect(find.text('Unknown app'), findsOneWidget);
+    expect(find.text('com.example.unknown'), findsNothing);
 
     await disposeTestApp(tester);
   });

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/app_names.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../domain/entities/app_usage.dart';
@@ -38,6 +39,10 @@ class HomeScreen extends ConsumerWidget {
     // while the app was in the background.
     ref.invalidate(monitoredAppsControllerProvider);
     ref.invalidate(archiveImportProvider);
+    // Re-push the saved limit even when its values did not change. The native
+    // watcher may have been killed overnight; opening or refreshing Home should
+    // restore enforcement without making the user save the settings again.
+    ref.invalidate(blockingSyncProvider);
   }
 
   Future<void> _openPermissions(BuildContext context) {
@@ -75,8 +80,10 @@ class HomeScreen extends ConsumerWidget {
     final installed =
         ref.watch(installedAppsProvider).value ?? const <InstalledApp>[];
     final labels = <String, String>{
-      for (final app in installed) app.packageName: app.displayName,
-      for (final app in monitored ?? const []) app.packageName: app.displayName,
+      for (final app in installed)
+        app.packageName: friendlyAppName(app.packageName, app.displayName),
+      for (final app in monitored ?? const [])
+        app.packageName: friendlyAppName(app.packageName, app.displayName),
     };
     final missing = permissions?.missing ?? const <PermissionKind>[];
     final monitoredCount = monitored?.where((app) => app.isEnabled).length ?? 0;
@@ -197,7 +204,9 @@ class HomeScreen extends ConsumerWidget {
                           for (final app in summary.perApp)
                             _AppUsageRow(
                               usage: app,
-                              label: labels[app.packageName] ?? app.packageName,
+                              label:
+                                  labels[app.packageName] ??
+                                  friendlyAppName(app.packageName, null),
                               fraction: summary.topApp == null
                                   ? 0
                                   : app.seconds / summary.topApp!.seconds,
