@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Release 1.1.0 preview
+
+- Version `1.1.0+11`.
+- Added **Focus locks**, both applying to the apps selected in Limit & apps:
+  - **Overnight lock** — a recurring hard block every night from 12:00 AM to
+    8:00 AM. Once enabled it cannot be turned off during the active window.
+  - **Study lock** — a one-off session with `25m`, `45m`, `1h`, `1h 30m`, `2h`,
+    `3h` or `4h` presets. It starts immediately, closes the selected apps, and
+    cannot be stopped before its end time.
+- Added a Focus locks screen with overnight and study controls, live session
+  countdown/progress, and a shortcut back to the monitored-app selection. Home
+  now shows a Focus locks card with the active lock and its end time.
+- Limit & apps becomes read-only while either focus lock is active, and the
+  Dart controllers reject edits as well, so a focused app cannot be unblocked by
+  changing the limit or selection.
+- Native enforcement understands both focus locks: study time has priority over
+  the overnight window, which has priority over the daily lock and daily limit.
+  The block screen, overlay and foreground notification use focus-specific copy
+  and end times.
+- Focus state is persisted in `shared_preferences` and pushed to the native
+  watcher through `BlockingConfig`, so it survives app restarts and the Flutter
+  process being killed.
+- Added regression tests for focus-window boundaries, study expiry/cleanup,
+  controller guards, prefs persistence, Focus and Home UI, native policy
+  priority and native copy. Dart tests are now 163; all `:app` JVM tests,
+  `flutter analyze` and the debug APK build pass.
+
 ### Release 1.0.2 preview
 
 - Version `1.0.2+10`, with the app version shown in the Protection check support

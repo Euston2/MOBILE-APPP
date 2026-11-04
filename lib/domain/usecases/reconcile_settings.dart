@@ -9,6 +9,7 @@ import '../entities/usage_settings.dart';
 ///
 /// - a scheduled limit becomes active once `now >= pending_effective_at`;
 /// - a lock is cleared once `now >= next_reset_at`;
+/// - an expired study session is cleared so the focus UI turns itself off;
 /// - the reset timestamp rolls forward to the coming midnight once the stored
 ///   one is in the past, even when no lock was active.
 ///
@@ -31,6 +32,11 @@ UsageSettings reconcileSettings(UsageSettings settings, DateTime now) {
       dailyLimitSeconds: pendingLimit,
       clearPendingLimit: true,
     );
+  }
+
+  final studyEndsAt = result.studyEndsAt;
+  if (studyEndsAt != null && !now.isBefore(studyEndsAt)) {
+    result = result.copyWith(clearStudyEndsAt: true);
   }
 
   if (!now.isBefore(result.nextResetAt)) {

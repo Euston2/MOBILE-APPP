@@ -7,6 +7,12 @@ enum class BlockReason(val wireName: String) {
 
     /** The limit was hit earlier and the daily lock has not expired yet. */
     LOCKED("locked"),
+
+    /** The fixed 00:00-08:00 overnight focus window is active. */
+    OVERNIGHT("overnight"),
+
+    /** A one-off study session is running. */
+    STUDY("study"),
 }
 
 /**
@@ -33,6 +39,20 @@ object BlockPolicy {
         usedSecondsToday: Long,
         nowMs: Long,
     ): BlockReason? {
+        val active = config.effectiveAt(nowMs)
+
+        // Focus locks are hard time windows, independent of today's usage.
+        // They only apply when there is at least one selected app.
+        if (active.packages.isNotEmpty()) {
+            if (config.studyEndsAtMs > nowMs) return BlockReason.STUDY
+            if (
+                config.overnightLockEnabled &&
+                DayMath.isInOvernightWindow(nowMs)
+            ) {
+                return BlockReason.OVERNIGHT
+            }
+        }
+
         // A lock only matters until its reset instant. Checking the clock
         // (rather than trusting an alarm) is what makes the lock survive a
         // missed reset, a force-stop or a reboot.
@@ -40,7 +60,6 @@ object BlockPolicy {
             return BlockReason.LOCKED
         }
 
-        val active = config.effectiveAt(nowMs)
         if (active.limitSeconds > 0 && usedSecondsToday >= active.limitSeconds) {
             return BlockReason.LIMIT_REACHED
         }

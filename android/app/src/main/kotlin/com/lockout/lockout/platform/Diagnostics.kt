@@ -17,6 +17,7 @@ object Diagnostics {
     fun snapshot(context: Context): Map<String, Any> {
         val permissions = PermissionController.snapshot(context)
         val config = BlockingStore.load(context)
+        val nowMs = System.currentTimeMillis()
         val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
 
         return mapOf(
@@ -31,8 +32,10 @@ object Diagnostics {
                 (permissions["batteryOptimizationIgnored"] == true),
             "exactAlarmsAllowed" to MidnightAlarm.canScheduleExact(context),
             "powerSaveMode" to (power?.isPowerSaveMode == true),
-            "serviceConfigured" to config.isActive,
+            "serviceConfigured" to config.isActiveAt(nowMs),
             "isLocked" to config.isLocked,
+            "overnightLockEnabled" to config.overnightLockEnabled,
+            "studyEndsAtMs" to config.studyEndsAtMs,
             "lockedAtMs" to config.lockedAtMs,
             "nextResetAtMs" to config.nextResetAtMs,
             "limitSeconds" to config.dailyLimitSeconds,

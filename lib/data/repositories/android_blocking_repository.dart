@@ -18,6 +18,8 @@ class AndroidBlockingRepository implements BlockingRepository {
     isLocked: config.isLocked,
     lockedAt: config.lockedAt,
     nextResetAt: config.nextResetAt,
+    overnightLockEnabled: config.overnightLockEnabled,
+    studyEndsAt: config.studyEndsAt,
   );
 
   @override

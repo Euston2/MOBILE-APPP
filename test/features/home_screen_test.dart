@@ -234,6 +234,63 @@ void main() {
     await disposeTestApp(tester);
   });
 
+  testWidgets('opens the focus locks screen from the Home card', (
+    tester,
+  ) async {
+    await pumpLockoutApp(
+      tester,
+      usage: FakeUsageRepository(),
+      permissions: FakePermissionsRepository(allGranted),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+    );
+
+    expect(find.text('Focus locks'), findsOneWidget);
+    expect(
+      find.text('Overnight 12-8 AM and one-off study sessions.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Focus locks'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Block every night'), findsOneWidget);
+    expect(find.text('Start study lock'), findsOneWidget);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('shows an active study lock on Home', (tester) async {
+    final endsAt = DateTime.now().add(const Duration(minutes: 25));
+    await pumpLockoutApp(
+      tester,
+      usage: FakeUsageRepository(),
+      permissions: FakePermissionsRepository(allGranted),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 3600,
+          studyEndsAt: endsAt,
+          studyLengthMinutes: 25,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+    );
+
+    expect(find.text('Study lock on'), findsOneWidget);
+    expect(find.textContaining('Selected apps are blocked.'), findsOneWidget);
+
+    await disposeTestApp(tester);
+  });
+
   testWidgets('shows a retry banner when protection fails to start', (
     tester,
   ) async {

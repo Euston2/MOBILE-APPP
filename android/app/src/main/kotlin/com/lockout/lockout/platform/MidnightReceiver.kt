@@ -23,7 +23,7 @@ class MidnightReceiver : BroadcastReceiver() {
         LockoutLog.info(context, "midnight alarm received")
         val result = MidnightReset.recover(context)
         val nowMs = System.currentTimeMillis()
-        if (!result.config.isActive) {
+        if (!result.config.isActiveAt(nowMs)) {
             MidnightAlarm.cancel(context)
             return
         }

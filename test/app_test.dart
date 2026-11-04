@@ -252,6 +252,69 @@ void main() {
     await disposeTestApp(tester);
   });
 
+  testWidgets('pushes focus locks to the native watcher', (tester) async {
+    final blocking = FakeBlockingRepository();
+    final studyEndsAt = DateTime.now().add(const Duration(minutes: 45));
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          overnightLockEnabled: true,
+          studyEndsAt: studyEndsAt,
+          studyLengthMinutes: 45,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+      blocking: blocking,
+    );
+
+    final config = blocking.synced.last;
+    expect(config.overnightLockEnabled, isTrue);
+    expect(config.studyEndsAt, studyEndsAt);
+    expect(config.hasOvernightFocus, isTrue);
+    expect(config.hasStudyFocus, isTrue);
+    expect(config.isActive, isTrue);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('starts the watcher for a focus lock without a daily limit', (
+    tester,
+  ) async {
+    final blocking = FakeBlockingRepository();
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          studyEndsAt: DateTime.now().add(const Duration(minutes: 25)),
+          studyLengthMinutes: 25,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+      blocking: blocking,
+    );
+
+    expect(blocking.synced, isNotEmpty);
+    expect(blocking.synced.last.studyEndsAt, isNotNull);
+    expect(blocking.synced.last.isActive, isTrue);
+
+    await disposeTestApp(tester);
+  });
+
   testWidgets('stops the native watcher when no limit is configured', (
     tester,
   ) async {

@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-1.0.2-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-1.1.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -23,9 +23,10 @@ way to talk yourself out of it at 11 p.m.
 | 4 | Lock & midnight reset | `v0.4.0` | ✅ done |
 | 5 | History & stats | `v0.5.0` | ✅ done |
 | 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ✅ done |
-| 7 | Release (friends-and-family preview) | `v1.0.2` | 🚧 preview |
+| 7 | Release (friends-and-family preview) | `v1.0.2` | ✅ preview |
+| 8 | Focus locks (overnight + study) | `v1.1.0` | 🚧 preview |
 
-The `1.0.2` APK is currently a friends-and-family preview built from `develop`.
+The `1.1.0` APK is currently a friends-and-family preview built from `develop`.
 It is debug-signed and not on Play Store; use it only for feedback. A tagged
 public release waits until release signing secrets and the device matrix are
 complete.
@@ -33,6 +34,17 @@ complete.
 Once the limit is reached, Lockout stamps a persisted lock and keeps the apps
 blocked until local midnight. Limit and app changes made while a limit is active
 are saved for the next day, so today's rules cannot be relaxed at 11 p.m.
+
+Two optional hard focus locks sit on top of that:
+
+- **Overnight lock** blocks the selected apps every night from 12:00 AM to
+  8:00 AM. While that window is running it cannot be switched off.
+- **Study lock** starts a one-off session immediately and closes the selected
+  apps for the chosen duration (25 minutes to 4 hours). It cannot be stopped
+  early.
+
+While either focus lock is active, Limit & apps is read-only so the block cannot
+be bypassed by relaxing the limit or changing the app selection.
 
 ## How it works (v1 target)
 
@@ -54,6 +66,11 @@ are saved for the next day, so today's rules cannot be relaxed at 11 p.m.
   (`pending_limit_seconds`, `pending_effective_at`, and `pending_enabled` per
   app). Kotlin receives both the current and pending configurations and switches
   by clock, so the change lands at 00:00 even if Flutter is not running.
+- **Focus locks** — the recurring overnight window (00:00–08:00) and a one-off
+  study session share the same native enforcement as the daily limit. Study
+  time has priority over the overnight window, then the daily lock, then the
+  daily limit. Both are hard windows: the UI and controllers refuse to edit the
+  limit or app selection until the active lock ends.
 - **Reset** — `AlarmManager.setExactAndAllowWhileIdle` fires at 00:00 local time
   (with a doze-safe inexact fallback when exact-alarm access is unavailable); a
   `BOOT_COMPLETED`/`TIME_SET`/`TIMEZONE_CHANGED` receiver re-arms it. Any start
@@ -100,10 +117,11 @@ are not reconstructed.
 
 Storage split: settings and lock state (`daily_limit_seconds`,
 `pending_limit_seconds`, `pending_effective_at`, `is_locked`, `locked_at`,
-`next_reset_at`, onboarding flag) live in `shared_preferences` because the
-service reads them on every check; the monitored-app list and all daily usage
-history live in a drift/SQLite database so they can grow and be queried. See
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#storage).
+`next_reset_at`, `overnight_lock_enabled`, `study_ends_at`,
+`study_length_minutes`, onboarding flag) live in `shared_preferences` because
+the service reads them on every check; the monitored-app list and all daily
+usage history live in a drift/SQLite database so they can grow and be queried.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#storage).
 
 ## Project structure
 
@@ -128,6 +146,7 @@ lib/
     ├── onboarding/presentation
     ├── home/{data,domain,presentation}
     ├── limits/{data,domain,presentation}
+    ├── focus/presentation
     ├── blocking/{data,domain,presentation}
     ├── history/{data,domain,presentation}
     └── protection/presentation

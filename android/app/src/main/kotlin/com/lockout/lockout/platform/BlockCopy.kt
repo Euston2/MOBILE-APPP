@@ -1,5 +1,9 @@
 package com.lockout.lockout.platform
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
 /**
  * Human-readable durations for the native block screen, notification and
  * overlay.
@@ -28,18 +32,39 @@ object BlockCopy {
     fun title(reason: BlockReason): String = when (reason) {
         BlockReason.LIMIT_REACHED -> "Time's up"
         BlockReason.LOCKED -> "Locked until midnight"
+        BlockReason.OVERNIGHT -> "Overnight lock"
+        BlockReason.STUDY -> "Study time"
     }
 
-    fun detail(reason: BlockReason, usedSeconds: Long, limitSeconds: Long): String =
-        when (reason) {
-            BlockReason.LIMIT_REACHED ->
-                "You have used ${formatDuration(usedSeconds)} of your " +
-                    "${formatDuration(limitSeconds)} daily limit."
-            BlockReason.LOCKED ->
-                "Your ${formatDuration(limitSeconds)} daily limit is locked. " +
-                    "You had used ${formatDuration(usedSeconds)} when it was hit."
-        }
+    fun detail(
+        reason: BlockReason,
+        usedSeconds: Long,
+        limitSeconds: Long,
+        studyEndsAtMs: Long = 0L,
+    ): String = when (reason) {
+        BlockReason.LIMIT_REACHED ->
+            "You have used ${formatDuration(usedSeconds)} of your " +
+                "${formatDuration(limitSeconds)} daily limit."
+        BlockReason.LOCKED ->
+            "Your ${formatDuration(limitSeconds)} daily limit is locked. " +
+                "You had used ${formatDuration(usedSeconds)} when it was hit."
+        BlockReason.OVERNIGHT ->
+            "Your selected apps are blocked every night from 12:00 AM to " +
+                "8:00 AM. They will open again after 8:00 AM."
+        BlockReason.STUDY ->
+            "Your study lock is on" +
+                if (studyEndsAtMs > 0L) {
+                    " until ${formatTime(studyEndsAtMs)}. "
+                } else {
+                    ". "
+                } +
+                "Selected apps stay blocked until the session ends."
+    }
 
-    const val FOOTER = "Monitored apps stay blocked until 00:00. " +
-        "The counter resets automatically."
+    /** Local clock label used by the study block screen. */
+    fun formatTime(epochMs: Long): String =
+        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(epochMs))
+
+    const val FOOTER = "Lockout enforces your chosen limits and focus times. " +
+        "The block closes automatically when the time is up."
 }

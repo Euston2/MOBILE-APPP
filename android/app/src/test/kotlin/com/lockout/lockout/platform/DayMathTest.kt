@@ -2,6 +2,7 @@ package com.lockout.lockout.platform
 
 import java.util.Calendar
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -65,6 +66,38 @@ class DayMathTest {
 
         assertEquals(29, calendar.part(Calendar.DAY_OF_MONTH))
         assertEquals(0, calendar.part(Calendar.HOUR_OF_DAY))
+    }
+
+    @Test
+    fun `overnight window runs from midnight until eight`() {
+        assertTrue(
+            DayMath.isInOvernightWindow(local(2026, Calendar.NOVEMBER, 3)),
+        )
+        assertTrue(
+            DayMath.isInOvernightWindow(
+                local(2026, Calendar.NOVEMBER, 3, 7, 59),
+            ),
+        )
+        assertFalse(
+            DayMath.isInOvernightWindow(local(2026, Calendar.NOVEMBER, 3, 8)),
+        )
+        assertFalse(
+            DayMath.isInOvernightWindow(
+                local(2026, Calendar.NOVEMBER, 3, 23, 59),
+            ),
+        )
+    }
+
+    @Test
+    fun `overnight end is eight on the same local day`() {
+        val atThree = local(2026, Calendar.NOVEMBER, 3, 3, 17)
+
+        val end = DayMath.overnightEndFor(atThree)
+        val calendar = Calendar.getInstance().apply { timeInMillis = end }
+
+        assertEquals(3, calendar.part(Calendar.DAY_OF_MONTH))
+        assertEquals(8, calendar.part(Calendar.HOUR_OF_DAY))
+        assertEquals(0, calendar.part(Calendar.MINUTE))
     }
 
     @Test

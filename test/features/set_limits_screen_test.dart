@@ -249,6 +249,35 @@ void main() {
     );
     expect(tile.onChanged, isNull);
   });
+
+  testWidgets('is read-only while a focus lock is active', (tester) async {
+    await pumpLimits(
+      tester,
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 1800,
+          studyEndsAt: DateTime.now().add(const Duration(minutes: 25)),
+          studyLengthMinutes: 25,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+    );
+
+    expect(find.textContaining('A focus lock is on until'), findsOneWidget);
+
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    expect(slider.onChanged, isNull);
+
+    final tile = tester.widget<CheckboxListTile>(
+      find.widgetWithText(CheckboxListTile, 'TikTok'),
+    );
+    expect(tile.onChanged, isNull);
+  });
 }
 
 /// Hosts SetLimitsScreen on a pushed route so saving can pop back to a parent.

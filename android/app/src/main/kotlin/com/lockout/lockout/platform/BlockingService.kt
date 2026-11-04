@@ -62,7 +62,8 @@ class BlockingService : Service() {
         )
         val recovery = MidnightReset.recover(this)
         val config = recovery.config
-        if (!config.isActive) {
+        val nowMs = System.currentTimeMillis()
+        if (!config.isActiveAt(nowMs)) {
             LockoutLog.info(this, "service stopped: no active configuration")
             MidnightAlarm.cancel(this)
             stopSelf()
@@ -82,9 +83,8 @@ class BlockingService : Service() {
             return START_NOT_STICKY
         }
 
-        val nowMs = System.currentTimeMillis()
         val active = config.effectiveAt(nowMs)
-        val appCount = if (active.isActive) {
+        val appCount = if (active.packages.isNotEmpty()) {
             active.packages.size
         } else {
             config.pendingPackages.size
@@ -123,7 +123,7 @@ class BlockingService : Service() {
         // when the midnight alarm never fired (force-stop, reboot, clock jump).
         val recovery = MidnightReset.recover(this, config, nowMs)
         config = recovery.config
-        if (!config.isActive) {
+        if (!config.isActiveAt(nowMs)) {
             MidnightAlarm.cancel(this)
             stopSelf()
             return
@@ -164,7 +164,12 @@ class BlockingService : Service() {
         }
 
         mainHandler.post {
-            presentBlock(reason, usedSeconds, config.effectiveAt(nowMs).limitSeconds)
+            presentBlock(
+                reason,
+                usedSeconds,
+                config.effectiveAt(nowMs).limitSeconds,
+                config.studyEndsAtMs,
+            )
         }
     }
 
@@ -173,6 +178,7 @@ class BlockingService : Service() {
         reason: BlockReason,
         usedSeconds: Long,
         limitSeconds: Int,
+        studyEndsAtMs: Long,
     ) {
         if (BlockActivity.isVisible) {
             BlockOverlay.hide()
@@ -192,7 +198,12 @@ class BlockingService : Service() {
         // has not resumed shortly after the launch, fall back to the overlay.
         mainHandler.postDelayed({
             if (!BlockActivity.isVisible && !BlockOverlay.isShowing) {
-                showFallbackOverlay(reason, usedSeconds, limitSeconds)
+                showFallbackOverlay(
+                    reason,
+                    usedSeconds,
+                    limitSeconds,
+                    studyEndsAtMs,
+                )
             }
         }, OVERLAY_DELAY_MS)
     }
@@ -216,12 +227,18 @@ class BlockingService : Service() {
         reason: BlockReason,
         usedSeconds: Long,
         limitSeconds: Int,
+        studyEndsAtMs: Long,
     ) {
         if (!Settings.canDrawOverlays(this)) return
         BlockOverlay.show(
             this,
             BlockCopy.title(reason),
-            BlockCopy.detail(reason, usedSeconds, limitSeconds.toLong()),
+            BlockCopy.detail(
+                reason,
+                usedSeconds,
+                limitSeconds.toLong(),
+                studyEndsAtMs,
+            ),
         )
     }
 
@@ -250,19 +267,30 @@ class BlockingService : Service() {
         // midnight the active set is empty, so fall back to the scheduled one.
         val now = System.currentTimeMillis()
         val active = config.effectiveAt(now)
-        val display = if (active.isActive) {
+        val display = if (active.packages.isNotEmpty()) {
             active
         } else {
             ActiveLimit(config.pendingPackages, config.pendingLimitSeconds)
         }
         val appCount = display.packages.size
-        val limit = BlockCopy.formatDuration(display.limitSeconds.toLong())
+        val noun = if (appCount == 1) "app" else "apps"
+        val text = when {
+            config.studyEndsAtMs > now ->
+                "$appCount $noun blocked for study time"
+            config.overnightLockEnabled &&
+                DayMath.isInOvernightWindow(now) ->
+                "$appCount $noun blocked until 8:00 AM"
+            active.isActive ->
+                "$appCount $noun - " +
+                    "${BlockCopy.formatDuration(active.limitSeconds.toLong())} " +
+                    "daily limit"
+            else -> "$appCount $noun selected"
+        }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Lockout is watching")
-            .setContentText(
-                "$appCount ${if (appCount == 1) "app" else "apps"} · $limit daily limit",
-            )
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
             .setContentIntent(openApp)
             .setOngoing(true)

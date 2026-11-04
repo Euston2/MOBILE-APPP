@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
 import '../../../domain/entities/monitored_app.dart';
+import '../../../domain/usecases/focus_lock.dart';
 import '../../../domain/usecases/monitored_apps_planning.dart';
 import '../../../domain/usecases/reconcile_settings.dart';
 
@@ -51,12 +52,10 @@ class MonitoredAppsController extends AsyncNotifier<List<MonitoredApp>> {
   Future<void> _requireUnlocked() async {
     final settingsRepository = ref.read(settingsRepositoryProvider);
     await settingsRepository.reload();
-    final settings = reconcileSettings(
-      await settingsRepository.load(),
-      DateTime.now(),
-    );
-    if (settings.isLocked) {
-      throw StateError('The limit is locked until midnight.');
+    final now = DateTime.now();
+    final settings = reconcileSettings(await settingsRepository.load(), now);
+    if (settings.isLocked || isFocusLockActive(settings, now)) {
+      throw StateError('The limit is locked until the current block ends.');
     }
   }
 }

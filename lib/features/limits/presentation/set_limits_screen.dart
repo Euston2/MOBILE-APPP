@@ -8,14 +8,15 @@ import '../../../core/widgets/app_resume_observer.dart';
 import '../../../domain/entities/installed_app.dart';
 import '../../../domain/entities/monitored_app.dart';
 import '../../../domain/entities/usage_settings.dart';
+import '../../../domain/usecases/focus_lock.dart';
 import '../../home/presentation/today_usage_controller.dart';
 import 'monitored_apps_controller.dart';
 import 'settings_controller.dart';
 
 /// Pick the monitored apps and the combined daily limit.
 ///
-/// The whole screen becomes read-only while the lock is active (Stage 4); the
-/// guard is already wired so the UI cannot be edited when `isLocked` is true.
+/// The whole screen becomes read-only while the daily lock or either focus lock
+/// is active, so an active block cannot be relaxed from the editor.
 class SetLimitsScreen extends ConsumerWidget {
   const SetLimitsScreen({super.key});
 
@@ -94,7 +95,10 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
   String _query = '';
   bool _saving = false;
 
-  bool get _locked => widget.settings.isLocked;
+  DateTime? get _focusUntil =>
+      activeFocusLockEnd(widget.settings, DateTime.now());
+
+  bool get _locked => widget.settings.isLocked || _focusUntil != null;
 
   bool get _hasPendingChange =>
       widget.settings.pendingLimitSeconds != null ||
@@ -214,8 +218,11 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             children: [
-              if (_locked) ...[
+              if (widget.settings.isLocked) ...[
                 _LockedNotice(nextResetAt: widget.settings.nextResetAt),
+                const SizedBox(height: 12),
+              ] else if (_focusUntil != null) ...[
+                _FocusLockedNotice(until: _focusUntil!),
                 const SizedBox(height: 12),
               ],
               if (_hasPendingChange && !_locked) ...[
@@ -402,6 +409,43 @@ class _ScheduledNotice extends StatelessWidget {
                 "Today's limit is $today.",
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusLockedNotice extends StatelessWidget {
+  const _FocusLockedNotice({required this.until});
+
+  final DateTime until;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final remaining = until.difference(DateTime.now());
+    return Card(
+      color: theme.colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.timer_outlined,
+              color: theme.colorScheme.onErrorContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'A focus lock is on until ${formatClockTime(until)} '
+                '(${formatCountdown(remaining)}). '
+                "You can't change the limit or apps yet.",
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
                 ),
               ),
             ),

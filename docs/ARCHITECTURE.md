@@ -33,7 +33,7 @@ Non-negotiables:
 
 | Data | Where | Why |
 | ---- | ----- | --- |
-| Settings + lock (`daily_limit_seconds`, `pending_limit_seconds`, `pending_effective_at`, `is_locked`, `locked_at`, `next_reset_at`, onboarding flag) | `shared_preferences` via `PrefsSettingsRepository` | A handful of scalars that the blocking service reads on every check; prefs reads are cheap and survive process death. |
+| Settings + lock (`daily_limit_seconds`, `pending_limit_seconds`, `pending_effective_at`, `is_locked`, `locked_at`, `next_reset_at`, `overnight_lock_enabled`, `study_ends_at`, `study_length_minutes`, onboarding flag) | `shared_preferences` via `PrefsSettingsRepository` | A handful of scalars that the blocking service reads on every check; prefs reads are cheap and survive process death. |
 | Monitored apps (`monitored_apps`) | drift via `DriftMonitoredAppsRepository` | Edited and queried as a set, with display names kept for history labels; `pending_enabled` schedules a next-day change. |
 | Per-app daily totals (`daily_usage`) and per-day summary (`daily_summary`) | drift | Grows over time; read by the history screen (`loadDays`) and padded/aggregated by the domain report. |
 | Days finished by the native reset | native JSON queue (`ArchiveStore`) | drift/SQLite is Dart-owned, so Kotlin appends a compact record; Dart drains it into drift on launch. |
@@ -91,8 +91,8 @@ com.lockout.lockout/
     ├── UsageStatsReader.kt    # UsageStatsManager -> events (Stage 1)
     ├── UsageAggregator.kt     # pure time-window math (JVM-tested)
     ├── AppCatalog.kt          # launchable apps for the picker
-    ├── BlockingConfig.kt      # pure config snapshot + isActive (JVM-tested)
-    ├── BlockPolicy.kt         # pure block decision (JVM-tested)
+    ├── BlockingConfig.kt      # pure config snapshot + focus state (JVM-tested)
+    ├── BlockPolicy.kt         # pure block decision + focus priority (JVM-tested)
     ├── BlockingStore.kt       # native cache of the config (own prefs file)
     ├── BlockingService.kt     # foreground service, polls the foreground app
     ├── ForegroundAppTracker.kt# event stream -> current foreground package
@@ -141,6 +141,12 @@ logic testable in Dart and the Android-specific code as thin as possible.
    not reach the foreground (some ROMs drop background activity starts),
    `BlockOverlay` covers the app instead. Both read the same cached config and
    policy, so they cannot disagree with Home.
+   The same config carries the focus flags (`overnightLockEnabled`,
+   `studyEndsAtMs`). `BlockPolicy` checks study time first, then the fixed
+   overnight window, then the persisted daily lock, then the daily limit. Focus
+   state is owned by `SettingsController`; `SetLimitsScreen` and
+   `MonitoredAppsController` reject edits while either lock is running so the
+   selection cannot be relaxed out from under an active block.
 4. The block surfaces re-evaluate every 2 s and close themselves when the
    verdict clears. `BlockPolicy` trusts the persisted lock until
    `now >= next_reset_at`, so changing the limit cannot unblock early.

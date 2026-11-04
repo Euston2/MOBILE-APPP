@@ -19,6 +19,8 @@ class BlockingConfig {
     this.pendingLimitSeconds = 0,
     this.pendingEffectiveAt,
     this.lockedAt,
+    this.overnightLockEnabled = false,
+    this.studyEndsAt,
   });
 
   /// Apps monitored today.
@@ -44,19 +46,34 @@ class BlockingConfig {
   /// Local midnight at which [isLocked] expires.
   final DateTime nextResetAt;
 
+  /// Recurring hard block from local midnight to 08:00.
+  final bool overnightLockEnabled;
+
+  /// End of the current study session, or null when none is running.
+  final DateTime? studyEndsAt;
+
   bool get hasPendingConfig =>
       pendingEffectiveAt != null &&
       pendingLimitSeconds > 0 &&
       pendingPackages.isNotEmpty;
 
-  /// Nothing to enforce: neither today nor a scheduled day has a usable limit.
+  bool get hasOvernightFocus =>
+      overnightLockEnabled && monitoredPackages.isNotEmpty;
+
+  bool get hasStudyFocus => studyEndsAt != null && monitoredPackages.isNotEmpty;
+
+  /// Nothing to enforce: no daily limit, scheduled limit or focus lock.
   bool get isActive =>
       (dailyLimitSeconds > 0 && monitoredPackages.isNotEmpty) ||
-      hasPendingConfig;
+      hasPendingConfig ||
+      hasOvernightFocus ||
+      hasStudyFocus;
 
   @override
   String toString() =>
       'BlockingConfig(apps: ${monitoredPackages.length}, '
       'limit: ${dailyLimitSeconds}s, pendingApps: ${pendingPackages.length}, '
-      'pendingLimit: ${pendingLimitSeconds}s, locked: $isLocked)';
+      'pendingLimit: ${pendingLimitSeconds}s, locked: $isLocked, '
+      'overnight: $overnightLockEnabled, '
+      'studyUntil: ${studyEndsAt?.toIso8601String()})';
 }

@@ -26,6 +26,10 @@ class PrefsSettingsRepository implements SettingsRepository {
   static const String keyLockedAt = 'settings.locked_at';
   static const String keyNextResetAt = 'settings.next_reset_at';
   static const String keyOnboardingCompleted = 'settings.onboarding_completed';
+  static const String keyOvernightLockEnabled =
+      'settings.overnight_lock_enabled';
+  static const String keyStudyEndsAt = 'settings.study_ends_at';
+  static const String keyStudyLengthMinutes = 'settings.study_length_minutes';
 
   @override
   Future<UsageSettings> load() async {
@@ -34,6 +38,7 @@ class PrefsSettingsRepository implements SettingsRepository {
     final lockedAtMs = _prefs.getInt(keyLockedAt);
     final pendingLimit = _prefs.getInt(keyPendingLimitSeconds);
     final pendingEffectiveAtMs = _prefs.getInt(keyPendingEffectiveAt);
+    final studyEndsAtMs = _prefs.getInt(keyStudyEndsAt);
 
     return UsageSettings(
       dailyLimitSeconds: _prefs.getInt(keyDailyLimitSeconds) ?? 0,
@@ -49,6 +54,11 @@ class PrefsSettingsRepository implements SettingsRepository {
       pendingEffectiveAt: pendingEffectiveAtMs == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(pendingEffectiveAtMs),
+      overnightLockEnabled: _prefs.getBool(keyOvernightLockEnabled) ?? false,
+      studyEndsAt: studyEndsAtMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(studyEndsAtMs),
+      studyLengthMinutes: _prefs.getInt(keyStudyLengthMinutes) ?? 60,
     );
   }
 
@@ -87,6 +97,18 @@ class PrefsSettingsRepository implements SettingsRepository {
     }
 
     await _prefs.setBool(keyOnboardingCompleted, settings.onboardingCompleted);
+    await _prefs.setBool(
+      keyOvernightLockEnabled,
+      settings.overnightLockEnabled,
+    );
+
+    final studyEndsAt = settings.studyEndsAt;
+    if (studyEndsAt == null) {
+      await _prefs.remove(keyStudyEndsAt);
+    } else {
+      await _prefs.setInt(keyStudyEndsAt, studyEndsAt.millisecondsSinceEpoch);
+    }
+    await _prefs.setInt(keyStudyLengthMinutes, settings.studyLengthMinutes);
   }
 
   @override

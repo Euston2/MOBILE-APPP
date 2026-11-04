@@ -27,12 +27,16 @@ void main() {
 
   test('round-trips every field', () async {
     final repository = await freshRepository();
+    final studyEndsAt = DateTime(2026, 10, 29, 22, 30);
     final original = UsageSettings(
       dailyLimitSeconds: 5400,
       isLocked: true,
       lockedAt: DateTime(2026, 10, 29, 14, 5),
       nextResetAt: DateTime(2026, 10, 30),
       onboardingCompleted: true,
+      overnightLockEnabled: true,
+      studyEndsAt: studyEndsAt,
+      studyLengthMinutes: 45,
     );
 
     await repository.save(original);
@@ -43,6 +47,42 @@ void main() {
     expect(loaded.lockedAt, DateTime(2026, 10, 29, 14, 5));
     expect(loaded.nextResetAt, DateTime(2026, 10, 30));
     expect(loaded.onboardingCompleted, isTrue);
+    expect(loaded.overnightLockEnabled, isTrue);
+    expect(loaded.studyEndsAt, studyEndsAt);
+    expect(loaded.studyLengthMinutes, 45);
+  });
+
+  test('clearing the study session removes its key', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = PrefsSettingsRepository(prefs);
+
+    await repository.save(
+      UsageSettings(
+        dailyLimitSeconds: 1800,
+        isLocked: false,
+        lockedAt: null,
+        nextResetAt: DateTime(2026, 11, 1),
+        onboardingCompleted: true,
+        studyEndsAt: DateTime(2026, 10, 31, 14),
+        studyLengthMinutes: 25,
+      ),
+    );
+    await repository.save(
+      UsageSettings(
+        dailyLimitSeconds: 1800,
+        isLocked: false,
+        lockedAt: null,
+        nextResetAt: DateTime(2026, 11, 1),
+        onboardingCompleted: true,
+        studyLengthMinutes: 25,
+      ),
+    );
+
+    expect(prefs.getInt(PrefsSettingsRepository.keyStudyEndsAt), isNull);
+    final loaded = await repository.load();
+    expect(loaded.studyEndsAt, isNull);
+    expect(loaded.studyLengthMinutes, 25);
   });
 
   test('clearing lockedAt removes the stored key', () async {

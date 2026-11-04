@@ -148,6 +148,7 @@ class BlockActivity : Activity() {
                     reason,
                     usedSeconds,
                     active.limitSeconds.toLong(),
+                    config.studyEndsAtMs,
                 )
             }
         }

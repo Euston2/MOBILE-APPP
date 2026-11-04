@@ -23,7 +23,7 @@ class BootReceiver : BroadcastReceiver() {
         val result = MidnightReset.recover(context)
         val nowMs = System.currentTimeMillis()
 
-        if (!result.config.isActive) {
+        if (!result.config.isActiveAt(nowMs)) {
             MidnightAlarm.cancel(context)
             return
         }

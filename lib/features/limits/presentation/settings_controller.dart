@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
 import '../../../core/utils/day_window.dart';
+import '../../../core/utils/focus_window.dart';
 import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/repositories/settings_repository.dart';
+import '../../../domain/usecases/focus_lock.dart';
 import '../../../domain/usecases/reconcile_settings.dart';
 import 'monitored_apps_controller.dart';
 
@@ -59,6 +61,46 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
     requireUnlocked: true,
   );
 
+  /// Enables or disables the fixed 00:00-08:00 overnight lock.
+  ///
+  /// Once the window has started the lock cannot be turned off until 08:00.
+  /// This is a product rule, not just a disabled switch: the controller also
+  /// rejects the change so another caller cannot bypass it.
+  Future<void> setOvernightLock(bool enabled) async {
+    final now = DateTime.now();
+    if (enabled && ref.read(enabledPackagesProvider).isEmpty) {
+      throw StateError('Choose at least one app first.');
+    }
+    await _update((current) {
+      if (!enabled && !canTurnOffOvernightLock(current, now)) {
+        throw StateError('Overnight lock cannot be turned off until 08:00.');
+      }
+      return current.copyWith(overnightLockEnabled: enabled);
+    });
+  }
+
+  /// Starts a one-off study lock for [minutes] from now.
+  ///
+  /// There is no matching stop method while the session is running; the
+  /// session expires on its own and [reconcileSettings] clears it then.
+  Future<void> startStudySession(int minutes) async {
+    if (minutes < 5 || minutes > 8 * 60) {
+      throw ArgumentError.value(minutes, 'minutes', 'must be 5-480');
+    }
+    if (ref.read(enabledPackagesProvider).isEmpty) {
+      throw StateError('Choose at least one app first.');
+    }
+
+    final now = DateTime.now();
+    final endsAt = now.add(Duration(minutes: minutes));
+    await _update((current) {
+      if (isStudyLockActive(current, now)) {
+        throw StateError('A study lock is already running.');
+      }
+      return current.copyWith(studyEndsAt: endsAt, studyLengthMinutes: minutes);
+    });
+  }
+
   Future<void> markOnboardingCompleted() =>
       _update((current) => current.copyWith(onboardingCompleted: true));
 
@@ -81,8 +123,9 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
   }) async {
     final repository = ref.read(settingsRepositoryProvider);
     final current = await _loadReconciled(repository, reload: requireUnlocked);
-    if (requireUnlocked && current.isLocked) {
-      throw StateError('The limit is locked until midnight.');
+    if (requireUnlocked &&
+        (current.isLocked || isFocusLockActive(current, DateTime.now()))) {
+      throw StateError('The limit is locked until the current block ends.');
     }
     final updated = change(current);
     await repository.save(updated);
@@ -106,6 +149,12 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
         settings.pendingEffectiveAt!,
       if (settings.isLocked && settings.nextResetAt.isAfter(now))
         settings.nextResetAt,
+      if (settings.studyEndsAt != null && settings.studyEndsAt!.isAfter(now))
+        settings.studyEndsAt!,
+      if (settings.overnightLockEnabled)
+        now.isBefore(overnightLockEndFor(now))
+            ? overnightLockEndFor(now)
+            : nextLocalMidnight(now),
     ];
     if (instants.isEmpty) return;
     instants.sort();

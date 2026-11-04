@@ -195,6 +195,9 @@ UsageSettings settingsWith({
   int? pendingLimitSeconds,
   DateTime? pendingEffectiveAt,
   DateTime? nextResetAt,
+  bool overnightLockEnabled = false,
+  DateTime? studyEndsAt,
+  int studyLengthMinutes = 60,
 }) => UsageSettings(
   dailyLimitSeconds: dailyLimitSeconds,
   isLocked: isLocked,
@@ -203,6 +206,9 @@ UsageSettings settingsWith({
   onboardingCompleted: onboardingCompleted,
   pendingLimitSeconds: pendingLimitSeconds,
   pendingEffectiveAt: pendingEffectiveAt,
+  overnightLockEnabled: overnightLockEnabled,
+  studyEndsAt: studyEndsAt,
+  studyLengthMinutes: studyLengthMinutes,
 );
 
 /// Snapshot with only usage access granted, useful for the onboarding flow.

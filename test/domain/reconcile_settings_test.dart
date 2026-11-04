@@ -109,6 +109,39 @@ void main() {
     expect(result.isLocked, isFalse);
   });
 
+  test('clears a study session once its end instant is reached', () {
+    final studyEnd = DateTime(2026, 10, 30, 15);
+    final settings = settingsWith(
+      dailyLimitSeconds: 1800,
+      nextResetAt: resetAt,
+      studyEndsAt: studyEnd,
+      studyLengthMinutes: 45,
+    );
+
+    final before = reconcileSettings(
+      settings,
+      studyEnd.subtract(const Duration(seconds: 1)),
+    );
+    expect(before.studyEndsAt, studyEnd);
+    expect(before.studyLengthMinutes, 45);
+
+    final atEnd = reconcileSettings(settings, studyEnd);
+    expect(atEnd.studyEndsAt, isNull);
+    // The last duration stays selected for the next session.
+    expect(atEnd.studyLengthMinutes, 45);
+  });
+
+  test('keeps the overnight toggle across reconciliations', () {
+    final settings = settingsWith(
+      overnightLockEnabled: true,
+      nextResetAt: resetAt,
+    );
+
+    final result = reconcileSettings(settings, DateTime(2026, 10, 31, 9));
+
+    expect(result.overnightLockEnabled, isTrue);
+  });
+
   test('does nothing when neither transition is due', () {
     final settings = settingsWith(
       dailyLimitSeconds: 1800,

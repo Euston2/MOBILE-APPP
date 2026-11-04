@@ -107,6 +107,8 @@ class LockoutPlatform {
     required bool isLocked,
     required DateTime? lockedAt,
     required DateTime nextResetAt,
+    required bool overnightLockEnabled,
+    required DateTime? studyEndsAt,
   }) => _channel.invokeMethod<void>('setBlockingConfig', <String, Object?>{
     'monitoredPackages': monitoredPackages.toList(growable: false),
     'dailyLimitSeconds': dailyLimitSeconds,
@@ -116,6 +118,8 @@ class LockoutPlatform {
     'isLocked': isLocked,
     'lockedAtMs': lockedAt?.millisecondsSinceEpoch,
     'nextResetAtMs': nextResetAt.millisecondsSinceEpoch,
+    'overnightLockEnabled': overnightLockEnabled,
+    'studyEndsAtMs': studyEndsAt?.millisecondsSinceEpoch,
   });
 
   /// Stops the foreground watcher when there is nothing to enforce.

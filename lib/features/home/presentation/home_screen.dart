@@ -3,13 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/app_names.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/utils/focus_window.dart';
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../domain/entities/app_usage.dart';
 import '../../../domain/entities/installed_app.dart';
 import '../../../domain/entities/permission_snapshot.dart';
+import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/entities/usage_summary.dart';
 import '../../../domain/usecases/evaluate_limit.dart';
+import '../../../domain/usecases/focus_lock.dart';
 import '../../blocking/presentation/blocking_controller.dart';
+import '../../focus/presentation/focus_screen.dart';
 import '../../history/presentation/archive_import_controller.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
@@ -55,6 +59,12 @@ class HomeScreen extends ConsumerWidget {
     return Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const SetLimitsScreen()));
+  }
+
+  Future<void> _openFocus(BuildContext context) {
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const FocusScreen()));
   }
 
   Future<void> _openHistory(BuildContext context) {
@@ -163,6 +173,8 @@ class HomeScreen extends ConsumerWidget {
                 nextResetAt: nextResetAt,
                 onConfigure: () => _openLimits(context),
               ),
+              const SizedBox(height: 16),
+              _FocusCard(settings: settings, onTap: () => _openFocus(context)),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -341,6 +353,79 @@ class _LimitCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FocusCard extends StatelessWidget {
+  const _FocusCard({required this.settings, required this.onTap});
+
+  final UsageSettings? settings;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final current = settings;
+    final studyActive = current != null && isStudyLockActive(current, now);
+    final overnightActive =
+        current != null &&
+        current.overnightLockEnabled &&
+        isOvernightLockWindow(now);
+    final activeUntil = current == null
+        ? null
+        : activeFocusLockEnd(current, now);
+    final active = studyActive || overnightActive;
+
+    final String title;
+    final String subtitle;
+    if (studyActive) {
+      title = 'Study lock on';
+      subtitle =
+          'Until ${formatClockTime(activeUntil!)}. Selected apps are blocked.';
+    } else if (overnightActive) {
+      title = 'Overnight lock on';
+      subtitle =
+          'Until ${formatClockTime(overnightLockEndFor(now))}. '
+          'Selected apps are blocked.';
+    } else if (current?.overnightLockEnabled ?? false) {
+      title = 'Overnight lock on';
+      subtitle = 'Every night, 12:00 AM to 8:00 AM.';
+    } else {
+      title = 'Focus locks';
+      subtitle = 'Overnight 12-8 AM and one-off study sessions.';
+    }
+
+    return Card(
+      color: active ? theme.colorScheme.secondaryContainer : null,
+      child: ListTile(
+        leading: Icon(
+          active ? Icons.lock_clock_outlined : Icons.timer_outlined,
+          color: active ? theme.colorScheme.onSecondaryContainer : null,
+        ),
+        title: Text(
+          title,
+          style: active
+              ? theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSecondaryContainer,
+                )
+              : null,
+        ),
+        subtitle: Text(
+          subtitle,
+          style: active
+              ? theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSecondaryContainer,
+                )
+              : null,
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: active ? theme.colorScheme.onSecondaryContainer : null,
+        ),
+        onTap: onTap,
       ),
     );
   }

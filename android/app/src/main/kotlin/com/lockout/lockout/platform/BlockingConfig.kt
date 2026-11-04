@@ -31,6 +31,10 @@ data class BlockingConfig(
     val lockedAtMs: Long = 0L,
     /** Local midnight at which a lock expires, as epoch millis. */
     val nextResetAtMs: Long = 0L,
+    /** Recurring hard block from local midnight to 08:00. */
+    val overnightLockEnabled: Boolean = false,
+    /** End of the one-off study session, or 0 when no session is running. */
+    val studyEndsAtMs: Long = 0L,
 ) {
     /** Configuration that applies at [nowMs]. */
     fun effectiveAt(nowMs: Long): ActiveLimit {
@@ -54,7 +58,24 @@ data class BlockingConfig(
         get() = (dailyLimitSeconds > 0 && monitoredPackages.isNotEmpty()) ||
             (pendingLimitSeconds > 0 &&
                 pendingPackages.isNotEmpty() &&
-                pendingEffectiveAtMs > 0L)
+                pendingEffectiveAtMs > 0L) ||
+            (overnightLockEnabled && monitoredPackages.isNotEmpty()) ||
+            (studyEndsAtMs > 0L && monitoredPackages.isNotEmpty())
+
+    /**
+     * Whether the watcher still has something to enforce at [nowMs].
+     *
+     * An expired study session no longer needs the service; the overnight lock
+     * stays armed all day so its next 00:00 boundary is ready even if an alarm
+     * is delayed.
+     */
+    fun isActiveAt(nowMs: Long): Boolean =
+        (dailyLimitSeconds > 0 && monitoredPackages.isNotEmpty()) ||
+            (pendingLimitSeconds > 0 &&
+                pendingPackages.isNotEmpty() &&
+                pendingEffectiveAtMs > 0L) ||
+            (overnightLockEnabled && monitoredPackages.isNotEmpty()) ||
+            (studyEndsAtMs > nowMs && monitoredPackages.isNotEmpty())
 }
 
 /** The apps and limit that apply at one instant. */

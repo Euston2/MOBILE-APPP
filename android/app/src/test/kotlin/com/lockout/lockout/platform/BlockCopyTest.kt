@@ -23,9 +23,11 @@ class BlockCopyTest {
     }
 
     @Test
-    fun `titles distinguish the daily limit from a lock`() {
+    fun `titles distinguish the daily limit from each lock`() {
         assertEquals("Time's up", BlockCopy.title(BlockReason.LIMIT_REACHED))
         assertEquals("Locked until midnight", BlockCopy.title(BlockReason.LOCKED))
+        assertEquals("Overnight lock", BlockCopy.title(BlockReason.OVERNIGHT))
+        assertEquals("Study time", BlockCopy.title(BlockReason.STUDY))
     }
 
     @Test
@@ -34,5 +36,21 @@ class BlockCopyTest {
 
         assertTrue(detail.contains("1h 05m"))
         assertTrue(detail.contains("1h daily limit"))
+    }
+
+    @Test
+    fun `focus details explain the fixed window and study end`() {
+        val overnight = BlockCopy.detail(BlockReason.OVERNIGHT, 0, 0)
+        val study = BlockCopy.detail(
+            BlockReason.STUDY,
+            0,
+            0,
+            studyEndsAtMs = 2_000_000_000_000L,
+        )
+
+        assertTrue(overnight.contains("12:00 AM"))
+        assertTrue(overnight.contains("8:00 AM"))
+        assertTrue(study.contains("study lock is on until"))
+        assertTrue(study.contains("Selected apps stay blocked"))
     }
 }

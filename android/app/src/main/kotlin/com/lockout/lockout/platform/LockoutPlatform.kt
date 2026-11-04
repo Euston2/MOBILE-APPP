@@ -113,12 +113,17 @@ class LockoutPlatform(
                 val isLocked = call.argument<Boolean>("isLocked") == true
                 val lockedAtMs = call.argument<Number>("lockedAtMs")?.toLong() ?: 0L
                 val nextResetAtMs = call.argument<Number>("nextResetAtMs")?.toLong() ?: 0L
+                val overnightLockEnabled =
+                    call.argument<Boolean>("overnightLockEnabled") == true
+                val studyEndsAtMs =
+                    call.argument<Number>("studyEndsAtMs")?.toLong() ?: 0L
                 if (
                     limitSeconds < 0 ||
                     pendingLimitSeconds < 0 ||
                     pendingEffectiveAtMs < 0 ||
                     lockedAtMs < 0 ||
-                    nextResetAtMs < 0
+                    nextResetAtMs < 0 ||
+                    studyEndsAtMs < 0
                 ) {
                     result.error(
                         "bad_args",
@@ -157,6 +162,8 @@ class LockoutPlatform(
                             keepNativeLock -> previous.nextResetAtMs
                             else -> nextResetAtMs
                         },
+                        overnightLockEnabled = overnightLockEnabled,
+                        studyEndsAtMs = studyEndsAtMs,
                     )
                     BlockingStore.save(activity, config)
                     LockoutLog.info(

@@ -22,6 +22,8 @@ object BlockingStore {
     private const val KEY_LOCKED = "is_locked"
     private const val KEY_LOCKED_AT = "locked_at_ms"
     private const val KEY_RESET_AT = "next_reset_at_ms"
+    private const val KEY_OVERNIGHT_LOCK = "overnight_lock_enabled"
+    private const val KEY_STUDY_ENDS_AT = "study_ends_at_ms"
 
     fun load(context: Context): BlockingConfig {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -38,6 +40,8 @@ object BlockingStore {
             isLocked = prefs.getBoolean(KEY_LOCKED, false),
             lockedAtMs = prefs.getLong(KEY_LOCKED_AT, 0L),
             nextResetAtMs = prefs.getLong(KEY_RESET_AT, 0L),
+            overnightLockEnabled = prefs.getBoolean(KEY_OVERNIGHT_LOCK, false),
+            studyEndsAtMs = prefs.getLong(KEY_STUDY_ENDS_AT, 0L),
         )
     }
 
@@ -56,6 +60,8 @@ object BlockingStore {
             .putBoolean(KEY_LOCKED, config.isLocked)
             .putLong(KEY_LOCKED_AT, config.lockedAtMs)
             .putLong(KEY_RESET_AT, config.nextResetAtMs)
+            .putBoolean(KEY_OVERNIGHT_LOCK, config.overnightLockEnabled)
+            .putLong(KEY_STUDY_ENDS_AT, config.studyEndsAtMs)
             .commit()
     }
 

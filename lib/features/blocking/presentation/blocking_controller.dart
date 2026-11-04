@@ -33,6 +33,8 @@ final blockingConfigProvider = Provider<BlockingConfig?>((ref) {
     isLocked: settings.isLocked,
     lockedAt: settings.lockedAt,
     nextResetAt: settings.nextResetAt,
+    overnightLockEnabled: settings.overnightLockEnabled,
+    studyEndsAt: settings.studyEndsAt,
   );
 });
 

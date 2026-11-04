@@ -14,6 +14,14 @@ String formatDuration(int seconds) {
   return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
 }
 
+/// Local clock label, e.g. "8:00 AM" or "12:30 PM".
+String formatClockTime(DateTime moment) {
+  final hour12 = moment.hour % 12 == 0 ? 12 : moment.hour % 12;
+  final minute = moment.minute.toString().padLeft(2, '0');
+  final suffix = moment.hour < 12 ? 'AM' : 'PM';
+  return '$hour12:$minute $suffix';
+}
+
 /// Countdown form used by the block screen: "3h 12m" or "45s".
 String formatCountdown(Duration remaining) {
   if (remaining.isNegative || remaining == Duration.zero) return '0s';

@@ -21,6 +21,19 @@ void main() {
     });
   });
 
+  group('formatClockTime', () {
+    test('formats midnight and noon as 12', () {
+      expect(formatClockTime(DateTime(2026, 11, 3)), '12:00 AM');
+      expect(formatClockTime(DateTime(2026, 11, 3, 12)), '12:00 PM');
+    });
+
+    test('formats morning and evening times with padded minutes', () {
+      expect(formatClockTime(DateTime(2026, 11, 3, 8)), '8:00 AM');
+      expect(formatClockTime(DateTime(2026, 11, 3, 13, 5)), '1:05 PM');
+      expect(formatClockTime(DateTime(2026, 11, 3, 23, 59)), '11:59 PM');
+    });
+  });
+
   group('formatCountdown', () {
     test('shows seconds under a minute', () {
       expect(formatCountdown(const Duration(seconds: 45)), '45s');

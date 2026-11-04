@@ -14,6 +14,29 @@ import java.util.Locale
  */
 object DayMath {
 
+    /** Fixed overnight focus window, mirroring `lib/core/utils/focus_window.dart`. */
+    const val OVERNIGHT_START_HOUR = 0
+    const val OVERNIGHT_END_HOUR = 8
+
+    /** True between local 00:00 (inclusive) and 08:00 (exclusive). */
+    fun isInOvernightWindow(nowMs: Long): Boolean {
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = nowMs
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        return hour >= OVERNIGHT_START_HOUR && hour < OVERNIGHT_END_HOUR
+    }
+
+    /** Local 08:00 on the day that contains [nowMs]. */
+    fun overnightEndFor(nowMs: Long): Long {
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = nowMs
+        calendar.set(Calendar.HOUR_OF_DAY, OVERNIGHT_END_HOUR)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        return calendar.timeInMillis
+    }
+
     /** Local 00:00 of the day that contains [nowMs]. */
     fun startOfLocalDay(nowMs: Long): Long {
         val calendar = Calendar.getInstance()

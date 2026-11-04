@@ -21,6 +21,9 @@ class UsageSettings {
     required this.onboardingCompleted,
     this.pendingLimitSeconds,
     this.pendingEffectiveAt,
+    this.overnightLockEnabled = false,
+    this.studyEndsAt,
+    this.studyLengthMinutes = 60,
   });
 
   /// Defaults for a fresh install: no limit, unlocked, reset at next midnight.
@@ -56,6 +59,23 @@ class UsageSettings {
   /// Local midnight at which pending limit/app changes take effect.
   final DateTime? pendingEffectiveAt;
 
+  /// Recurring block from local midnight to 08:00 every day.
+  ///
+  /// This is a hard lock while its window is active: the UI and controllers do
+  /// not allow turning it off until 08:00.
+  final bool overnightLockEnabled;
+
+  /// End of the current study session, or null when no session is running.
+  ///
+  /// There is deliberately no "stop" action while this is in the future; the
+  /// session ends on its own so the user cannot talk themselves out of it.
+  final DateTime? studyEndsAt;
+
+  /// Last study duration chosen by the user, in minutes.
+  ///
+  /// Persisted so the Focus screen can preload a sensible selection next time.
+  final int studyLengthMinutes;
+
   bool get hasLimit => dailyLimitSeconds > 0;
 
   bool get hasPendingLimit => pendingLimitSeconds != null;
@@ -73,6 +93,10 @@ class UsageSettings {
     bool clearPendingLimit = false,
     DateTime? pendingEffectiveAt,
     bool clearPendingEffectiveAt = false,
+    bool? overnightLockEnabled,
+    DateTime? studyEndsAt,
+    bool clearStudyEndsAt = false,
+    int? studyLengthMinutes,
   }) {
     return UsageSettings(
       dailyLimitSeconds: dailyLimitSeconds ?? this.dailyLimitSeconds,
@@ -86,6 +110,9 @@ class UsageSettings {
       pendingEffectiveAt: clearPendingEffectiveAt
           ? null
           : (pendingEffectiveAt ?? this.pendingEffectiveAt),
+      overnightLockEnabled: overnightLockEnabled ?? this.overnightLockEnabled,
+      studyEndsAt: clearStudyEndsAt ? null : (studyEndsAt ?? this.studyEndsAt),
+      studyLengthMinutes: studyLengthMinutes ?? this.studyLengthMinutes,
     );
   }
 
@@ -98,7 +125,10 @@ class UsageSettings {
       other.nextResetAt == nextResetAt &&
       other.onboardingCompleted == onboardingCompleted &&
       other.pendingLimitSeconds == pendingLimitSeconds &&
-      other.pendingEffectiveAt == pendingEffectiveAt;
+      other.pendingEffectiveAt == pendingEffectiveAt &&
+      other.overnightLockEnabled == overnightLockEnabled &&
+      other.studyEndsAt == studyEndsAt &&
+      other.studyLengthMinutes == studyLengthMinutes;
 
   @override
   int get hashCode => Object.hash(
@@ -109,11 +139,16 @@ class UsageSettings {
     onboardingCompleted,
     pendingLimitSeconds,
     pendingEffectiveAt,
+    overnightLockEnabled,
+    studyEndsAt,
+    studyLengthMinutes,
   );
 
   @override
   String toString() =>
       'UsageSettings(limit: ${dailyLimitSeconds}s, locked: $isLocked, '
       'pending: ${pendingLimitSeconds}s @ ${pendingEffectiveAt?.toIso8601String()}, '
+      'overnight: $overnightLockEnabled, '
+      'studyUntil: ${studyEndsAt?.toIso8601String()}, '
       'reset: ${nextResetAt.toIso8601String()})';
 }
