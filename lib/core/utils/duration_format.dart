@@ -22,6 +22,21 @@ String formatClockTime(DateTime moment) {
   return '$hour12:$minute $suffix';
 }
 
+/// Timer clock form: "25:00", or "1:02:03" for sessions over an hour.
+String formatTimerClock(int seconds) {
+  final safe = seconds < 0 ? 0 : seconds;
+  final hours = safe ~/ 3600;
+  final minutes = (safe % 3600) ~/ 60;
+  final secs = safe % 60;
+  final minuteText = hours > 0
+      ? minutes.toString().padLeft(2, '0')
+      : minutes.toString();
+  final secondText = secs.toString().padLeft(2, '0');
+  return hours > 0
+      ? '$hours:$minuteText:$secondText'
+      : '$minuteText:$secondText';
+}
+
 /// Countdown form used by the block screen: "3h 12m" or "45s".
 String formatCountdown(Duration remaining) {
   if (remaining.isNegative || remaining == Duration.zero) return '0s';

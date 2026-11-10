@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
+import '../../../core/utils/day_window.dart';
 import '../../../domain/entities/blocking_config.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
 import '../../limits/presentation/settings_controller.dart';
@@ -35,6 +36,15 @@ final blockingConfigProvider = Provider<BlockingConfig?>((ref) {
     nextResetAt: settings.nextResetAt,
     overnightLockEnabled: settings.overnightLockEnabled,
     studyEndsAt: settings.studyEndsAt,
+    focusGoalSeconds: settings.focusGoalMinutes * 60,
+    focusAutoBlockEnabled: settings.focusAutoBlockEnabled,
+    focusCutoffMinuteOfDay: settings.focusCutoffMinutes,
+    focusBaseSeconds: settings.focusSecondsToday,
+    focusDayStart: settings.focusDate == null
+        ? null
+        : parseLocalDateKey(settings.focusDate!),
+    focusSessionStartedAt: settings.focusSessionStartedAt,
+    focusSessionEndsAt: settings.focusSessionEndsAt,
   );
 });
 

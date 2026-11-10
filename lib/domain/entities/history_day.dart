@@ -11,6 +11,9 @@ class HistoryDay {
     required this.limitSeconds,
     this.limitHitAt,
     this.apps = const {},
+    this.focusSeconds = 0,
+    this.lateNightSeconds = 0,
+    this.lateNightApps = const {},
   });
 
   final DateTime date;
@@ -27,9 +30,24 @@ class HistoryDay {
   /// Seconds per monitored package, only positive entries.
   final Map<String, int> apps;
 
+  /// Focus seconds completed on this day.
+  final int focusSeconds;
+
+  /// Social-app seconds used between local 00:00 and 08:00.
+  final int lateNightSeconds;
+
+  /// Late-night seconds per monitored package, only positive entries.
+  final Map<String, int> lateNightApps;
+
   String get dateKey => localDateKey(date);
 
   bool get hasUsage => totalSeconds > 0;
+
+  bool get hasFocus => focusSeconds > 0;
+
+  bool get hasLateNight => lateNightSeconds > 0;
+
+  bool get hasActivity => hasUsage || hasFocus || hasLateNight;
 
   bool get hasLimit => limitSeconds > 0;
 
@@ -50,5 +68,6 @@ class HistoryDay {
 
   @override
   String toString() =>
-      'HistoryDay($dateKey, total: ${totalSeconds}s, limit: ${limitSeconds}s)';
+      'HistoryDay($dateKey, total: ${totalSeconds}s, limit: ${limitSeconds}s, '
+      'focus: ${focusSeconds}s, lateNight: ${lateNightSeconds}s)';
 }

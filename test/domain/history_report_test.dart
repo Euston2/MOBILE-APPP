@@ -62,6 +62,26 @@ void main() {
       );
       expect(used.hasUsage, isTrue);
     });
+
+    test('hasActivity includes focus-only and late-night-only days', () {
+      final focus = HistoryDay(
+        date: DateTime(2026, 10, 30),
+        totalSeconds: 0,
+        limitSeconds: 0,
+        focusSeconds: 1500,
+      );
+      final late = HistoryDay(
+        date: DateTime(2026, 10, 31),
+        totalSeconds: 0,
+        limitSeconds: 0,
+        lateNightSeconds: 300,
+      );
+
+      expect(focus.hasUsage, isFalse);
+      expect(focus.hasActivity, isTrue);
+      expect(late.hasUsage, isFalse);
+      expect(late.hasActivity, isTrue);
+    });
   });
 
   group('buildHistoryReport', () {
@@ -137,6 +157,27 @@ void main() {
       expect(report.days.first.date, DateTime(2026, 10, 24));
     });
 
+    test('keeps focus-only days as data without counting them as usage', () {
+      final report = buildHistoryReport(
+        stored: [
+          HistoryDay(
+            date: DateTime(2026, 10, 30),
+            totalSeconds: 0,
+            limitSeconds: 0,
+            focusSeconds: 1800,
+            lateNightSeconds: 600,
+          ),
+        ],
+        endExclusive: DateTime(2026, 10, 31),
+        dayCount: 7,
+      );
+
+      expect(report.hasData, isTrue);
+      expect(report.stats.trackedDays, 0);
+      expect(report.stats.totalFocusSeconds, 1800);
+      expect(report.stats.totalLateNightSeconds, 600);
+    });
+
     test('treats zero-usage stored days as untracked', () {
       final report = buildHistoryReport(
         stored: [
@@ -164,11 +205,15 @@ void main() {
           date: DateTime(2026, 10, 27),
           totalSeconds: 3600,
           limitSeconds: 3600,
+          focusSeconds: 1800,
+          lateNightSeconds: 300,
         ),
         HistoryDay(
           date: DateTime(2026, 10, 28),
           totalSeconds: 1800,
           limitSeconds: 3600,
+          focusSeconds: 600,
+          lateNightSeconds: 120,
         ),
         HistoryDay(
           date: DateTime(2026, 10, 29),
@@ -187,6 +232,8 @@ void main() {
       expect(stats.averageSeconds, 2200);
       expect(stats.limitHitDays, 1);
       expect(stats.underLimitDays, 1);
+      expect(stats.totalFocusSeconds, 2400);
+      expect(stats.totalLateNightSeconds, 420);
     });
 
     test('returns zeros for no days', () {
@@ -197,6 +244,8 @@ void main() {
       expect(stats.averageSeconds, 0);
       expect(stats.limitHitDays, 0);
       expect(stats.underLimitDays, 0);
+      expect(stats.totalFocusSeconds, 0);
+      expect(stats.totalLateNightSeconds, 0);
     });
   });
 }

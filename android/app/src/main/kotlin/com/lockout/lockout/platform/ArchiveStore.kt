@@ -11,6 +11,9 @@ data class UsageArchive(
     val limitSeconds: Int,
     val limitHitAtMs: Long,
     val apps: Map<String, Int>,
+    val focusSeconds: Int = 0,
+    val lateNightSeconds: Int = 0,
+    val lateNightApps: Map<String, Int> = emptyMap(),
 )
 
 /**
@@ -37,16 +40,10 @@ object ArchiveStore {
                     val item = array.optJSONObject(index) ?: continue
                     val date = item.optString("date")
                     if (date.isEmpty()) continue
-                    val apps = HashMap<String, Int>()
-                    val rawApps = item.optJSONArray("apps") ?: JSONArray()
-                    for (appIndex in 0 until rawApps.length()) {
-                        val app = rawApps.optJSONObject(appIndex) ?: continue
-                        val packageName = app.optString("packageName")
-                        val seconds = app.optInt("seconds", 0)
-                        if (packageName.isNotEmpty() && seconds > 0) {
-                            apps[packageName] = seconds
-                        }
-                    }
+                    val apps = readAppMap(item.optJSONArray("apps"))
+                    val lateNightApps = readAppMap(
+                        item.optJSONArray("lateNightApps"),
+                    )
                     add(
                         UsageArchive(
                             date = date,
@@ -54,6 +51,12 @@ object ArchiveStore {
                             limitSeconds = item.optInt("limitSeconds", 0),
                             limitHitAtMs = item.optLong("limitHitAtMs", 0L),
                             apps = apps,
+                            focusSeconds = item.optInt("focusSeconds", 0),
+                            lateNightSeconds = item.optInt(
+                                "lateNightSeconds",
+                                lateNightApps.values.sum(),
+                            ),
+                            lateNightApps = lateNightApps,
                         ),
                     )
                 }
@@ -70,24 +73,48 @@ object ArchiveStore {
 
         val array = JSONArray()
         for (day in merged) {
-            val apps = JSONArray()
-            for (entry in day.apps.entries.sortedBy { it.key }) {
-                apps.put(
-                    JSONObject()
-                        .put("packageName", entry.key)
-                        .put("seconds", entry.value),
-                )
-            }
+            val apps = writeAppMap(day.apps)
+            val lateNightApps = writeAppMap(day.lateNightApps)
             array.put(
                 JSONObject()
                     .put("date", day.date)
                     .put("totalSeconds", day.totalSeconds)
                     .put("limitSeconds", day.limitSeconds)
                     .put("limitHitAtMs", day.limitHitAtMs)
-                    .put("apps", apps),
+                    .put("apps", apps)
+                    .put("focusSeconds", day.focusSeconds)
+                    .put("lateNightSeconds", day.lateNightSeconds)
+                    .put("lateNightApps", lateNightApps),
             )
         }
         prefs(context).edit().putString(KEY_PENDING, array.toString()).commit()
+    }
+
+    /** Reads the optional per-app seconds array used for both usage maps. */
+    private fun readAppMap(rawApps: JSONArray?): Map<String, Int> {
+        val apps = HashMap<String, Int>()
+        if (rawApps == null) return apps
+        for (appIndex in 0 until rawApps.length()) {
+            val app = rawApps.optJSONObject(appIndex) ?: continue
+            val packageName = app.optString("packageName")
+            val seconds = app.optInt("seconds", 0)
+            if (packageName.isNotEmpty() && seconds > 0) {
+                apps[packageName] = seconds
+            }
+        }
+        return apps
+    }
+
+    private fun writeAppMap(apps: Map<String, Int>): JSONArray {
+        val array = JSONArray()
+        for (entry in apps.entries.sortedBy { it.key }) {
+            array.put(
+                JSONObject()
+                    .put("packageName", entry.key)
+                    .put("seconds", entry.value),
+            )
+        }
+        return array
     }
 
     fun clearPending(context: Context) {

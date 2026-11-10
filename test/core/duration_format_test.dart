@@ -21,6 +21,25 @@ void main() {
     });
   });
 
+  group('formatTimerClock', () {
+    test('formats minutes and seconds with a two-digit second field', () {
+      expect(formatTimerClock(0), '0:00');
+      expect(formatTimerClock(5), '0:05');
+      expect(formatTimerClock(65), '1:05');
+      expect(formatTimerClock(25 * 60), '25:00');
+    });
+
+    test('adds an hours field and pads minutes for long sessions', () {
+      expect(formatTimerClock(3600), '1:00:00');
+      expect(formatTimerClock(3600 + 2 * 60 + 3), '1:02:03');
+      expect(formatTimerClock(8 * 3600), '8:00:00');
+    });
+
+    test('treats negative time as zero', () {
+      expect(formatTimerClock(-10), '0:00');
+    });
+  });
+
   group('formatClockTime', () {
     test('formats midnight and noon as 12', () {
       expect(formatClockTime(DateTime(2026, 11, 3)), '12:00 AM');

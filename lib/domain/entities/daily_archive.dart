@@ -7,6 +7,9 @@ class DailyArchive {
     required this.limitSeconds,
     required this.apps,
     this.limitHitAt,
+    this.focusSeconds = 0,
+    this.lateNightSeconds = 0,
+    this.lateNightApps = const {},
   });
 
   /// Local calendar date, `yyyy-MM-dd`.
@@ -24,7 +27,17 @@ class DailyArchive {
   /// Seconds per monitored package. Only positive entries are kept.
   final Map<String, int> apps;
 
+  /// Focus seconds accumulated on this finished day.
+  final int focusSeconds;
+
+  /// Social-app seconds used between local 00:00 and 08:00.
+  final int lateNightSeconds;
+
+  /// Late-night seconds per monitored package.
+  final Map<String, int> lateNightApps;
+
   @override
   String toString() =>
-      'DailyArchive($date, total: ${totalSeconds}s, apps: ${apps.length})';
+      'DailyArchive($date, total: ${totalSeconds}s, focus: ${focusSeconds}s, '
+      'lateNight: ${lateNightSeconds}s, apps: ${apps.length})';
 }

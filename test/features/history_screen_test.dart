@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lockout/core/utils/day_window.dart';
 import 'package:lockout/domain/entities/history_day.dart';
 import 'package:lockout/domain/entities/installed_app.dart';
+import 'package:lockout/features/history/presentation/widgets/focus_comparison_chart.dart';
 import 'package:lockout/features/history/presentation/widgets/history_chart.dart';
 
 import '../helpers/fake_stores.dart';
@@ -47,7 +48,10 @@ void main() {
           date: daysAgo(1),
           totalSeconds: 1800,
           limitSeconds: 3600,
+          focusSeconds: 1200,
+          lateNightSeconds: 300,
           apps: const {'com.instagram.android': 1800},
+          lateNightApps: const {'com.instagram.android': 300},
         ),
         HistoryDay(
           date: daysAgo(2),
@@ -96,14 +100,28 @@ void main() {
     expect(find.text('45m'), findsOneWidget); // tracked-day average
     expect(find.text('Over limit'), findsOneWidget);
     expect(find.byType(HistoryChart), findsOneWidget);
+    expect(find.byType(FocusComparisonChart), findsOneWidget);
+    expect(find.text('Social vs focus'), findsOneWidget);
+    expect(find.text('Focus time'), findsWidgets); // stat and chart legend
+    expect(find.text('Late night'), findsOneWidget);
+    expect(find.text('20m'), findsOneWidget);
+    expect(find.text('5m'), findsOneWidget);
     expect(find.text('Limit reached at 14:05'), findsOneWidget);
-    expect(find.text('30m left of 1h'), findsOneWidget);
+    expect(
+      find.text('30m left of 1h · 20m focus · 5m late night'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Limit reached at 14:05'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Instagram'), findsOneWidget);
+    expect(find.text('Instagram'), findsWidgets);
     expect(find.text('TikTok'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ExpansionTile, '30m'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('5m late night'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.ios_share));
     await tester.pumpAndSettle();
@@ -113,11 +131,16 @@ void main() {
     final csv = exporter.csvs.single;
     expect(
       csv,
-      startsWith('date,total_seconds,limit_seconds,limit_hit_at,apps\r\n'),
+      startsWith(
+        'date,total_seconds,limit_seconds,limit_hit_at,focus_seconds,'
+        'late_night_seconds,apps,late_night_apps\r\n',
+      ),
     );
     expect(csv, contains(localDateKey(daysAgo(2))));
     expect(csv, contains(localDateKey(daysAgo(1))));
     expect(csv, contains('com.instagram.android=2400'));
+    expect(csv, contains('1800,3600,,1200,300,com.instagram.android=1800,'));
+    expect(csv, contains('com.instagram.android=300'));
     expect(csv.split('\r\n').where((line) => line.isNotEmpty), hasLength(3));
 
     await disposeTestApp(tester);

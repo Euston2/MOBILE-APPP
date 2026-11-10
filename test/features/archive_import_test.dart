@@ -15,12 +15,18 @@ void main() {
         limitSeconds: 3600,
         limitHitAt: DateTime(2026, 10, 29, 14),
         apps: const {'com.instagram.android': 3900},
+        focusSeconds: 1800,
+        lateNightSeconds: 300,
+        lateNightApps: const {'com.instagram.android': 300},
       ),
       DailyArchive(
         date: '2026-10-30',
         totalSeconds: 900,
         limitSeconds: 3600,
         apps: const {'com.zhiliaoapp.musically': 900},
+        focusSeconds: 1200,
+        lateNightSeconds: 120,
+        lateNightApps: const {'com.zhiliaoapp.musically': 120},
       ),
     ];
     final history = FakeHistoryRepository(pending: archives);

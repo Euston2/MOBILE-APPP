@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Release 1.2.0 preview
+
+- Version `1.2.0+12`.
+- Added a cumulative **Study timer** with 15m/25m/45m/1h/1h 30m/2h presets and
+  a custom 5m–8h length. Sessions can be paused and resumed, and focus seconds
+  bank into the current local day across sessions. The timer state is persisted
+  in `shared_preferences` and mirrored to Kotlin, so a running session survives
+  app restarts and the Flutter process being killed.
+- Added an optional **daily focus goal** (0–600 minutes) with a configurable
+  cutoff (default 8:00 PM). When automation is on and the cutoff passes while
+  today's focus is below the goal, the selected apps stay blocked until
+  midnight; meeting the goal lifts the block early. While the block is active,
+  goal/automation/cutoff and Limit & apps edits are rejected, but starting a
+  focus session remains available.
+- Added focus and late-night analytics: the History screen now shows a grouped
+  social-vs-focus chart per day, focus/late-night totals, per-day subtitles, and
+  a late-night label on affected apps. Late-night means selected-app usage
+  between local 12:00 AM and 8:00 AM.
+- Native midnight archives now include `focusSeconds`, `lateNightSeconds` and
+  per-app late-night usage. Drift schema is v3 with migrations; CSV export adds
+  `focus_seconds`, `late_night_seconds` and `late_night_apps` columns.
+- The native watcher stays alive while focus tracking is active for today, and
+  `MidnightReset` rolls a cross-midnight focus timer into the new day so the
+  previous day's archive and the new day's focus are both preserved.
+- Added native focus-policy, focus-copy, day/minute and midnight-roll tests, plus
+  Dart tests for timer math, goal/cutoff rules, controller guards, persistence,
+  History comparison UI, drift fields and CSV output. Dart tests are now 195;
+  all `:app` JVM tests, `flutter analyze` and the debug APK build pass.
+
 ### Release 1.1.0 preview
 
 - Version `1.1.0+11`.

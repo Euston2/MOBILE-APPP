@@ -109,6 +109,13 @@ class LockoutPlatform {
     required DateTime nextResetAt,
     required bool overnightLockEnabled,
     required DateTime? studyEndsAt,
+    required int focusGoalSeconds,
+    required bool focusAutoBlockEnabled,
+    required int focusCutoffMinuteOfDay,
+    required int focusBaseSeconds,
+    required DateTime? focusDayStart,
+    required DateTime? focusSessionStartedAt,
+    required DateTime? focusSessionEndsAt,
   }) => _channel.invokeMethod<void>('setBlockingConfig', <String, Object?>{
     'monitoredPackages': monitoredPackages.toList(growable: false),
     'dailyLimitSeconds': dailyLimitSeconds,
@@ -120,6 +127,13 @@ class LockoutPlatform {
     'nextResetAtMs': nextResetAt.millisecondsSinceEpoch,
     'overnightLockEnabled': overnightLockEnabled,
     'studyEndsAtMs': studyEndsAt?.millisecondsSinceEpoch,
+    'focusGoalSeconds': focusGoalSeconds,
+    'focusAutoBlockEnabled': focusAutoBlockEnabled,
+    'focusCutoffMinuteOfDay': focusCutoffMinuteOfDay,
+    'focusBaseSeconds': focusBaseSeconds,
+    'focusDayStartMs': focusDayStart?.millisecondsSinceEpoch,
+    'focusSessionStartedAtMs': focusSessionStartedAt?.millisecondsSinceEpoch,
+    'focusSessionEndsAtMs': focusSessionEndsAt?.millisecondsSinceEpoch,
   });
 
   /// Stops the foreground watcher when there is nothing to enforce.

@@ -20,6 +20,13 @@ class AndroidBlockingRepository implements BlockingRepository {
     nextResetAt: config.nextResetAt,
     overnightLockEnabled: config.overnightLockEnabled,
     studyEndsAt: config.studyEndsAt,
+    focusGoalSeconds: config.focusGoalSeconds,
+    focusAutoBlockEnabled: config.focusAutoBlockEnabled,
+    focusCutoffMinuteOfDay: config.focusCutoffMinuteOfDay,
+    focusBaseSeconds: config.focusBaseSeconds,
+    focusDayStart: config.focusDayStart,
+    focusSessionStartedAt: config.focusSessionStartedAt,
+    focusSessionEndsAt: config.focusSessionEndsAt,
   );
 
   @override

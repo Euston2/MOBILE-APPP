@@ -23,11 +23,22 @@ void main() {
     expect(settings.lockedAt, isNull);
     expect(settings.onboardingCompleted, isFalse);
     expect(settings.nextResetAt.isAfter(DateTime.now()), isTrue);
+    expect(settings.focusGoalMinutes, 0);
+    expect(settings.focusAutoBlockEnabled, isFalse);
+    expect(settings.focusCutoffMinutes, 20 * 60);
+    expect(settings.focusDate, isNull);
+    expect(settings.focusSecondsToday, 0);
+    expect(settings.focusSessionStartedAt, isNull);
+    expect(settings.focusSessionEndsAt, isNull);
+    expect(settings.focusSessionRemainingSeconds, 0);
+    expect(settings.focusSessionLengthMinutes, 25);
   });
 
   test('round-trips every field', () async {
     final repository = await freshRepository();
     final studyEndsAt = DateTime(2026, 10, 29, 22, 30);
+    final focusStart = DateTime(2026, 10, 29, 20);
+    final focusEnd = DateTime(2026, 10, 29, 20, 30);
     final original = UsageSettings(
       dailyLimitSeconds: 5400,
       isLocked: true,
@@ -37,6 +48,15 @@ void main() {
       overnightLockEnabled: true,
       studyEndsAt: studyEndsAt,
       studyLengthMinutes: 45,
+      focusGoalMinutes: 120,
+      focusAutoBlockEnabled: true,
+      focusCutoffMinutes: 21 * 60 + 15,
+      focusDate: '2026-10-29',
+      focusSecondsToday: 1800,
+      focusSessionStartedAt: focusStart,
+      focusSessionEndsAt: focusEnd,
+      focusSessionRemainingSeconds: 1200,
+      focusSessionLengthMinutes: 45,
     );
 
     await repository.save(original);
@@ -50,6 +70,56 @@ void main() {
     expect(loaded.overnightLockEnabled, isTrue);
     expect(loaded.studyEndsAt, studyEndsAt);
     expect(loaded.studyLengthMinutes, 45);
+    expect(loaded.focusGoalMinutes, 120);
+    expect(loaded.focusAutoBlockEnabled, isTrue);
+    expect(loaded.focusCutoffMinutes, 21 * 60 + 15);
+    expect(loaded.focusDate, '2026-10-29');
+    expect(loaded.focusSecondsToday, 1800);
+    expect(loaded.focusSessionStartedAt, focusStart);
+    expect(loaded.focusSessionEndsAt, focusEnd);
+    expect(loaded.focusSessionRemainingSeconds, 1200);
+    expect(loaded.focusSessionLengthMinutes, 45);
+  });
+
+  test('clearing the focus session and date removes their keys', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = PrefsSettingsRepository(prefs);
+
+    await repository.save(
+      UsageSettings(
+        dailyLimitSeconds: 0,
+        isLocked: false,
+        lockedAt: null,
+        nextResetAt: DateTime(2026, 11, 1),
+        onboardingCompleted: true,
+        focusDate: '2026-10-31',
+        focusSessionStartedAt: DateTime(2026, 10, 31, 20),
+        focusSessionEndsAt: DateTime(2026, 10, 31, 20, 25),
+        focusSessionRemainingSeconds: 1500,
+      ),
+    );
+    await repository.save(
+      UsageSettings(
+        dailyLimitSeconds: 0,
+        isLocked: false,
+        lockedAt: null,
+        nextResetAt: DateTime(2026, 11, 1),
+        onboardingCompleted: true,
+      ),
+    );
+
+    expect(
+      prefs.getInt(PrefsSettingsRepository.keyFocusSessionStartedAt),
+      isNull,
+    );
+    expect(prefs.getInt(PrefsSettingsRepository.keyFocusSessionEndsAt), isNull);
+    expect(prefs.getString(PrefsSettingsRepository.keyFocusDate), isNull);
+    final loaded = await repository.load();
+    expect(loaded.focusSessionStartedAt, isNull);
+    expect(loaded.focusSessionEndsAt, isNull);
+    expect(loaded.focusDate, isNull);
+    expect(loaded.focusSessionRemainingSeconds, 0);
   });
 
   test('clearing the study session removes its key', () async {

@@ -101,6 +101,19 @@ class DayMathTest {
     }
 
     @Test
+    fun `minute of local day counts from midnight`() {
+        assertEquals(0, DayMath.minuteOfLocalDay(local(2026, Calendar.NOVEMBER, 3)))
+        assertEquals(
+            20 * 60,
+            DayMath.minuteOfLocalDay(local(2026, Calendar.NOVEMBER, 3, 20)),
+        )
+        assertEquals(
+            23 * 60 + 59,
+            DayMath.minuteOfLocalDay(local(2026, Calendar.NOVEMBER, 3, 23, 59)),
+        )
+    }
+
+    @Test
     fun `local date uses the yyyy-MM-dd key`() {
         val afternoon = local(2026, Calendar.OCTOBER, 30, 12)
 

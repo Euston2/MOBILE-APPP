@@ -145,6 +145,9 @@ class FakeHistoryRepository implements HistoryRepository {
         limitSeconds: archive.limitSeconds,
         limitHitAt: archive.limitHitAt,
         apps: Map.unmodifiable(archive.apps),
+        focusSeconds: archive.focusSeconds,
+        lateNightSeconds: archive.lateNightSeconds,
+        lateNightApps: Map.unmodifiable(archive.lateNightApps),
       ),
     );
   }
@@ -198,6 +201,15 @@ UsageSettings settingsWith({
   bool overnightLockEnabled = false,
   DateTime? studyEndsAt,
   int studyLengthMinutes = 60,
+  int focusGoalMinutes = 0,
+  bool focusAutoBlockEnabled = false,
+  int focusCutoffMinutes = 20 * 60,
+  String? focusDate,
+  int focusSecondsToday = 0,
+  DateTime? focusSessionStartedAt,
+  DateTime? focusSessionEndsAt,
+  int focusSessionRemainingSeconds = 0,
+  int focusSessionLengthMinutes = 25,
 }) => UsageSettings(
   dailyLimitSeconds: dailyLimitSeconds,
   isLocked: isLocked,
@@ -209,6 +221,15 @@ UsageSettings settingsWith({
   overnightLockEnabled: overnightLockEnabled,
   studyEndsAt: studyEndsAt,
   studyLengthMinutes: studyLengthMinutes,
+  focusGoalMinutes: focusGoalMinutes,
+  focusAutoBlockEnabled: focusAutoBlockEnabled,
+  focusCutoffMinutes: focusCutoffMinutes,
+  focusDate: focusDate,
+  focusSecondsToday: focusSecondsToday,
+  focusSessionStartedAt: focusSessionStartedAt,
+  focusSessionEndsAt: focusSessionEndsAt,
+  focusSessionRemainingSeconds: focusSessionRemainingSeconds,
+  focusSessionLengthMinutes: focusSessionLengthMinutes,
 );
 
 /// Snapshot with only usage access granted, useful for the onboarding flow.

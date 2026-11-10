@@ -169,6 +169,8 @@ class BlockingService : Service() {
                 usedSeconds,
                 config.effectiveAt(nowMs).limitSeconds,
                 config.studyEndsAtMs,
+                config.focusSecondsAt(nowMs).toLong(),
+                config.focusGoalSeconds.toLong(),
             )
         }
     }
@@ -179,6 +181,8 @@ class BlockingService : Service() {
         usedSeconds: Long,
         limitSeconds: Int,
         studyEndsAtMs: Long,
+        focusUsedSeconds: Long,
+        focusGoalSeconds: Long,
     ) {
         if (BlockActivity.isVisible) {
             BlockOverlay.hide()
@@ -203,6 +207,8 @@ class BlockingService : Service() {
                     usedSeconds,
                     limitSeconds,
                     studyEndsAtMs,
+                    focusUsedSeconds,
+                    focusGoalSeconds,
                 )
             }
         }, OVERLAY_DELAY_MS)
@@ -228,6 +234,8 @@ class BlockingService : Service() {
         usedSeconds: Long,
         limitSeconds: Int,
         studyEndsAtMs: Long,
+        focusUsedSeconds: Long,
+        focusGoalSeconds: Long,
     ) {
         if (!Settings.canDrawOverlays(this)) return
         BlockOverlay.show(
@@ -238,6 +246,8 @@ class BlockingService : Service() {
                 usedSeconds,
                 limitSeconds.toLong(),
                 studyEndsAtMs,
+                focusUsedSeconds,
+                focusGoalSeconds,
             ),
         )
     }
@@ -280,6 +290,8 @@ class BlockingService : Service() {
             config.overnightLockEnabled &&
                 DayMath.isInOvernightWindow(now) ->
                 "$appCount $noun blocked until 8:00 AM"
+            config.isFocusGoalBlockActive(now) ->
+                "$appCount $noun blocked until the focus goal is met"
             active.isActive ->
                 "$appCount $noun - " +
                     "${BlockCopy.formatDuration(active.limitSeconds.toLong())} " +
