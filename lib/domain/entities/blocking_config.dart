@@ -21,6 +21,13 @@ class BlockingConfig {
     this.lockedAt,
     this.overnightLockEnabled = false,
     this.studyEndsAt,
+    this.focusGoalSeconds = 0,
+    this.focusAutoBlockEnabled = false,
+    this.focusCutoffMinuteOfDay = 20 * 60,
+    this.focusBaseSeconds = 0,
+    this.focusDayStart,
+    this.focusSessionStartedAt,
+    this.focusSessionEndsAt,
   });
 
   /// Apps monitored today.
@@ -52,6 +59,28 @@ class BlockingConfig {
   /// End of the current study session, or null when none is running.
   final DateTime? studyEndsAt;
 
+  /// Daily focus goal in seconds; 0 means no goal.
+  ///
+  /// The native watcher receives the goal, the cutoff and the running session
+  /// clock so it can enforce the missed-goal block even when Flutter is asleep.
+  final int focusGoalSeconds;
+
+  /// Whether missing the daily goal should block selected apps.
+  final bool focusAutoBlockEnabled;
+
+  /// Local minute of day (0-1439) at which the missed-goal block starts.
+  final int focusCutoffMinuteOfDay;
+
+  /// Focus seconds already banked for [focusDayStart].
+  final int focusBaseSeconds;
+
+  /// Local midnight of the day [focusBaseSeconds] belongs to.
+  final DateTime? focusDayStart;
+
+  /// Start/end of the running focus timer, or null when idle/paused.
+  final DateTime? focusSessionStartedAt;
+  final DateTime? focusSessionEndsAt;
+
   bool get hasPendingConfig =>
       pendingEffectiveAt != null &&
       pendingLimitSeconds > 0 &&
@@ -62,12 +91,55 @@ class BlockingConfig {
 
   bool get hasStudyFocus => studyEndsAt != null && monitoredPackages.isNotEmpty;
 
+  bool get hasFocusGoal =>
+      focusAutoBlockEnabled &&
+      focusGoalSeconds > 0 &&
+      monitoredPackages.isNotEmpty;
+
+  /// Focus seconds for the local day containing [now], including the running
+  /// session's elapsed part. This mirrors the Dart domain calculation.
+  int focusSecondsAt(DateTime now) {
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final base =
+        focusDayStart != null &&
+            focusDayStart!.year == now.year &&
+            focusDayStart!.month == now.month &&
+            focusDayStart!.day == now.day
+        ? focusBaseSeconds
+        : 0;
+
+    final start = focusSessionStartedAt;
+    final end = focusSessionEndsAt;
+    if (start == null || end == null) return base;
+
+    final from = start.isAfter(todayStart) ? start : todayStart;
+    final to = end.isBefore(now) ? end : now;
+    if (!to.isAfter(from)) return base;
+    return base + to.difference(from).inSeconds;
+  }
+
+  /// True after the cutoff when automation is on and the goal is still short.
+  bool isFocusGoalBlockActive(DateTime now) {
+    if (!hasFocusGoal) return false;
+    final cutoffMinutes = focusCutoffMinuteOfDay.clamp(0, 24 * 60 - 1);
+    final cutoff = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      cutoffMinutes ~/ 60,
+      cutoffMinutes % 60,
+    );
+    if (now.isBefore(cutoff)) return false;
+    return focusSecondsAt(now) < focusGoalSeconds;
+  }
+
   /// Nothing to enforce: no daily limit, scheduled limit or focus lock.
   bool get isActive =>
       (dailyLimitSeconds > 0 && monitoredPackages.isNotEmpty) ||
       hasPendingConfig ||
       hasOvernightFocus ||
-      hasStudyFocus;
+      hasStudyFocus ||
+      hasFocusGoal;
 
   @override
   String toString() =>
@@ -75,5 +147,8 @@ class BlockingConfig {
       'limit: ${dailyLimitSeconds}s, pendingApps: ${pendingPackages.length}, '
       'pendingLimit: ${pendingLimitSeconds}s, locked: $isLocked, '
       'overnight: $overnightLockEnabled, '
-      'studyUntil: ${studyEndsAt?.toIso8601String()})';
+      'studyUntil: ${studyEndsAt?.toIso8601String()}, '
+      'focusGoal: ${focusGoalSeconds}s, '
+      'focusBlock: $focusAutoBlockEnabled, '
+      'focusToday: ${focusBaseSeconds}s)';
 }

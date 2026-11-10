@@ -12,8 +12,10 @@ import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/entities/usage_summary.dart';
 import '../../../domain/usecases/evaluate_limit.dart';
 import '../../../domain/usecases/focus_lock.dart';
+import '../../../domain/usecases/study_timer.dart';
 import '../../blocking/presentation/blocking_controller.dart';
 import '../../focus/presentation/focus_screen.dart';
+import '../../focus/presentation/study_timer_screen.dart';
 import '../../history/presentation/archive_import_controller.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
@@ -65,6 +67,12 @@ class HomeScreen extends ConsumerWidget {
     return Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const FocusScreen()));
+  }
+
+  Future<void> _openStudyTimer(BuildContext context) {
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const StudyTimerScreen()));
   }
 
   Future<void> _openHistory(BuildContext context) {
@@ -172,6 +180,11 @@ class HomeScreen extends ConsumerWidget {
                 locked: locked,
                 nextResetAt: nextResetAt,
                 onConfigure: () => _openLimits(context),
+              ),
+              const SizedBox(height: 16),
+              _StudyTimerCard(
+                settings: settings,
+                onTap: () => _openStudyTimer(context),
               ),
               const SizedBox(height: 16),
               _FocusCard(settings: settings, onTap: () => _openFocus(context)),
@@ -358,6 +371,83 @@ class _LimitCard extends StatelessWidget {
   }
 }
 
+class _StudyTimerCard extends StatelessWidget {
+  const _StudyTimerCard({required this.settings, required this.onTap});
+
+  final UsageSettings? settings;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final current = settings;
+    final goalSeconds = (current?.focusGoalMinutes ?? 0) * 60;
+    final todaySeconds = current == null
+        ? 0
+        : focusSecondsForToday(current, now);
+    final blockActive = current != null && isFocusGoalBlockActive(current, now);
+    final running = current != null && isFocusSessionRunning(current, now);
+    final paused = current != null && isFocusSessionPaused(current, now);
+
+    final String title;
+    final String subtitle;
+    if (blockActive) {
+      title = 'Focus goal missed';
+      subtitle =
+          '${formatDuration(todaySeconds)} of '
+          '${formatDuration(goalSeconds)} today · apps blocked until midnight';
+    } else if (running) {
+      title = 'Focusing now';
+      subtitle = goalSeconds > 0
+          ? '${formatDuration(todaySeconds)} of '
+                '${formatDuration(goalSeconds)} today'
+          : '${formatDuration(todaySeconds)} focused today';
+    } else if (paused) {
+      title = 'Focus timer paused';
+      subtitle = '${formatDuration(todaySeconds)} focused today';
+    } else if (goalSeconds > 0) {
+      title = 'Study timer';
+      subtitle =
+          '${formatDuration(todaySeconds)} of '
+          '${formatDuration(goalSeconds)} today';
+    } else {
+      title = 'Study timer';
+      subtitle = 'Set a daily goal or start a focus session.';
+    }
+
+    final foreground = blockActive ? theme.colorScheme.onErrorContainer : null;
+
+    return Card(
+      color: blockActive ? theme.colorScheme.errorContainer : null,
+      child: ListTile(
+        leading: Icon(
+          blockActive
+              ? Icons.lock_clock_outlined
+              : running
+              ? Icons.timelapse
+              : Icons.timer_outlined,
+          color: foreground,
+        ),
+        title: Text(
+          title,
+          style: foreground == null
+              ? null
+              : theme.textTheme.titleSmall?.copyWith(color: foreground),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: foreground == null
+              ? null
+              : theme.textTheme.bodySmall?.copyWith(color: foreground),
+        ),
+        trailing: Icon(Icons.chevron_right, color: foreground),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
 class _FocusCard extends StatelessWidget {
   const _FocusCard({required this.settings, required this.onTap});
 
@@ -374,10 +464,12 @@ class _FocusCard extends StatelessWidget {
         current != null &&
         current.overnightLockEnabled &&
         isOvernightLockWindow(now);
+    final focusGoalActive =
+        current != null && isFocusGoalBlockActive(current, now);
     final activeUntil = current == null
         ? null
         : activeFocusLockEnd(current, now);
-    final active = studyActive || overnightActive;
+    final active = studyActive || overnightActive || focusGoalActive;
 
     final String title;
     final String subtitle;
@@ -385,6 +477,11 @@ class _FocusCard extends StatelessWidget {
       title = 'Study lock on';
       subtitle =
           'Until ${formatClockTime(activeUntil!)}. Selected apps are blocked.';
+    } else if (focusGoalActive) {
+      title = 'Focus goal missed';
+      subtitle =
+          'Selected apps are blocked until midnight. Finish a focus session '
+          'to unlock them early.';
     } else if (overnightActive) {
       title = 'Overnight lock on';
       subtitle =

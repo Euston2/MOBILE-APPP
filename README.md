@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-1.1.0-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-1.2.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -24,9 +24,10 @@ way to talk yourself out of it at 11 p.m.
 | 5 | History & stats | `v0.5.0` | ✅ done |
 | 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ✅ done |
 | 7 | Release (friends-and-family preview) | `v1.0.2` | ✅ preview |
-| 8 | Focus locks (overnight + study) | `v1.1.0` | 🚧 preview |
+| 8 | Focus locks (overnight + study) | `v1.1.0` | ✅ preview |
+| 9 | Cumulative study timer, missed-goal automation, focus analytics | `v1.2.0` | 🚧 preview |
 
-The `1.1.0` APK is currently a friends-and-family preview built from `develop`.
+The `1.2.0` APK is currently a friends-and-family preview built from `develop`.
 It is debug-signed and not on Play Store; use it only for feedback. A tagged
 public release waits until release signing secrets and the device matrix are
 complete.
@@ -42,9 +43,18 @@ Two optional hard focus locks sit on top of that:
 - **Study lock** starts a one-off session immediately and closes the selected
   apps for the chosen duration (25 minutes to 4 hours). It cannot be stopped
   early.
+- **Study timer** accumulates focus time across sessions for the local day. Pick
+  a preset (15 minutes to 2 hours) or a custom length, pause/resume, and watch
+  the total build toward an optional daily goal (up to 10 hours).
+- **Missed-goal automation** is opt-in: after a configurable cutoff (8:00 PM by
+  default), the selected apps stay blocked until midnight if today's focus total
+  is below the goal. Meeting the goal lifts the block early. While that block is
+  active, the goal/cutoff and Limit & apps controls are locked, but starting a
+  focus session still works — that is the way out.
 
-While either focus lock is active, Limit & apps is read-only so the block cannot
-be bypassed by relaxing the limit or changing the app selection.
+While either focus lock or the missed-goal block is active, Limit & apps is
+read-only so the block cannot be bypassed by relaxing the limit or changing the
+app selection.
 
 ## How it works (v1 target)
 
@@ -71,13 +81,21 @@ be bypassed by relaxing the limit or changing the app selection.
   time has priority over the overnight window, then the daily lock, then the
   daily limit. Both are hard windows: the UI and controllers refuse to edit the
   limit or app selection until the active lock ends.
+- **Focus timer and analytics** — focus seconds are banked per local day in
+  `shared_preferences`; a running timer is also sent to Kotlin as start/end
+  bounds so the native watcher can enforce the goal and archive the day without
+  Flutter. The watcher stays alive while a timer was used today or a crossed
+  midnight session is still running. At midnight Kotlin archives social usage,
+  focus seconds and late-night usage (00:00–08:00) into the same JSON queue as
+  the daily limit.
 - **Reset** — `AlarmManager.setExactAndAllowWhileIdle` fires at 00:00 local time
   (with a doze-safe inexact fallback when exact-alarm access is unavailable); a
   `BOOT_COMPLETED`/`TIME_SET`/`TIMEZONE_CHANGED` receiver re-arms it. Any start
   of the app or service recovers a missed reset by comparing `now` with
   `next_reset_at`, clears the expired lock, folds the pending config into the
-  active one, and archives each finished day's per-app totals for the history
-  screen (up to 14 missed days per recovery pass).
+  active one, rolls a cross-midnight focus timer into the new day, and archives
+  each finished day's per-app totals for the history screen (up to 14 missed
+  days per recovery pass).
 - **Protection check** — a dedicated screen shows the four essential accesses,
   exact-alarm access, the cached enforcement state and a bounded on-device event
   log. It includes manufacturer-specific autostart/battery steps for Xiaomi,
@@ -85,11 +103,13 @@ be bypassed by relaxing the limit or changing the app selection.
   with best-effort deep links and an app-details fallback. A copied report stays
   local until the user pastes it.
 - **History** — archived days are imported into drift and shown in a 7-day or
-  30-day chart with total/average/limit-hit stats and expandable per-app
-  breakdowns. Missing calendar days are padded with zeroes so the chart keeps a
+  30-day chart with total/average/limit-hit stats, a grouped social-vs-focus
+  chart, and expandable per-app breakdowns. The comparison chart puts social
+  screen time, focus time and late-night (00:00–08:00) social usage side by side
+  per day. Missing calendar days are padded with zeroes so the chart keeps a
   stable width, while averages count only days that were actually tracked. The
-  CSV action builds an RFC 4180 snapshot and hands it to the system share sheet
-  as plain text.
+  CSV includes focus and late-night columns and hands the RFC 4180 snapshot to
+  the system share sheet as plain text.
 
 History is archived natively into a small JSON queue and imported into drift on
 the next launch (drift is Dart-owned). The lock and its reset timestamp are

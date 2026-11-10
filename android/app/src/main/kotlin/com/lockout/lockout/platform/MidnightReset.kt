@@ -28,9 +28,14 @@ object MidnightReset {
         val lockCleared: Boolean,
         val materialised: Boolean,
         val resetAdvanced: Boolean,
+        val focusRolled: Boolean = false,
     ) {
         val changed: Boolean
-            get() = archived || lockCleared || materialised || resetAdvanced
+            get() = archived ||
+                lockCleared ||
+                materialised ||
+                resetAdvanced ||
+                focusRolled
     }
 
     fun recover(
@@ -56,8 +61,10 @@ object MidnightReset {
             // governed the day. A change effective at the next midnight belongs
             // to the next day.
             val dayConfig = current.effectiveAt(dayEndMs - 1L)
-            if (dayConfig.isActive) {
-                val apps = runCatching {
+            val apps = if (dayConfig.packages.isEmpty()) {
+                emptyMap()
+            } else {
+                runCatching {
                     BlockUsage.secondsByPackage(
                         context,
                         dayStartMs,
@@ -71,34 +78,76 @@ object MidnightReset {
                             error.javaClass.simpleName,
                     )
                 }.getOrDefault(emptyMap())
-                val total = apps.values.sum()
-                if (total > 0) {
-                    ArchiveStore.append(
+            }
+            val lateNightEndMs = minOf(
+                dayEndMs,
+                DayMath.overnightEndFor(dayStartMs),
+            )
+            val lateNightApps = if (dayConfig.packages.isEmpty()) {
+                emptyMap()
+            } else {
+                runCatching {
+                    BlockUsage.secondsByPackage(
                         context,
-                        UsageArchive(
-                            date = date,
-                            totalSeconds = total,
-                            limitSeconds = dayConfig.limitSeconds,
-                            limitHitAtMs = hitAtMsFor(
-                                current,
-                                dayStartMs,
-                                dayEndMs,
-                            ),
-                            apps = apps,
+                        dayStartMs,
+                        lateNightEndMs,
+                        dayConfig.packages,
+                    )
+                }.onFailure { error ->
+                    LockoutLog.warn(
+                        context,
+                        "late-night query failed for $date: " +
+                            error.javaClass.simpleName,
+                    )
+                }.getOrDefault(emptyMap())
+            }
+            val focusSeconds = current.focusSecondsInRange(
+                dayStartMs,
+                dayEndMs,
+            )
+            val total = apps.values.sum()
+            val lateNightSeconds = lateNightApps.values.sum()
+            if (total > 0 || focusSeconds > 0 || lateNightSeconds > 0) {
+                ArchiveStore.append(
+                    context,
+                    UsageArchive(
+                        date = date,
+                        totalSeconds = total,
+                        limitSeconds = dayConfig.limitSeconds,
+                        limitHitAtMs = hitAtMsFor(
+                            current,
+                            dayStartMs,
+                            dayEndMs,
                         ),
-                    )
-                    archived = true
-                    val noun = if (apps.size == 1) "app" else "apps"
-                    LockoutLog.info(
-                        context,
-                        "archived $date across ${apps.size} $noun",
-                    )
-                }
+                        apps = apps,
+                        focusSeconds = focusSeconds,
+                        lateNightSeconds = lateNightSeconds,
+                        lateNightApps = lateNightApps,
+                    ),
+                )
+                archived = true
+                val noun = if (apps.size == 1) "app" else "apps"
+                LockoutLog.info(
+                    context,
+                    "archived $date across ${apps.size} $noun " +
+                        "(focus ${focusSeconds}s, late ${lateNightSeconds}s)",
+                )
             }
 
             // Mark even a day with no config or no usage, so the query is not
             // repeated on every two-second poll.
             ArchiveStore.markArchived(context, date)
+        }
+
+        // A focus timer used today keeps the watcher alive until midnight so the
+        // finished day can be archived even if Flutter is never opened. Once the
+        // day rolls over, bank any part of a cross-midnight session that belongs
+        // to the new day and drop yesterday's stale timer state.
+        val focusRoll = rollFocusDay(current, nowMs)
+        if (focusRoll.changed) {
+            current = focusRoll.config
+            BlockingStore.save(context, current)
+            LockoutLog.info(context, "focus tracking rolled into a new day")
         }
 
         var materialised = false
@@ -143,7 +192,57 @@ object MidnightReset {
             cleared,
             materialised,
             resetAdvanced,
+            focusRoll.changed,
         )
+    }
+
+    /**
+     * Moves focus tracking into [nowMs]'s local day.
+     *
+     * A timer that crosses midnight keeps running, but its base resets to zero
+     * because the finished day has already been archived. A timer that ended
+     * after midnight banks only the part inside the new day, so the next
+     * midnight archive still sees it. Stale state from an earlier day is
+     * cleared so the watcher can stop.
+     */
+    internal fun rollFocusDay(
+        config: BlockingConfig,
+        nowMs: Long,
+    ): FocusRollResult {
+        val todayStart = DayMath.startOfLocalDay(nowMs)
+        if (config.focusDayStartMs == todayStart) {
+            return FocusRollResult(config, false)
+        }
+        if (config.focusDayStartMs == 0L &&
+            config.focusSessionStartedAtMs == 0L
+        ) {
+            return FocusRollResult(config, false)
+        }
+
+        val sessionStart = config.focusSessionStartedAtMs
+        val sessionEnd = config.focusSessionEndsAtMs
+        val running = sessionStart > 0L && sessionEnd > nowMs
+        val rolled = if (running) {
+            config.copy(
+                focusDayStartMs = todayStart,
+                focusBaseSeconds = 0,
+            )
+        } else {
+            val from = maxOf(sessionStart, todayStart)
+            val to = minOf(sessionEnd, nowMs)
+            val bankedToday = if (sessionEnd > sessionStart && to > from) {
+                ((to - from) / 1000L).toInt()
+            } else {
+                0
+            }
+            config.copy(
+                focusDayStartMs = if (bankedToday > 0) todayStart else 0L,
+                focusBaseSeconds = bankedToday,
+                focusSessionStartedAtMs = 0L,
+                focusSessionEndsAtMs = 0L,
+            )
+        }
+        return FocusRollResult(rolled, rolled != config)
     }
 
     /**
@@ -169,3 +268,9 @@ object MidnightReset {
         return 0L
     }
 }
+
+/** Result of rolling focus tracking into a new local day. */
+internal data class FocusRollResult(
+    val config: BlockingConfig,
+    val changed: Boolean,
+)

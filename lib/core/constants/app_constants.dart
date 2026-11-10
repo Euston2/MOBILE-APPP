@@ -8,7 +8,7 @@ class AppConstants {
   static const String appName = 'Lockout';
 
   /// Kept in sync with `pubspec.yaml`; used for the in-app version label.
-  static const String appVersion = '1.1.0';
+  static const String appVersion = '1.2.0';
 
   /// Single MethodChannel for request/response calls into the Kotlin layer.
   static const String platformChannelName = 'com.lockout.lockout/platform';

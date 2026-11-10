@@ -35,6 +35,19 @@ data class BlockingConfig(
     val overnightLockEnabled: Boolean = false,
     /** End of the one-off study session, or 0 when no session is running. */
     val studyEndsAtMs: Long = 0L,
+    /** Daily focus goal in seconds (0 = no goal). */
+    val focusGoalSeconds: Int = 0,
+    /** Whether missing the daily focus goal should block the selected apps. */
+    val focusAutoBlockEnabled: Boolean = false,
+    /** Local minute of day (0-1439) at which the missed-goal block starts. */
+    val focusCutoffMinuteOfDay: Int = 20 * 60,
+    /** Focus seconds already banked for the day starting at [focusDayStartMs]. */
+    val focusBaseSeconds: Int = 0,
+    /** Local midnight of the day [focusBaseSeconds] belongs to (0 = none). */
+    val focusDayStartMs: Long = 0L,
+    /** Running focus timer bounds (0 when idle or paused). */
+    val focusSessionStartedAtMs: Long = 0L,
+    val focusSessionEndsAtMs: Long = 0L,
 ) {
     /** Configuration that applies at [nowMs]. */
     fun effectiveAt(nowMs: Long): ActiveLimit {
@@ -49,6 +62,59 @@ data class BlockingConfig(
         }
     }
 
+    /** True when a goal and automation are configured for selected apps. */
+    val hasFocusGoal: Boolean
+        get() = focusAutoBlockEnabled &&
+            focusGoalSeconds > 0 &&
+            monitoredPackages.isNotEmpty()
+
+    /**
+     * Focus seconds for the local day containing [nowMs], including the elapsed
+     * part of a running timer. This mirrors `focusSecondsForToday` in Dart.
+     */
+    fun focusSecondsAt(nowMs: Long): Int {
+        val todayStart = DayMath.startOfLocalDay(nowMs)
+        var total = if (focusDayStartMs == todayStart) focusBaseSeconds else 0
+        val start = focusSessionStartedAtMs
+        val end = focusSessionEndsAtMs
+        if (start > 0L && end > start) {
+            val from = maxOf(start, todayStart)
+            val to = minOf(nowMs, end)
+            if (to > from) total += ((to - from) / 1000L).toInt()
+        }
+        return total
+    }
+
+    /**
+     * Focus seconds inside an arbitrary archived window.
+     *
+     * Used by the midnight archive: the day's banked total plus any running
+     * timer portion that overlapped that finished day.
+     */
+    fun focusSecondsInRange(startMs: Long, endMs: Long): Int {
+        if (endMs <= startMs) return 0
+        var total = if (focusDayStartMs == DayMath.startOfLocalDay(startMs)) {
+            focusBaseSeconds
+        } else {
+            0
+        }
+        val start = focusSessionStartedAtMs
+        val end = focusSessionEndsAtMs
+        if (start > 0L && end > start) {
+            val from = maxOf(start, startMs)
+            val to = minOf(end, endMs)
+            if (to > from) total += ((to - from) / 1000L).toInt()
+        }
+        return total
+    }
+
+    /** True after the cutoff when the goal is still short. */
+    fun isFocusGoalBlockActive(nowMs: Long): Boolean {
+        if (!hasFocusGoal) return false
+        if (DayMath.minuteOfLocalDay(nowMs) < focusCutoffMinuteOfDay) return false
+        return focusSecondsAt(nowMs) < focusGoalSeconds
+    }
+
     /**
      * Only run the service when something is configured, now or from midnight.
      * The pending configuration keeps the watcher alive so a scheduled change
@@ -60,7 +126,10 @@ data class BlockingConfig(
                 pendingPackages.isNotEmpty() &&
                 pendingEffectiveAtMs > 0L) ||
             (overnightLockEnabled && monitoredPackages.isNotEmpty()) ||
-            (studyEndsAtMs > 0L && monitoredPackages.isNotEmpty())
+            (studyEndsAtMs > 0L && monitoredPackages.isNotEmpty()) ||
+            hasFocusGoal ||
+            focusDayStartMs > 0L ||
+            focusSessionEndsAtMs > 0L
 
     /**
      * Whether the watcher still has something to enforce at [nowMs].
@@ -69,13 +138,21 @@ data class BlockingConfig(
      * stays armed all day so its next 00:00 boundary is ready even if an alarm
      * is delayed.
      */
-    fun isActiveAt(nowMs: Long): Boolean =
-        (dailyLimitSeconds > 0 && monitoredPackages.isNotEmpty()) ||
+    fun isActiveAt(nowMs: Long): Boolean {
+        val todayStart = DayMath.startOfLocalDay(nowMs)
+        val trackingToday = focusDayStartMs == todayStart
+        val sessionRunning = focusSessionStartedAtMs > 0L &&
+            focusSessionEndsAtMs > nowMs
+        return (dailyLimitSeconds > 0 && monitoredPackages.isNotEmpty()) ||
             (pendingLimitSeconds > 0 &&
                 pendingPackages.isNotEmpty() &&
                 pendingEffectiveAtMs > 0L) ||
             (overnightLockEnabled && monitoredPackages.isNotEmpty()) ||
-            (studyEndsAtMs > nowMs && monitoredPackages.isNotEmpty())
+            (studyEndsAtMs > nowMs && monitoredPackages.isNotEmpty()) ||
+            hasFocusGoal ||
+            trackingToday ||
+            sessionRunning
+    }
 }
 
 /** The apps and limit that apply at one instant. */

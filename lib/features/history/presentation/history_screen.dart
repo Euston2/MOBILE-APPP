@@ -13,6 +13,7 @@ import '../../home/presentation/today_usage_controller.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
 import 'history_controller.dart';
 import 'history_format.dart';
+import 'widgets/focus_comparison_chart.dart';
 import 'widgets/history_chart.dart';
 
 /// Archived daily usage, a week/month chart, and a CSV share action.
@@ -76,11 +77,13 @@ class HistoryScreen extends ConsumerWidget {
                 _StatsCard(report: report, range: range),
                 const SizedBox(height: 20),
                 _ChartCard(report: report),
+                const SizedBox(height: 16),
+                _ComparisonCard(report: report),
                 const SizedBox(height: 24),
                 Text('Days', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
                 for (final day in report.days.reversed.where(
-                  (day) => day.hasUsage,
+                  (day) => day.hasActivity,
                 ))
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -211,6 +214,34 @@ class _StatsCard extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _Metric(
+                    label: 'Focus time',
+                    value: formatDuration(stats.totalFocusSeconds),
+                    color: theme.colorScheme.tertiary,
+                  ),
+                ),
+                Expanded(
+                  child: _Metric(
+                    label: 'Late night',
+                    value: formatDuration(stats.totalLateNightSeconds),
+                    color: stats.totalLateNightSeconds > 0
+                        ? theme.colorScheme.error
+                        : null,
+                  ),
+                ),
+                Expanded(
+                  child: _Metric(
+                    label: 'Under limit',
+                    value: '${stats.underLimitDays}',
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -289,6 +320,53 @@ class _ChartCard extends StatelessWidget {
   }
 }
 
+class _ComparisonCard extends StatelessWidget {
+  const _ComparisonCard({required this.report});
+
+  final HistoryReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Social vs focus',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                Text(
+                  rangeLabel(report.days),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Late night is the part of social screen time used between '
+              '12:00 AM and 8:00 AM.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FocusComparisonChart(days: report.days),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DayTile extends StatelessWidget {
   const _DayTile({required this.day, required this.labels});
 
@@ -338,7 +416,9 @@ class _DayTile extends StatelessWidget {
     );
 
     final title = Text(
-      formatDuration(day.totalSeconds),
+      day.hasUsage
+          ? formatDuration(day.totalSeconds)
+          : '${formatDuration(day.focusSeconds)} focus',
       style: theme.textTheme.titleMedium,
     );
     final subtitle = Text(
@@ -383,9 +463,22 @@ class _DayTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    formatDuration(entry.value),
-                    style: theme.textTheme.bodyMedium,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        formatDuration(entry.value),
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      if ((day.lateNightApps[entry.key] ?? 0) > 0)
+                        Text(
+                          '${formatDuration(day.lateNightApps[entry.key]!)} '
+                          'late night',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colors.error,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -396,15 +489,27 @@ class _DayTile extends StatelessWidget {
   }
 
   String _subtitle(HistoryDay day) {
-    if (!day.hasLimit) return 'No limit set';
-    if (day.hitLimit) {
+    final parts = <String>[];
+    if (!day.hasLimit) {
+      parts.add('No limit set');
+    } else if (day.hitLimit) {
       final hitAt = day.limitHitAt;
-      return hitAt == null
-          ? 'Limit reached'
-          : 'Limit reached at ${clockTime(hitAt)}';
+      parts.add(
+        hitAt == null
+            ? 'Limit reached'
+            : 'Limit reached at ${clockTime(hitAt)}',
+      );
+    } else {
+      parts.add(
+        '${formatDuration(day.remainingSeconds)} left of '
+        '${formatDuration(day.limitSeconds)}',
+      );
     }
-    return '${formatDuration(day.remainingSeconds)} left of '
-        '${formatDuration(day.limitSeconds)}';
+    if (day.hasFocus) parts.add('${formatDuration(day.focusSeconds)} focus');
+    if (day.hasLateNight) {
+      parts.add('${formatDuration(day.lateNightSeconds)} late night');
+    }
+    return parts.join(' · ');
   }
 }
 

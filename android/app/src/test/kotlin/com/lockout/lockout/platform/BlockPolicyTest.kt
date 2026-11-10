@@ -366,4 +366,94 @@ class BlockPolicyTest {
         assertTrue(study.isActiveAt(now))
         assertFalse(study.isActiveAt(now + 60_000L))
     }
+
+    @Test
+    fun `focus goal blocks at the cutoff only while the goal is short`() {
+        val cutoff = 20 * 60
+        val goal = config.copy(
+            dailyLimitSeconds = 0,
+            focusGoalSeconds = 3600,
+            focusAutoBlockEnabled = true,
+            focusCutoffMinuteOfDay = cutoff,
+            focusDayStartMs = DayMath.startOfLocalDay(localTime(20)),
+        )
+
+        assertEquals(
+            BlockReason.FOCUS_GOAL_MISSED,
+            BlockPolicy.reasonForForeground(
+                foregroundPackage = "com.instagram.android",
+                config = goal,
+                usedSecondsToday = 0,
+                nowMs = localTime(20),
+            ),
+        )
+        assertNull(
+            BlockPolicy.reasonForForeground(
+                foregroundPackage = "com.instagram.android",
+                config = goal,
+                usedSecondsToday = 0,
+                nowMs = localTime(19, 59),
+            ),
+        )
+        assertNull(
+            BlockPolicy.reasonForForeground(
+                foregroundPackage = "com.android.chrome",
+                config = goal,
+                usedSecondsToday = 0,
+                nowMs = localTime(20),
+            ),
+        )
+        assertNull(
+            BlockPolicy.reasonForForeground(
+                foregroundPackage = "com.instagram.android",
+                config = goal.copy(focusBaseSeconds = 3600),
+                usedSecondsToday = 0,
+                nowMs = localTime(20),
+            ),
+        )
+    }
+
+    @Test
+    fun `a running focus session counts towards closing the goal gap`() {
+        val at = localTime(20)
+        val goal = config.copy(
+            dailyLimitSeconds = 0,
+            focusGoalSeconds = 3600,
+            focusAutoBlockEnabled = true,
+            focusCutoffMinuteOfDay = 20 * 60,
+            focusBaseSeconds = 2400,
+            focusDayStartMs = DayMath.startOfLocalDay(at),
+            focusSessionStartedAtMs = at - 20 * 60_000L,
+            focusSessionEndsAtMs = at + 10 * 60_000L,
+        )
+
+        assertNull(
+            BlockPolicy.reasonFor(
+                goal,
+                usedSecondsToday = 0,
+                nowMs = at,
+            ),
+        )
+        assertEquals(
+            BlockReason.FOCUS_GOAL_MISSED,
+            BlockPolicy.reasonFor(
+                goal.copy(focusBaseSeconds = 1200),
+                usedSecondsToday = 0,
+                nowMs = at,
+            ),
+        )
+    }
+
+    @Test
+    fun `focus tracking keeps the watcher alive for today only`() {
+        val dayStart = DayMath.startOfLocalDay(localTime(12))
+        val tracking = config.copy(
+            dailyLimitSeconds = 0,
+            focusDayStartMs = dayStart,
+        )
+
+        assertTrue(tracking.isActive)
+        assertTrue(tracking.isActiveAt(localTime(12)))
+        assertFalse(tracking.isActiveAt(dayStart + 2 * 24 * 60 * 60_000L))
+    }
 }

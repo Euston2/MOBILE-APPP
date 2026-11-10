@@ -43,6 +43,9 @@ class DailyUsages extends Table {
 
   IntColumn get totalSeconds => integer()();
 
+  /// Seconds used between local 00:00 and 08:00.
+  IntColumn get lateNightSeconds => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column<Object>> get primaryKey => {date, packageName};
 }
@@ -62,6 +65,12 @@ class DailySummaries extends Table {
 
   DateTimeColumn get limitHitAt => dateTime().nullable()();
 
+  /// Focus timer seconds completed on the day.
+  IntColumn get focusSeconds => integer().withDefault(const Constant(0))();
+
+  /// Combined social-app seconds used between local 00:00 and 08:00.
+  IntColumn get lateNightSeconds => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column<Object>> get primaryKey => {date};
 }
@@ -79,7 +88,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -88,6 +97,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         // Stage 4: scheduled selection changes.
         await m.addColumn(monitoredApps, monitoredApps.pendingEnabled);
+      }
+      if (from < 3) {
+        // Focus timer and late-night usage analytics.
+        await m.addColumn(dailyUsages, dailyUsages.lateNightSeconds);
+        await m.addColumn(dailySummaries, dailySummaries.focusSeconds);
+        await m.addColumn(dailySummaries, dailySummaries.lateNightSeconds);
       }
     },
   );
@@ -128,6 +143,9 @@ class AppDatabase extends _$AppDatabase {
     required int limitSeconds,
     required DateTime? limitHitAt,
     required Map<String, int> apps,
+    int focusSeconds = 0,
+    int lateNightSeconds = 0,
+    Map<String, int> lateNightApps = const {},
   }) async {
     await transaction(() async {
       await into(dailySummaries).insertOnConflictUpdate(
@@ -136,6 +154,8 @@ class AppDatabase extends _$AppDatabase {
           totalSeconds: totalSeconds,
           limitSeconds: limitSeconds,
           limitHitAt: Value(limitHitAt),
+          focusSeconds: Value(focusSeconds),
+          lateNightSeconds: Value(lateNightSeconds),
         ),
       );
       for (final entry in apps.entries) {
@@ -144,6 +164,7 @@ class AppDatabase extends _$AppDatabase {
             date: date,
             packageName: entry.key,
             totalSeconds: entry.value,
+            lateNightSeconds: Value(lateNightApps[entry.key] ?? 0),
           ),
         );
       }

@@ -13,6 +13,9 @@ enum class BlockReason(val wireName: String) {
 
     /** A one-off study session is running. */
     STUDY("study"),
+
+    /** The daily focus goal was missed and the cutoff has passed. */
+    FOCUS_GOAL_MISSED("focus_goal_missed"),
 }
 
 /**
@@ -50,6 +53,9 @@ object BlockPolicy {
                 DayMath.isInOvernightWindow(nowMs)
             ) {
                 return BlockReason.OVERNIGHT
+            }
+            if (config.isFocusGoalBlockActive(nowMs)) {
+                return BlockReason.FOCUS_GOAL_MISSED
             }
         }
 

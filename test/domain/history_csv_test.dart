@@ -12,7 +12,11 @@ void main() {
       ),
     ]);
 
-    expect(csv, 'date,total_seconds,limit_seconds,limit_hit_at,apps\r\n');
+    expect(
+      csv,
+      'date,total_seconds,limit_seconds,limit_hit_at,focus_seconds,'
+      'late_night_seconds,apps,late_night_apps\r\n',
+    );
   });
 
   test('writes one row per used day, oldest first, with sorted apps', () {
@@ -21,7 +25,10 @@ void main() {
         date: DateTime(2026, 10, 30),
         totalSeconds: 1800,
         limitSeconds: 3600,
+        focusSeconds: 600,
+        lateNightSeconds: 120,
         apps: const {'com.z': 300, 'com.a': 1500},
+        lateNightApps: const {'com.z': 120},
       ),
       HistoryDay(
         date: DateTime(2026, 10, 28),
@@ -33,11 +40,34 @@ void main() {
     ]);
 
     final lines = csv.split('\r\n');
-    expect(lines[0], 'date,total_seconds,limit_seconds,limit_hit_at,apps');
-    expect(lines[1], '2026-10-28,3900,3600,2026-10-28T14:05:00.000,com.a=3900');
-    expect(lines[2], '2026-10-30,1800,3600,,com.a=1500|com.z=300');
+    expect(
+      lines[0],
+      'date,total_seconds,limit_seconds,limit_hit_at,focus_seconds,'
+      'late_night_seconds,apps,late_night_apps',
+    );
+    expect(
+      lines[1],
+      '2026-10-28,3900,3600,2026-10-28T14:05:00.000,0,0,com.a=3900,',
+    );
+    expect(
+      lines[2],
+      '2026-10-30,1800,3600,,600,120,com.a=1500|com.z=300,com.z=120',
+    );
     expect(lines[3], isEmpty);
     expect(csv.endsWith('\r\n'), isTrue);
+  });
+
+  test('exports a focus-only day with empty usage columns', () {
+    final csv = historyCsv([
+      HistoryDay(
+        date: DateTime(2026, 10, 31),
+        totalSeconds: 0,
+        limitSeconds: 0,
+        focusSeconds: 1500,
+      ),
+    ]);
+
+    expect(csv.split('\r\n')[1], '2026-10-31,0,0,,1500,0,,');
   });
 
   test('quotes fields containing commas, quotes or newlines', () {

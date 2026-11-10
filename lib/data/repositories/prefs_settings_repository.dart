@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/utils/day_window.dart';
 import '../../domain/entities/usage_settings.dart';
 import '../../domain/repositories/settings_repository.dart';
+import '../../domain/usecases/study_timer.dart';
 
 /// Settings and lock state in `shared_preferences`.
 ///
@@ -30,6 +31,19 @@ class PrefsSettingsRepository implements SettingsRepository {
       'settings.overnight_lock_enabled';
   static const String keyStudyEndsAt = 'settings.study_ends_at';
   static const String keyStudyLengthMinutes = 'settings.study_length_minutes';
+  static const String keyFocusGoalMinutes = 'settings.focus_goal_minutes';
+  static const String keyFocusAutoBlockEnabled =
+      'settings.focus_auto_block_enabled';
+  static const String keyFocusCutoffMinutes = 'settings.focus_cutoff_minutes';
+  static const String keyFocusDate = 'settings.focus_date';
+  static const String keyFocusSecondsToday = 'settings.focus_seconds_today';
+  static const String keyFocusSessionStartedAt =
+      'settings.focus_session_started_at';
+  static const String keyFocusSessionEndsAt = 'settings.focus_session_ends_at';
+  static const String keyFocusSessionRemainingSeconds =
+      'settings.focus_session_remaining_seconds';
+  static const String keyFocusSessionLengthMinutes =
+      'settings.focus_session_length_minutes';
 
   @override
   Future<UsageSettings> load() async {
@@ -39,6 +53,8 @@ class PrefsSettingsRepository implements SettingsRepository {
     final pendingLimit = _prefs.getInt(keyPendingLimitSeconds);
     final pendingEffectiveAtMs = _prefs.getInt(keyPendingEffectiveAt);
     final studyEndsAtMs = _prefs.getInt(keyStudyEndsAt);
+    final focusSessionStartedAtMs = _prefs.getInt(keyFocusSessionStartedAt);
+    final focusSessionEndsAtMs = _prefs.getInt(keyFocusSessionEndsAt);
 
     return UsageSettings(
       dailyLimitSeconds: _prefs.getInt(keyDailyLimitSeconds) ?? 0,
@@ -59,6 +75,22 @@ class PrefsSettingsRepository implements SettingsRepository {
           ? null
           : DateTime.fromMillisecondsSinceEpoch(studyEndsAtMs),
       studyLengthMinutes: _prefs.getInt(keyStudyLengthMinutes) ?? 60,
+      focusGoalMinutes: _prefs.getInt(keyFocusGoalMinutes) ?? 0,
+      focusAutoBlockEnabled: _prefs.getBool(keyFocusAutoBlockEnabled) ?? false,
+      focusCutoffMinutes:
+          _prefs.getInt(keyFocusCutoffMinutes) ?? defaultFocusCutoffMinutes,
+      focusDate: _prefs.getString(keyFocusDate),
+      focusSecondsToday: _prefs.getInt(keyFocusSecondsToday) ?? 0,
+      focusSessionStartedAt: focusSessionStartedAtMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(focusSessionStartedAtMs),
+      focusSessionEndsAt: focusSessionEndsAtMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(focusSessionEndsAtMs),
+      focusSessionRemainingSeconds:
+          _prefs.getInt(keyFocusSessionRemainingSeconds) ?? 0,
+      focusSessionLengthMinutes:
+          _prefs.getInt(keyFocusSessionLengthMinutes) ?? 25,
     );
   }
 
@@ -109,6 +141,46 @@ class PrefsSettingsRepository implements SettingsRepository {
       await _prefs.setInt(keyStudyEndsAt, studyEndsAt.millisecondsSinceEpoch);
     }
     await _prefs.setInt(keyStudyLengthMinutes, settings.studyLengthMinutes);
+
+    await _prefs.setInt(keyFocusGoalMinutes, settings.focusGoalMinutes);
+    await _prefs.setBool(
+      keyFocusAutoBlockEnabled,
+      settings.focusAutoBlockEnabled,
+    );
+    await _prefs.setInt(keyFocusCutoffMinutes, settings.focusCutoffMinutes);
+    final focusDate = settings.focusDate;
+    if (focusDate == null) {
+      await _prefs.remove(keyFocusDate);
+    } else {
+      await _prefs.setString(keyFocusDate, focusDate);
+    }
+    await _prefs.setInt(keyFocusSecondsToday, settings.focusSecondsToday);
+    final focusStartedAt = settings.focusSessionStartedAt;
+    if (focusStartedAt == null) {
+      await _prefs.remove(keyFocusSessionStartedAt);
+    } else {
+      await _prefs.setInt(
+        keyFocusSessionStartedAt,
+        focusStartedAt.millisecondsSinceEpoch,
+      );
+    }
+    final focusEndsAt = settings.focusSessionEndsAt;
+    if (focusEndsAt == null) {
+      await _prefs.remove(keyFocusSessionEndsAt);
+    } else {
+      await _prefs.setInt(
+        keyFocusSessionEndsAt,
+        focusEndsAt.millisecondsSinceEpoch,
+      );
+    }
+    await _prefs.setInt(
+      keyFocusSessionRemainingSeconds,
+      settings.focusSessionRemainingSeconds,
+    );
+    await _prefs.setInt(
+      keyFocusSessionLengthMinutes,
+      settings.focusSessionLengthMinutes,
+    );
   }
 
   @override

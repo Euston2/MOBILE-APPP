@@ -6,9 +6,11 @@ import '../../../core/utils/focus_window.dart';
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/usecases/focus_lock.dart';
+import '../../../domain/usecases/study_timer.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
 import '../../limits/presentation/set_limits_screen.dart';
 import '../../limits/presentation/settings_controller.dart';
+import 'study_timer_screen.dart';
 
 /// Hard focus windows on top of the daily limit.
 ///
@@ -141,6 +143,12 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
     ).push(MaterialPageRoute<void>(builder: (_) => const SetLimitsScreen()));
   }
 
+  Future<void> _openStudyTimer(BuildContext context) {
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const StudyTimerScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -148,6 +156,9 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
     final studyEndsAt = _studyEndsAt;
     final countLabel =
         '${widget.appCount} ${widget.appCount == 1 ? 'app' : 'apps'}';
+    final now = DateTime.now();
+    final focusToday = focusSecondsForToday(_settings, now);
+    final focusGoal = _settings.focusGoalMinutes * 60;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -183,6 +194,22 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
             ),
           ),
         ],
+        const SizedBox(height: 20),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.timer_outlined),
+            title: const Text('Study timer'),
+            subtitle: Text(
+              focusGoal > 0
+                  ? '${formatDuration(focusToday)} of '
+                        '${formatDuration(focusGoal)} today'
+                  : '${formatDuration(focusToday)} focused today · '
+                        'set a daily goal',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _openStudyTimer(context),
+          ),
+        ),
         const SizedBox(height: 20),
         Text('Overnight lock', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),

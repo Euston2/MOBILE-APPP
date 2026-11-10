@@ -14,6 +14,8 @@ class HistoryStats {
     required this.averageSeconds,
     required this.limitHitDays,
     required this.underLimitDays,
+    this.totalFocusSeconds = 0,
+    this.totalLateNightSeconds = 0,
   });
 
   const HistoryStats.empty()
@@ -21,7 +23,9 @@ class HistoryStats {
       totalSeconds = 0,
       averageSeconds = 0,
       limitHitDays = 0,
-      underLimitDays = 0;
+      underLimitDays = 0,
+      totalFocusSeconds = 0,
+      totalLateNightSeconds = 0;
 
   final int trackedDays;
   final int totalSeconds;
@@ -30,6 +34,12 @@ class HistoryStats {
 
   /// Tracked days that had a limit and did not reach it.
   final int underLimitDays;
+
+  /// Focus completed across the window, including focus-only days.
+  final int totalFocusSeconds;
+
+  /// Social-app usage between 00:00 and 08:00 across the window.
+  final int totalLateNightSeconds;
 }
 
 /// A padded, chart-ready view of the selected window plus its statistics.
@@ -43,7 +53,7 @@ class HistoryReport {
   final List<HistoryDay> days;
   final HistoryStats stats;
 
-  bool get hasData => stats.trackedDays > 0;
+  bool get hasData => days.any((day) => day.hasActivity);
 }
 
 /// Builds the padded report for the window `[endExclusive - dayCount, endExclusive)`.
@@ -86,8 +96,12 @@ HistoryStats summarizeHistory(Iterable<HistoryDay> days) {
   var totalSeconds = 0;
   var limitHitDays = 0;
   var underLimitDays = 0;
+  var totalFocusSeconds = 0;
+  var totalLateNightSeconds = 0;
 
   for (final day in days) {
+    totalFocusSeconds += day.focusSeconds;
+    totalLateNightSeconds += day.lateNightSeconds;
     if (!day.hasUsage) continue;
     trackedDays++;
     totalSeconds += day.totalSeconds;
@@ -104,5 +118,7 @@ HistoryStats summarizeHistory(Iterable<HistoryDay> days) {
     averageSeconds: trackedDays == 0 ? 0 : (totalSeconds / trackedDays).round(),
     limitHitDays: limitHitDays,
     underLimitDays: underLimitDays,
+    totalFocusSeconds: totalFocusSeconds,
+    totalLateNightSeconds: totalLateNightSeconds,
   );
 }

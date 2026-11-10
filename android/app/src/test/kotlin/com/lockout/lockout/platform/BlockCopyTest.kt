@@ -28,6 +28,10 @@ class BlockCopyTest {
         assertEquals("Locked until midnight", BlockCopy.title(BlockReason.LOCKED))
         assertEquals("Overnight lock", BlockCopy.title(BlockReason.OVERNIGHT))
         assertEquals("Study time", BlockCopy.title(BlockReason.STUDY))
+        assertEquals(
+            "Focus goal not met",
+            BlockCopy.title(BlockReason.FOCUS_GOAL_MISSED),
+        )
     }
 
     @Test
@@ -52,5 +56,20 @@ class BlockCopyTest {
         assertTrue(overnight.contains("8:00 AM"))
         assertTrue(study.contains("study lock is on until"))
         assertTrue(study.contains("Selected apps stay blocked"))
+    }
+
+    @Test
+    fun `focus goal detail compares today's focus with the goal`() {
+        val detail = BlockCopy.detail(
+            BlockReason.FOCUS_GOAL_MISSED,
+            0,
+            0,
+            focusUsedSeconds = 1800,
+            focusGoalSeconds = 3600,
+        )
+
+        assertTrue(detail.contains("goal is 1h"))
+        assertTrue(detail.contains("focused 30m today"))
+        assertTrue(detail.contains("blocked until you meet the goal"))
     }
 }

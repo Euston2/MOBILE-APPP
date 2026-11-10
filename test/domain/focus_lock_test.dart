@@ -54,6 +54,21 @@ void main() {
 
       expect(isFocusLockActive(settings, DateTime(2026, 11, 3, 15)), isTrue);
     });
+
+    test('includes the missed-goal block after its cutoff', () {
+      final settings = settingsWith(
+        focusGoalMinutes: 60,
+        focusAutoBlockEnabled: true,
+        focusCutoffMinutes: 20 * 60,
+        focusDate: '2026-11-03',
+      );
+
+      expect(
+        isFocusLockActive(settings, DateTime(2026, 11, 3, 19, 59)),
+        isFalse,
+      );
+      expect(isFocusLockActive(settings, DateTime(2026, 11, 3, 20)), isTrue);
+    });
   });
 
   group('canTurnOffOvernightLock', () {
@@ -104,6 +119,20 @@ void main() {
       );
 
       expect(end, DateTime(2026, 11, 3, 8));
+    });
+
+    test('returns midnight for an active focus-goal block', () {
+      final end = activeFocusLockEnd(
+        settingsWith(
+          focusGoalMinutes: 60,
+          focusAutoBlockEnabled: true,
+          focusCutoffMinutes: 20 * 60,
+          focusDate: '2026-11-03',
+        ),
+        DateTime(2026, 11, 3, 21),
+      );
+
+      expect(end, DateTime(2026, 11, 4));
     });
 
     test('is null when neither lock is active', () {

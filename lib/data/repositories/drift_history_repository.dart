@@ -37,8 +37,23 @@ class DriftHistoryRepository implements HistoryRepository {
         }
       }
 
+      final lateNightApps = <String, int>{};
+      final rawLateNightApps = item['lateNightApps'];
+      if (rawLateNightApps is List) {
+        for (final entry in rawLateNightApps) {
+          if (entry is! Map) continue;
+          final packageName = entry['packageName'];
+          final seconds = entry['seconds'];
+          if (packageName is! String || packageName.isEmpty) continue;
+          if (seconds is! num || seconds <= 0) continue;
+          lateNightApps[packageName] = seconds.toInt();
+        }
+      }
+
       final limit = item['limitSeconds'];
       final hitAtMs = item['limitHitAtMs'];
+      final focusSeconds = item['focusSeconds'];
+      final lateNightSeconds = item['lateNightSeconds'];
       archives.add(
         DailyArchive(
           date: date,
@@ -48,6 +63,11 @@ class DriftHistoryRepository implements HistoryRepository {
               ? DateTime.fromMillisecondsSinceEpoch(hitAtMs.toInt())
               : null,
           apps: Map.unmodifiable(apps),
+          focusSeconds: focusSeconds is num ? focusSeconds.toInt() : 0,
+          lateNightSeconds: lateNightSeconds is num
+              ? lateNightSeconds.toInt()
+              : lateNightApps.values.fold(0, (sum, value) => sum + value),
+          lateNightApps: Map.unmodifiable(lateNightApps),
         ),
       );
     }
@@ -63,6 +83,9 @@ class DriftHistoryRepository implements HistoryRepository {
       limitSeconds: archive.limitSeconds,
       limitHitAt: archive.limitHitAt,
       apps: archive.apps,
+      focusSeconds: archive.focusSeconds,
+      lateNightSeconds: archive.lateNightSeconds,
+      lateNightApps: archive.lateNightApps,
     );
   }
 
@@ -99,8 +122,13 @@ class DriftHistoryRepository implements HistoryRepository {
             .get();
 
     final appsByDate = <String, Map<String, int>>{};
+    final lateNightByDate = <String, Map<String, int>>{};
     for (final row in usageRows) {
       (appsByDate[row.date] ??= {})[row.packageName] = row.totalSeconds;
+      if (row.lateNightSeconds > 0) {
+        (lateNightByDate[row.date] ??= {})[row.packageName] =
+            row.lateNightSeconds;
+      }
     }
 
     final days = <HistoryDay>[];
@@ -114,6 +142,11 @@ class DriftHistoryRepository implements HistoryRepository {
           limitSeconds: row.limitSeconds,
           limitHitAt: row.limitHitAt,
           apps: Map.unmodifiable(appsByDate[row.date] ?? const {}),
+          focusSeconds: row.focusSeconds,
+          lateNightSeconds: row.lateNightSeconds,
+          lateNightApps: Map.unmodifiable(
+            lateNightByDate[row.date] ?? const {},
+          ),
         ),
       );
     }

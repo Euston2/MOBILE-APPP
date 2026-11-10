@@ -149,6 +149,8 @@ class BlockActivity : Activity() {
                     usedSeconds,
                     active.limitSeconds.toLong(),
                     config.studyEndsAtMs,
+                    config.focusSecondsAt(nowMs).toLong(),
+                    config.focusGoalSeconds.toLong(),
                 )
             }
         }

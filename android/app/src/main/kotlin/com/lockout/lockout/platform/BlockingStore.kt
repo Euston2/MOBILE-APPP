@@ -24,6 +24,13 @@ object BlockingStore {
     private const val KEY_RESET_AT = "next_reset_at_ms"
     private const val KEY_OVERNIGHT_LOCK = "overnight_lock_enabled"
     private const val KEY_STUDY_ENDS_AT = "study_ends_at_ms"
+    private const val KEY_FOCUS_GOAL_SECONDS = "focus_goal_seconds"
+    private const val KEY_FOCUS_AUTO_BLOCK = "focus_auto_block_enabled"
+    private const val KEY_FOCUS_CUTOFF_MINUTE = "focus_cutoff_minute_of_day"
+    private const val KEY_FOCUS_BASE_SECONDS = "focus_base_seconds"
+    private const val KEY_FOCUS_DAY_START = "focus_day_start_ms"
+    private const val KEY_FOCUS_SESSION_START = "focus_session_started_at_ms"
+    private const val KEY_FOCUS_SESSION_END = "focus_session_ends_at_ms"
 
     fun load(context: Context): BlockingConfig {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -42,6 +49,16 @@ object BlockingStore {
             nextResetAtMs = prefs.getLong(KEY_RESET_AT, 0L),
             overnightLockEnabled = prefs.getBoolean(KEY_OVERNIGHT_LOCK, false),
             studyEndsAtMs = prefs.getLong(KEY_STUDY_ENDS_AT, 0L),
+            focusGoalSeconds = prefs.getInt(KEY_FOCUS_GOAL_SECONDS, 0),
+            focusAutoBlockEnabled = prefs.getBoolean(KEY_FOCUS_AUTO_BLOCK, false),
+            focusCutoffMinuteOfDay = prefs.getInt(
+                KEY_FOCUS_CUTOFF_MINUTE,
+                20 * 60,
+            ),
+            focusBaseSeconds = prefs.getInt(KEY_FOCUS_BASE_SECONDS, 0),
+            focusDayStartMs = prefs.getLong(KEY_FOCUS_DAY_START, 0L),
+            focusSessionStartedAtMs = prefs.getLong(KEY_FOCUS_SESSION_START, 0L),
+            focusSessionEndsAtMs = prefs.getLong(KEY_FOCUS_SESSION_END, 0L),
         )
     }
 
@@ -62,6 +79,13 @@ object BlockingStore {
             .putLong(KEY_RESET_AT, config.nextResetAtMs)
             .putBoolean(KEY_OVERNIGHT_LOCK, config.overnightLockEnabled)
             .putLong(KEY_STUDY_ENDS_AT, config.studyEndsAtMs)
+            .putInt(KEY_FOCUS_GOAL_SECONDS, config.focusGoalSeconds)
+            .putBoolean(KEY_FOCUS_AUTO_BLOCK, config.focusAutoBlockEnabled)
+            .putInt(KEY_FOCUS_CUTOFF_MINUTE, config.focusCutoffMinuteOfDay)
+            .putInt(KEY_FOCUS_BASE_SECONDS, config.focusBaseSeconds)
+            .putLong(KEY_FOCUS_DAY_START, config.focusDayStartMs)
+            .putLong(KEY_FOCUS_SESSION_START, config.focusSessionStartedAtMs)
+            .putLong(KEY_FOCUS_SESSION_END, config.focusSessionEndsAtMs)
             .commit()
     }
 

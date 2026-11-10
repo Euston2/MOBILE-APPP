@@ -435,8 +435,25 @@ class $DailyUsagesTable extends DailyUsages
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _lateNightSecondsMeta = const VerificationMeta(
+    'lateNightSeconds',
+  );
   @override
-  List<GeneratedColumn> get $columns => [date, packageName, totalSeconds];
+  late final GeneratedColumn<int> lateNightSeconds = GeneratedColumn<int>(
+    'late_night_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    date,
+    packageName,
+    totalSeconds,
+    lateNightSeconds,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -479,6 +496,15 @@ class $DailyUsagesTable extends DailyUsages
     } else if (isInserting) {
       context.missing(_totalSecondsMeta);
     }
+    if (data.containsKey('late_night_seconds')) {
+      context.handle(
+        _lateNightSecondsMeta,
+        lateNightSeconds.isAcceptableOrUnknown(
+          data['late_night_seconds']!,
+          _lateNightSecondsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -500,6 +526,10 @@ class $DailyUsagesTable extends DailyUsages
         DriftSqlType.int,
         data['${effectivePrefix}total_seconds'],
       )!,
+      lateNightSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}late_night_seconds'],
+      )!,
     );
   }
 
@@ -514,10 +544,14 @@ class DailyUsageRow extends DataClass implements Insertable<DailyUsageRow> {
   final String date;
   final String packageName;
   final int totalSeconds;
+
+  /// Seconds used between local 00:00 and 08:00.
+  final int lateNightSeconds;
   const DailyUsageRow({
     required this.date,
     required this.packageName,
     required this.totalSeconds,
+    required this.lateNightSeconds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -525,6 +559,7 @@ class DailyUsageRow extends DataClass implements Insertable<DailyUsageRow> {
     map['date'] = Variable<String>(date);
     map['package_name'] = Variable<String>(packageName);
     map['total_seconds'] = Variable<int>(totalSeconds);
+    map['late_night_seconds'] = Variable<int>(lateNightSeconds);
     return map;
   }
 
@@ -533,6 +568,7 @@ class DailyUsageRow extends DataClass implements Insertable<DailyUsageRow> {
       date: Value(date),
       packageName: Value(packageName),
       totalSeconds: Value(totalSeconds),
+      lateNightSeconds: Value(lateNightSeconds),
     );
   }
 
@@ -545,6 +581,7 @@ class DailyUsageRow extends DataClass implements Insertable<DailyUsageRow> {
       date: serializer.fromJson<String>(json['date']),
       packageName: serializer.fromJson<String>(json['packageName']),
       totalSeconds: serializer.fromJson<int>(json['totalSeconds']),
+      lateNightSeconds: serializer.fromJson<int>(json['lateNightSeconds']),
     );
   }
   @override
@@ -554,6 +591,7 @@ class DailyUsageRow extends DataClass implements Insertable<DailyUsageRow> {
       'date': serializer.toJson<String>(date),
       'packageName': serializer.toJson<String>(packageName),
       'totalSeconds': serializer.toJson<int>(totalSeconds),
+      'lateNightSeconds': serializer.toJson<int>(lateNightSeconds),
     };
   }
 
@@ -561,10 +599,12 @@ class DailyUsageRow extends DataClass implements Insertable<DailyUsageRow> {
     String? date,
     String? packageName,
     int? totalSeconds,
+    int? lateNightSeconds,
   }) => DailyUsageRow(
     date: date ?? this.date,
     packageName: packageName ?? this.packageName,
     totalSeconds: totalSeconds ?? this.totalSeconds,
+    lateNightSeconds: lateNightSeconds ?? this.lateNightSeconds,
   );
   DailyUsageRow copyWithCompanion(DailyUsagesCompanion data) {
     return DailyUsageRow(
@@ -575,6 +615,9 @@ class DailyUsageRow extends DataClass implements Insertable<DailyUsageRow> {
       totalSeconds: data.totalSeconds.present
           ? data.totalSeconds.value
           : this.totalSeconds,
+      lateNightSeconds: data.lateNightSeconds.present
+          ? data.lateNightSeconds.value
+          : this.lateNightSeconds,
     );
   }
 
@@ -583,37 +626,43 @@ class DailyUsageRow extends DataClass implements Insertable<DailyUsageRow> {
     return (StringBuffer('DailyUsageRow(')
           ..write('date: $date, ')
           ..write('packageName: $packageName, ')
-          ..write('totalSeconds: $totalSeconds')
+          ..write('totalSeconds: $totalSeconds, ')
+          ..write('lateNightSeconds: $lateNightSeconds')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(date, packageName, totalSeconds);
+  int get hashCode =>
+      Object.hash(date, packageName, totalSeconds, lateNightSeconds);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is DailyUsageRow &&
           other.date == this.date &&
           other.packageName == this.packageName &&
-          other.totalSeconds == this.totalSeconds);
+          other.totalSeconds == this.totalSeconds &&
+          other.lateNightSeconds == this.lateNightSeconds);
 }
 
 class DailyUsagesCompanion extends UpdateCompanion<DailyUsageRow> {
   final Value<String> date;
   final Value<String> packageName;
   final Value<int> totalSeconds;
+  final Value<int> lateNightSeconds;
   final Value<int> rowid;
   const DailyUsagesCompanion({
     this.date = const Value.absent(),
     this.packageName = const Value.absent(),
     this.totalSeconds = const Value.absent(),
+    this.lateNightSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DailyUsagesCompanion.insert({
     required String date,
     required String packageName,
     required int totalSeconds,
+    this.lateNightSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : date = Value(date),
        packageName = Value(packageName),
@@ -622,12 +671,14 @@ class DailyUsagesCompanion extends UpdateCompanion<DailyUsageRow> {
     Expression<String>? date,
     Expression<String>? packageName,
     Expression<int>? totalSeconds,
+    Expression<int>? lateNightSeconds,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (date != null) 'date': date,
       if (packageName != null) 'package_name': packageName,
       if (totalSeconds != null) 'total_seconds': totalSeconds,
+      if (lateNightSeconds != null) 'late_night_seconds': lateNightSeconds,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -636,12 +687,14 @@ class DailyUsagesCompanion extends UpdateCompanion<DailyUsageRow> {
     Value<String>? date,
     Value<String>? packageName,
     Value<int>? totalSeconds,
+    Value<int>? lateNightSeconds,
     Value<int>? rowid,
   }) {
     return DailyUsagesCompanion(
       date: date ?? this.date,
       packageName: packageName ?? this.packageName,
       totalSeconds: totalSeconds ?? this.totalSeconds,
+      lateNightSeconds: lateNightSeconds ?? this.lateNightSeconds,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -658,6 +711,9 @@ class DailyUsagesCompanion extends UpdateCompanion<DailyUsageRow> {
     if (totalSeconds.present) {
       map['total_seconds'] = Variable<int>(totalSeconds.value);
     }
+    if (lateNightSeconds.present) {
+      map['late_night_seconds'] = Variable<int>(lateNightSeconds.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -670,6 +726,7 @@ class DailyUsagesCompanion extends UpdateCompanion<DailyUsageRow> {
           ..write('date: $date, ')
           ..write('packageName: $packageName, ')
           ..write('totalSeconds: $totalSeconds, ')
+          ..write('lateNightSeconds: $lateNightSeconds, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -724,12 +781,38 @@ class $DailySummariesTable extends DailySummaries
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _focusSecondsMeta = const VerificationMeta(
+    'focusSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> focusSeconds = GeneratedColumn<int>(
+    'focus_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lateNightSecondsMeta = const VerificationMeta(
+    'lateNightSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> lateNightSeconds = GeneratedColumn<int>(
+    'late_night_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     date,
     totalSeconds,
     limitSeconds,
     limitHitAt,
+    focusSeconds,
+    lateNightSeconds,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -782,6 +865,24 @@ class $DailySummariesTable extends DailySummaries
         ),
       );
     }
+    if (data.containsKey('focus_seconds')) {
+      context.handle(
+        _focusSecondsMeta,
+        focusSeconds.isAcceptableOrUnknown(
+          data['focus_seconds']!,
+          _focusSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('late_night_seconds')) {
+      context.handle(
+        _lateNightSecondsMeta,
+        lateNightSeconds.isAcceptableOrUnknown(
+          data['late_night_seconds']!,
+          _lateNightSecondsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -807,6 +908,14 @@ class $DailySummariesTable extends DailySummaries
         DriftSqlType.dateTime,
         data['${effectivePrefix}limit_hit_at'],
       ),
+      focusSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}focus_seconds'],
+      )!,
+      lateNightSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}late_night_seconds'],
+      )!,
     );
   }
 
@@ -821,11 +930,19 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
   final int totalSeconds;
   final int limitSeconds;
   final DateTime? limitHitAt;
+
+  /// Focus timer seconds completed on the day.
+  final int focusSeconds;
+
+  /// Combined social-app seconds used between local 00:00 and 08:00.
+  final int lateNightSeconds;
   const DailySummaryRow({
     required this.date,
     required this.totalSeconds,
     required this.limitSeconds,
     this.limitHitAt,
+    required this.focusSeconds,
+    required this.lateNightSeconds,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -836,6 +953,8 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
     if (!nullToAbsent || limitHitAt != null) {
       map['limit_hit_at'] = Variable<DateTime>(limitHitAt);
     }
+    map['focus_seconds'] = Variable<int>(focusSeconds);
+    map['late_night_seconds'] = Variable<int>(lateNightSeconds);
     return map;
   }
 
@@ -847,6 +966,8 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
       limitHitAt: limitHitAt == null && nullToAbsent
           ? const Value.absent()
           : Value(limitHitAt),
+      focusSeconds: Value(focusSeconds),
+      lateNightSeconds: Value(lateNightSeconds),
     );
   }
 
@@ -860,6 +981,8 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
       totalSeconds: serializer.fromJson<int>(json['totalSeconds']),
       limitSeconds: serializer.fromJson<int>(json['limitSeconds']),
       limitHitAt: serializer.fromJson<DateTime?>(json['limitHitAt']),
+      focusSeconds: serializer.fromJson<int>(json['focusSeconds']),
+      lateNightSeconds: serializer.fromJson<int>(json['lateNightSeconds']),
     );
   }
   @override
@@ -870,6 +993,8 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
       'totalSeconds': serializer.toJson<int>(totalSeconds),
       'limitSeconds': serializer.toJson<int>(limitSeconds),
       'limitHitAt': serializer.toJson<DateTime?>(limitHitAt),
+      'focusSeconds': serializer.toJson<int>(focusSeconds),
+      'lateNightSeconds': serializer.toJson<int>(lateNightSeconds),
     };
   }
 
@@ -878,11 +1003,15 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
     int? totalSeconds,
     int? limitSeconds,
     Value<DateTime?> limitHitAt = const Value.absent(),
+    int? focusSeconds,
+    int? lateNightSeconds,
   }) => DailySummaryRow(
     date: date ?? this.date,
     totalSeconds: totalSeconds ?? this.totalSeconds,
     limitSeconds: limitSeconds ?? this.limitSeconds,
     limitHitAt: limitHitAt.present ? limitHitAt.value : this.limitHitAt,
+    focusSeconds: focusSeconds ?? this.focusSeconds,
+    lateNightSeconds: lateNightSeconds ?? this.lateNightSeconds,
   );
   DailySummaryRow copyWithCompanion(DailySummariesCompanion data) {
     return DailySummaryRow(
@@ -896,6 +1025,12 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
       limitHitAt: data.limitHitAt.present
           ? data.limitHitAt.value
           : this.limitHitAt,
+      focusSeconds: data.focusSeconds.present
+          ? data.focusSeconds.value
+          : this.focusSeconds,
+      lateNightSeconds: data.lateNightSeconds.present
+          ? data.lateNightSeconds.value
+          : this.lateNightSeconds,
     );
   }
 
@@ -905,13 +1040,22 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
           ..write('date: $date, ')
           ..write('totalSeconds: $totalSeconds, ')
           ..write('limitSeconds: $limitSeconds, ')
-          ..write('limitHitAt: $limitHitAt')
+          ..write('limitHitAt: $limitHitAt, ')
+          ..write('focusSeconds: $focusSeconds, ')
+          ..write('lateNightSeconds: $lateNightSeconds')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(date, totalSeconds, limitSeconds, limitHitAt);
+  int get hashCode => Object.hash(
+    date,
+    totalSeconds,
+    limitSeconds,
+    limitHitAt,
+    focusSeconds,
+    lateNightSeconds,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -919,7 +1063,9 @@ class DailySummaryRow extends DataClass implements Insertable<DailySummaryRow> {
           other.date == this.date &&
           other.totalSeconds == this.totalSeconds &&
           other.limitSeconds == this.limitSeconds &&
-          other.limitHitAt == this.limitHitAt);
+          other.limitHitAt == this.limitHitAt &&
+          other.focusSeconds == this.focusSeconds &&
+          other.lateNightSeconds == this.lateNightSeconds);
 }
 
 class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
@@ -927,12 +1073,16 @@ class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
   final Value<int> totalSeconds;
   final Value<int> limitSeconds;
   final Value<DateTime?> limitHitAt;
+  final Value<int> focusSeconds;
+  final Value<int> lateNightSeconds;
   final Value<int> rowid;
   const DailySummariesCompanion({
     this.date = const Value.absent(),
     this.totalSeconds = const Value.absent(),
     this.limitSeconds = const Value.absent(),
     this.limitHitAt = const Value.absent(),
+    this.focusSeconds = const Value.absent(),
+    this.lateNightSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DailySummariesCompanion.insert({
@@ -940,6 +1090,8 @@ class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
     required int totalSeconds,
     required int limitSeconds,
     this.limitHitAt = const Value.absent(),
+    this.focusSeconds = const Value.absent(),
+    this.lateNightSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : date = Value(date),
        totalSeconds = Value(totalSeconds),
@@ -949,6 +1101,8 @@ class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
     Expression<int>? totalSeconds,
     Expression<int>? limitSeconds,
     Expression<DateTime>? limitHitAt,
+    Expression<int>? focusSeconds,
+    Expression<int>? lateNightSeconds,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -956,6 +1110,8 @@ class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
       if (totalSeconds != null) 'total_seconds': totalSeconds,
       if (limitSeconds != null) 'limit_seconds': limitSeconds,
       if (limitHitAt != null) 'limit_hit_at': limitHitAt,
+      if (focusSeconds != null) 'focus_seconds': focusSeconds,
+      if (lateNightSeconds != null) 'late_night_seconds': lateNightSeconds,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -965,6 +1121,8 @@ class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
     Value<int>? totalSeconds,
     Value<int>? limitSeconds,
     Value<DateTime?>? limitHitAt,
+    Value<int>? focusSeconds,
+    Value<int>? lateNightSeconds,
     Value<int>? rowid,
   }) {
     return DailySummariesCompanion(
@@ -972,6 +1130,8 @@ class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
       totalSeconds: totalSeconds ?? this.totalSeconds,
       limitSeconds: limitSeconds ?? this.limitSeconds,
       limitHitAt: limitHitAt ?? this.limitHitAt,
+      focusSeconds: focusSeconds ?? this.focusSeconds,
+      lateNightSeconds: lateNightSeconds ?? this.lateNightSeconds,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -991,6 +1151,12 @@ class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
     if (limitHitAt.present) {
       map['limit_hit_at'] = Variable<DateTime>(limitHitAt.value);
     }
+    if (focusSeconds.present) {
+      map['focus_seconds'] = Variable<int>(focusSeconds.value);
+    }
+    if (lateNightSeconds.present) {
+      map['late_night_seconds'] = Variable<int>(lateNightSeconds.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1004,6 +1170,8 @@ class DailySummariesCompanion extends UpdateCompanion<DailySummaryRow> {
           ..write('totalSeconds: $totalSeconds, ')
           ..write('limitSeconds: $limitSeconds, ')
           ..write('limitHitAt: $limitHitAt, ')
+          ..write('focusSeconds: $focusSeconds, ')
+          ..write('lateNightSeconds: $lateNightSeconds, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1238,6 +1406,7 @@ typedef $$DailyUsagesTableCreateCompanionBuilder =
       required String date,
       required String packageName,
       required int totalSeconds,
+      Value<int> lateNightSeconds,
       Value<int> rowid,
     });
 typedef $$DailyUsagesTableUpdateCompanionBuilder =
@@ -1245,6 +1414,7 @@ typedef $$DailyUsagesTableUpdateCompanionBuilder =
       Value<String> date,
       Value<String> packageName,
       Value<int> totalSeconds,
+      Value<int> lateNightSeconds,
       Value<int> rowid,
     });
 
@@ -1269,6 +1439,11 @@ class $$DailyUsagesTableFilterComposer
 
   ColumnFilters<int> get totalSeconds => $composableBuilder(
     column: $table.totalSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lateNightSeconds => $composableBuilder(
+    column: $table.lateNightSeconds,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1296,6 +1471,11 @@ class $$DailyUsagesTableOrderingComposer
     column: $table.totalSeconds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get lateNightSeconds => $composableBuilder(
+    column: $table.lateNightSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DailyUsagesTableAnnotationComposer
@@ -1317,6 +1497,11 @@ class $$DailyUsagesTableAnnotationComposer
 
   GeneratedColumn<int> get totalSeconds => $composableBuilder(
     column: $table.totalSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lateNightSeconds => $composableBuilder(
+    column: $table.lateNightSeconds,
     builder: (column) => column,
   );
 }
@@ -1355,11 +1540,13 @@ class $$DailyUsagesTableTableManager
                 Value<String> date = const Value.absent(),
                 Value<String> packageName = const Value.absent(),
                 Value<int> totalSeconds = const Value.absent(),
+                Value<int> lateNightSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DailyUsagesCompanion(
                 date: date,
                 packageName: packageName,
                 totalSeconds: totalSeconds,
+                lateNightSeconds: lateNightSeconds,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1367,11 +1554,13 @@ class $$DailyUsagesTableTableManager
                 required String date,
                 required String packageName,
                 required int totalSeconds,
+                Value<int> lateNightSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DailyUsagesCompanion.insert(
                 date: date,
                 packageName: packageName,
                 totalSeconds: totalSeconds,
+                lateNightSeconds: lateNightSeconds,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -1405,6 +1594,8 @@ typedef $$DailySummariesTableCreateCompanionBuilder =
       required int totalSeconds,
       required int limitSeconds,
       Value<DateTime?> limitHitAt,
+      Value<int> focusSeconds,
+      Value<int> lateNightSeconds,
       Value<int> rowid,
     });
 typedef $$DailySummariesTableUpdateCompanionBuilder =
@@ -1413,6 +1604,8 @@ typedef $$DailySummariesTableUpdateCompanionBuilder =
       Value<int> totalSeconds,
       Value<int> limitSeconds,
       Value<DateTime?> limitHitAt,
+      Value<int> focusSeconds,
+      Value<int> lateNightSeconds,
       Value<int> rowid,
     });
 
@@ -1442,6 +1635,16 @@ class $$DailySummariesTableFilterComposer
 
   ColumnFilters<DateTime> get limitHitAt => $composableBuilder(
     column: $table.limitHitAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get focusSeconds => $composableBuilder(
+    column: $table.focusSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lateNightSeconds => $composableBuilder(
+    column: $table.lateNightSeconds,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1474,6 +1677,16 @@ class $$DailySummariesTableOrderingComposer
     column: $table.limitHitAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get focusSeconds => $composableBuilder(
+    column: $table.focusSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lateNightSeconds => $composableBuilder(
+    column: $table.lateNightSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DailySummariesTableAnnotationComposer
@@ -1500,6 +1713,16 @@ class $$DailySummariesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get limitHitAt => $composableBuilder(
     column: $table.limitHitAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get focusSeconds => $composableBuilder(
+    column: $table.focusSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lateNightSeconds => $composableBuilder(
+    column: $table.lateNightSeconds,
     builder: (column) => column,
   );
 }
@@ -1545,12 +1768,16 @@ class $$DailySummariesTableTableManager
                 Value<int> totalSeconds = const Value.absent(),
                 Value<int> limitSeconds = const Value.absent(),
                 Value<DateTime?> limitHitAt = const Value.absent(),
+                Value<int> focusSeconds = const Value.absent(),
+                Value<int> lateNightSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DailySummariesCompanion(
                 date: date,
                 totalSeconds: totalSeconds,
                 limitSeconds: limitSeconds,
                 limitHitAt: limitHitAt,
+                focusSeconds: focusSeconds,
+                lateNightSeconds: lateNightSeconds,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1559,12 +1786,16 @@ class $$DailySummariesTableTableManager
                 required int totalSeconds,
                 required int limitSeconds,
                 Value<DateTime?> limitHitAt = const Value.absent(),
+                Value<int> focusSeconds = const Value.absent(),
+                Value<int> lateNightSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DailySummariesCompanion.insert(
                 date: date,
                 totalSeconds: totalSeconds,
                 limitSeconds: limitSeconds,
                 limitHitAt: limitHitAt,
+                focusSeconds: focusSeconds,
+                lateNightSeconds: lateNightSeconds,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

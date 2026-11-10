@@ -9,6 +9,7 @@ import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/repositories/settings_repository.dart';
 import '../../../domain/usecases/focus_lock.dart';
 import '../../../domain/usecases/reconcile_settings.dart';
+import '../../../domain/usecases/study_timer.dart';
 import 'monitored_apps_controller.dart';
 
 /// Loads and persists [UsageSettings].
@@ -101,8 +102,163 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
     });
   }
 
+  /// Sets the daily focus goal. 0 turns the goal and its automation off.
+  Future<void> setFocusGoal(int minutes) async {
+    if (minutes < 0 || minutes > maxFocusGoalMinutes) {
+      throw ArgumentError.value(
+        minutes,
+        'minutes',
+        'must be 0-$maxFocusGoalMinutes',
+      );
+    }
+    await _update(
+      (current) => current.copyWith(
+        focusGoalMinutes: minutes,
+        focusAutoBlockEnabled: minutes == 0
+            ? false
+            : current.focusAutoBlockEnabled,
+      ),
+      requireFocusGoalEditable: true,
+    );
+  }
+
+  /// Enables the block that starts when the cutoff passes with an unmet goal.
+  Future<void> setFocusAutoBlock(bool enabled) async {
+    await _update((current) {
+      if (enabled && !hasFocusGoal(current)) {
+        throw StateError('Set a daily focus goal first.');
+      }
+      return current.copyWith(focusAutoBlockEnabled: enabled);
+    }, requireFocusGoalEditable: true);
+  }
+
+  /// Chooses the local time of day (minutes since midnight) for the block.
+  Future<void> setFocusCutoff(int minutes) async {
+    if (minutes < 0 || minutes >= 24 * 60) {
+      throw ArgumentError.value(minutes, 'minutes', 'must be 0-1439');
+    }
+    await _update(
+      (current) => current.copyWith(focusCutoffMinutes: minutes),
+      requireFocusGoalEditable: true,
+    );
+  }
+
+  /// Starts a fresh focus timer for [minutes]. Any paused timer is discarded;
+  /// the UI only exposes Start when there is no paused session.
+  Future<void> startFocusSession(int minutes) async {
+    if (minutes < minFocusSessionMinutes || minutes > maxFocusSessionMinutes) {
+      throw ArgumentError.value(
+        minutes,
+        'minutes',
+        'must be $minFocusSessionMinutes-$maxFocusSessionMinutes',
+      );
+    }
+
+    final now = DateTime.now();
+    await _update((current) {
+      if (isFocusSessionRunning(current, now) ||
+          current.focusSessionRemainingSeconds > 0) {
+        throw StateError('A focus timer is already active.');
+      }
+      final today = localDateKey(now);
+      final base = current.focusDate == today ? current.focusSecondsToday : 0;
+      return current.copyWith(
+        focusDate: today,
+        focusSecondsToday: base,
+        focusSessionStartedAt: now,
+        focusSessionEndsAt: now.add(Duration(minutes: minutes)),
+        focusSessionRemainingSeconds: minutes * 60,
+        focusSessionLengthMinutes: minutes,
+      );
+    });
+  }
+
+  /// Pauses the running timer and banks the elapsed focus time.
+  Future<void> pauseFocusSession() async {
+    final now = DateTime.now();
+    await _update((current) {
+      if (!isFocusSessionRunning(current, now)) {
+        throw StateError('No focus timer is running.');
+      }
+      final start = current.focusSessionStartedAt!;
+      final end = current.focusSessionEndsAt!;
+      final elapsed = _focusElapsedToday(current, now, start, end);
+      final remaining = end.difference(now).inSeconds;
+      return current.copyWith(
+        focusDate: localDateKey(now),
+        focusSecondsToday: elapsed,
+        clearFocusSessionStartedAt: true,
+        clearFocusSessionEndsAt: true,
+        focusSessionRemainingSeconds: remaining < 0 ? 0 : remaining,
+      );
+    });
+  }
+
+  /// Resumes a paused timer with its remaining time.
+  Future<void> resumeFocusSession() async {
+    final now = DateTime.now();
+    await _update((current) {
+      if (isFocusSessionRunning(current, now)) {
+        throw StateError('The focus timer is already running.');
+      }
+      final remaining = current.focusSessionRemainingSeconds;
+      if (remaining <= 0) {
+        throw StateError('There is no paused focus timer.');
+      }
+      return current.copyWith(
+        focusSessionStartedAt: now,
+        focusSessionEndsAt: now.add(Duration(seconds: remaining)),
+      );
+    });
+  }
+
+  /// Ends the timer, keeping the focus time already earned.
+  Future<void> stopFocusSession() async {
+    final now = DateTime.now();
+    await _update((current) {
+      final start = current.focusSessionStartedAt;
+      final end = current.focusSessionEndsAt;
+      if (start != null && end != null) {
+        final elapsed = _focusElapsedToday(current, now, start, end);
+        return current.copyWith(
+          focusDate: localDateKey(now),
+          focusSecondsToday: elapsed,
+          clearFocusSessionStartedAt: true,
+          clearFocusSessionEndsAt: true,
+          focusSessionRemainingSeconds: 0,
+        );
+      }
+      if (current.focusSessionRemainingSeconds <= 0) {
+        throw StateError('No focus timer is active.');
+      }
+      return current.copyWith(
+        focusDate: localDateKey(now),
+        clearFocusSessionStartedAt: true,
+        clearFocusSessionEndsAt: true,
+        focusSessionRemainingSeconds: 0,
+      );
+    });
+  }
+
   Future<void> markOnboardingCompleted() =>
       _update((current) => current.copyWith(onboardingCompleted: true));
+
+  /// Focus seconds for today after banking a session that just stopped.
+  int _focusElapsedToday(
+    UsageSettings current,
+    DateTime now,
+    DateTime start,
+    DateTime end,
+  ) {
+    final todayStart = startOfLocalDay(now);
+    final from = start.isAfter(todayStart) ? start : todayStart;
+    final to = end.isBefore(now) ? end : now;
+    final elapsed = to.isAfter(from) ? to.difference(from).inSeconds : 0;
+    final base = current.focusDate == localDateKey(now)
+        ? current.focusSecondsToday
+        : 0;
+    return base + elapsed;
+  }
 
   Future<UsageSettings> _loadReconciled(
     SettingsRepository repository, {
@@ -120,12 +276,20 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
   Future<void> _update(
     UsageSettings Function(UsageSettings current) change, {
     bool requireUnlocked = false,
+    bool requireFocusGoalEditable = false,
   }) async {
     final repository = ref.read(settingsRepositoryProvider);
-    final current = await _loadReconciled(repository, reload: requireUnlocked);
+    final now = DateTime.now();
+    final current = await _loadReconciled(
+      repository,
+      reload: requireUnlocked || requireFocusGoalEditable,
+    );
     if (requireUnlocked &&
-        (current.isLocked || isFocusLockActive(current, DateTime.now()))) {
+        (current.isLocked || isFocusLockActive(current, now))) {
       throw StateError('The limit is locked until the current block ends.');
+    }
+    if (requireFocusGoalEditable && isFocusGoalBlockActive(current, now)) {
+      throw StateError('The focus goal is locked until the day resets.');
     }
     final updated = change(current);
     await repository.save(updated);
@@ -155,6 +319,15 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
         now.isBefore(overnightLockEndFor(now))
             ? overnightLockEndFor(now)
             : nextLocalMidnight(now),
+      if (settings.focusSessionEndsAt != null &&
+          settings.focusSessionEndsAt!.isAfter(now))
+        settings.focusSessionEndsAt!,
+      if (settings.focusAutoBlockEnabled &&
+          hasFocusGoal(settings) &&
+          !isFocusGoalBlockActive(settings, now) &&
+          now.isBefore(focusCutoffFor(now, settings.focusCutoffMinutes)))
+        focusCutoffFor(now, settings.focusCutoffMinutes),
+      if (isFocusGoalBlockActive(settings, now)) nextLocalMidnight(now),
     ];
     if (instants.isEmpty) return;
     instants.sort();

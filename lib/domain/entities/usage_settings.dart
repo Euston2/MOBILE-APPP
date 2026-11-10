@@ -24,6 +24,15 @@ class UsageSettings {
     this.overnightLockEnabled = false,
     this.studyEndsAt,
     this.studyLengthMinutes = 60,
+    this.focusGoalMinutes = 0,
+    this.focusAutoBlockEnabled = false,
+    this.focusCutoffMinutes = 20 * 60,
+    this.focusDate,
+    this.focusSecondsToday = 0,
+    this.focusSessionStartedAt,
+    this.focusSessionEndsAt,
+    this.focusSessionRemainingSeconds = 0,
+    this.focusSessionLengthMinutes = 25,
   });
 
   /// Defaults for a fresh install: no limit, unlocked, reset at next midnight.
@@ -76,6 +85,48 @@ class UsageSettings {
   /// Persisted so the Focus screen can preload a sensible selection next time.
   final int studyLengthMinutes;
 
+  /// Daily focus goal in minutes. 0 means no goal is configured.
+  ///
+  /// Focus time is cumulative across timer sessions and resets at local
+  /// midnight. The goal is separate from the one-off [studyEndsAt] lock: the
+  /// lock closes apps immediately, while the goal tracks focus over the day.
+  final int focusGoalMinutes;
+
+  /// When true, selected apps are blocked after [focusCutoffMinutes] until the
+  /// goal is met or the day resets.
+  final bool focusAutoBlockEnabled;
+
+  /// Local minute of day (0-1439) at which the missed-goal block starts.
+  ///
+  /// Defaults to 20:00. It can be any time; a cutoff of 00:00 means the block
+  /// applies from the start of the day.
+  final int focusCutoffMinutes;
+
+  /// Local calendar date (`yyyy-MM-dd`) that [focusSecondsToday] belongs to.
+  ///
+  /// Null on a fresh install. The date is kept explicitly so a stale focus
+  /// total can never be mistaken for today's progress after midnight.
+  final String? focusDate;
+
+  /// Focus seconds banked for [focusDate] from completed/paused timer runs.
+  ///
+  /// A currently running session is deliberately not added here until it is
+  /// paused, stopped or completes; [focusSecondsForToday] adds its elapsed
+  /// portion on the fly.
+  final int focusSecondsToday;
+
+  /// Start of the running focus timer, or null when the timer is idle/paused.
+  final DateTime? focusSessionStartedAt;
+
+  /// Planned end of the running focus timer, or null when idle/paused.
+  final DateTime? focusSessionEndsAt;
+
+  /// Seconds left in a paused focus timer. 0 when no timer is paused.
+  final int focusSessionRemainingSeconds;
+
+  /// Last focus duration chosen by the user, in minutes.
+  final int focusSessionLengthMinutes;
+
   bool get hasLimit => dailyLimitSeconds > 0;
 
   bool get hasPendingLimit => pendingLimitSeconds != null;
@@ -97,6 +148,18 @@ class UsageSettings {
     DateTime? studyEndsAt,
     bool clearStudyEndsAt = false,
     int? studyLengthMinutes,
+    int? focusGoalMinutes,
+    bool? focusAutoBlockEnabled,
+    int? focusCutoffMinutes,
+    String? focusDate,
+    bool clearFocusDate = false,
+    int? focusSecondsToday,
+    DateTime? focusSessionStartedAt,
+    bool clearFocusSessionStartedAt = false,
+    DateTime? focusSessionEndsAt,
+    bool clearFocusSessionEndsAt = false,
+    int? focusSessionRemainingSeconds,
+    int? focusSessionLengthMinutes,
   }) {
     return UsageSettings(
       dailyLimitSeconds: dailyLimitSeconds ?? this.dailyLimitSeconds,
@@ -113,6 +176,22 @@ class UsageSettings {
       overnightLockEnabled: overnightLockEnabled ?? this.overnightLockEnabled,
       studyEndsAt: clearStudyEndsAt ? null : (studyEndsAt ?? this.studyEndsAt),
       studyLengthMinutes: studyLengthMinutes ?? this.studyLengthMinutes,
+      focusGoalMinutes: focusGoalMinutes ?? this.focusGoalMinutes,
+      focusAutoBlockEnabled:
+          focusAutoBlockEnabled ?? this.focusAutoBlockEnabled,
+      focusCutoffMinutes: focusCutoffMinutes ?? this.focusCutoffMinutes,
+      focusDate: clearFocusDate ? null : (focusDate ?? this.focusDate),
+      focusSecondsToday: focusSecondsToday ?? this.focusSecondsToday,
+      focusSessionStartedAt: clearFocusSessionStartedAt
+          ? null
+          : (focusSessionStartedAt ?? this.focusSessionStartedAt),
+      focusSessionEndsAt: clearFocusSessionEndsAt
+          ? null
+          : (focusSessionEndsAt ?? this.focusSessionEndsAt),
+      focusSessionRemainingSeconds:
+          focusSessionRemainingSeconds ?? this.focusSessionRemainingSeconds,
+      focusSessionLengthMinutes:
+          focusSessionLengthMinutes ?? this.focusSessionLengthMinutes,
     );
   }
 
@@ -128,7 +207,16 @@ class UsageSettings {
       other.pendingEffectiveAt == pendingEffectiveAt &&
       other.overnightLockEnabled == overnightLockEnabled &&
       other.studyEndsAt == studyEndsAt &&
-      other.studyLengthMinutes == studyLengthMinutes;
+      other.studyLengthMinutes == studyLengthMinutes &&
+      other.focusGoalMinutes == focusGoalMinutes &&
+      other.focusAutoBlockEnabled == focusAutoBlockEnabled &&
+      other.focusCutoffMinutes == focusCutoffMinutes &&
+      other.focusDate == focusDate &&
+      other.focusSecondsToday == focusSecondsToday &&
+      other.focusSessionStartedAt == focusSessionStartedAt &&
+      other.focusSessionEndsAt == focusSessionEndsAt &&
+      other.focusSessionRemainingSeconds == focusSessionRemainingSeconds &&
+      other.focusSessionLengthMinutes == focusSessionLengthMinutes;
 
   @override
   int get hashCode => Object.hash(
@@ -142,6 +230,15 @@ class UsageSettings {
     overnightLockEnabled,
     studyEndsAt,
     studyLengthMinutes,
+    focusGoalMinutes,
+    focusAutoBlockEnabled,
+    focusCutoffMinutes,
+    focusDate,
+    focusSecondsToday,
+    focusSessionStartedAt,
+    focusSessionEndsAt,
+    focusSessionRemainingSeconds,
+    focusSessionLengthMinutes,
   );
 
   @override
@@ -150,5 +247,6 @@ class UsageSettings {
       'pending: ${pendingLimitSeconds}s @ ${pendingEffectiveAt?.toIso8601String()}, '
       'overnight: $overnightLockEnabled, '
       'studyUntil: ${studyEndsAt?.toIso8601String()}, '
+      'focusGoal: ${focusGoalMinutes}m, focusToday: ${focusSecondsToday}s, '
       'reset: ${nextResetAt.toIso8601String()})';
 }

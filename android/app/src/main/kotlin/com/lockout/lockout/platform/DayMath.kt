@@ -37,6 +37,13 @@ object DayMath {
         return calendar.timeInMillis
     }
 
+    /** Local minute of day (0-1439) used by the focus-goal cutoff. */
+    fun minuteOfLocalDay(nowMs: Long): Int {
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = nowMs
+        return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+    }
+
     /** Local 00:00 of the day that contains [nowMs]. */
     fun startOfLocalDay(nowMs: Long): Long {
         val calendar = Calendar.getInstance()

@@ -33,16 +33,16 @@ Non-negotiables:
 
 | Data | Where | Why |
 | ---- | ----- | --- |
-| Settings + lock (`daily_limit_seconds`, `pending_limit_seconds`, `pending_effective_at`, `is_locked`, `locked_at`, `next_reset_at`, `overnight_lock_enabled`, `study_ends_at`, `study_length_minutes`, onboarding flag) | `shared_preferences` via `PrefsSettingsRepository` | A handful of scalars that the blocking service reads on every check; prefs reads are cheap and survive process death. |
+| Settings + lock (`daily_limit_seconds`, `pending_limit_seconds`, `pending_effective_at`, `is_locked`, `locked_at`, `next_reset_at`, `overnight_lock_enabled`, `study_ends_at`, `study_length_minutes`, focus goal/cutoff/automation, banked focus seconds, session bounds, onboarding flag) | `shared_preferences` via `PrefsSettingsRepository` | A handful of scalars that the blocking service reads on every check; prefs reads are cheap and survive process death. |
 | Monitored apps (`monitored_apps`) | drift via `DriftMonitoredAppsRepository` | Edited and queried as a set, with display names kept for history labels; `pending_enabled` schedules a next-day change. |
-| Per-app daily totals (`daily_usage`) and per-day summary (`daily_summary`) | drift | Grows over time; read by the history screen (`loadDays`) and padded/aggregated by the domain report. |
+| Per-app daily totals (`daily_usage`) and per-day summary (`daily_summary`) | drift | Grows over time; read by the history screen (`loadDays`) and padded/aggregated by the domain report. v3 adds per-app `late_night_seconds` and summary `focus_seconds` / `late_night_seconds`. |
 | Days finished by the native reset | native JSON queue (`ArchiveStore`) | drift/SQLite is Dart-owned, so Kotlin appends a compact record; Dart drains it into drift on launch. |
 | Diagnostic events | private native prefs (`LockoutLog`) | A bounded 50-line ring buffer for support; no app contents or package names, no network. |
 
 The schema lives in `lib/data/local/app_database.dart`. `app_database.g.dart` is
 generated with `dart run build_runner build` and committed so CI does not need a
 codegen step. Schema changes bump `schemaVersion` and add a migration (v2 added
-`monitored_apps.pending_enabled`).
+`monitored_apps.pending_enabled`; v3 added focus and late-night archive fields).
 
 The lock has two readers: the service cannot wake Dart when it stamps a lock, so
 `FlutterSettings.kt` writes `settings.is_locked` / `locked_at` /
@@ -59,10 +59,16 @@ chart keeps a stable width, and `summarizeHistory` averages only days with an
 archived total. Each row also carries the limit that applied that day, which is
 why a changed limit does not draw a misleading chart guide.
 
+That same report also carries focus seconds and late-night (00:00–08:00)
+social usage. The comparison chart groups social time, focus time and late-night
+usage per day, and a focus-only day still counts as data even though it is not
+part of the screen-time average.
+
 `historyCsv` lives in the domain and produces a CRLF, RFC 4180 snapshot. The
 Android implementation sends it as plain text through `ACTION_SEND` via the
 `shareText` channel method; plain text avoids a FileProvider and any storage
-permission. The CSV excludes zero-usage padding rows.
+permission. The CSV excludes zero-usage padding rows but exports focus-only
+days.
 
 ## Diagnostics
 
@@ -142,20 +148,24 @@ logic testable in Dart and the Android-specific code as thin as possible.
    `BlockOverlay` covers the app instead. Both read the same cached config and
    policy, so they cannot disagree with Home.
    The same config carries the focus flags (`overnightLockEnabled`,
-   `studyEndsAtMs`). `BlockPolicy` checks study time first, then the fixed
-   overnight window, then the persisted daily lock, then the daily limit. Focus
-   state is owned by `SettingsController`; `SetLimitsScreen` and
-   `MonitoredAppsController` reject edits while either lock is running so the
-   selection cannot be relaxed out from under an active block.
+   `studyEndsAtMs`) and the focus-timer snapshot (goal seconds, cutoff,
+   automation, banked seconds, day start, session start/end). `BlockPolicy`
+   checks study time first, then the fixed overnight window, then the
+   missed-goal block, then the persisted daily lock, then the daily limit.
+   Focus state is owned by `SettingsController`; `SetLimitsScreen` and
+   `MonitoredAppsController` reject edits while a lock or missed-goal block is
+   running so the selection cannot be relaxed out from under an active block.
 4. The block surfaces re-evaluate every 2 s and close themselves when the
    verdict clears. `BlockPolicy` trusts the persisted lock until
    `now >= next_reset_at`, so changing the limit cannot unblock early.
 5. At midnight (or on the next service/app start if the alarm was missed),
    `MidnightReset.recover` archives every finished day still missing from
-   `ArchiveStore` (capped at 14), materialises the pending config into the active
-   one, clears the expired lock, writes the new `next_reset_at` back to Flutter's
-   prefs and re-arms the alarm. The app gate drains `ArchiveStore` into drift on
-   launch and Home's refresh imports any day archived while the app stayed open.
+   `ArchiveStore` (capped at 14), including focus and late-night metrics, rolls
+   a cross-midnight focus timer into the new day, materialises the pending
+   config into the active one, clears the expired lock, writes the new
+   `next_reset_at` back to Flutter's prefs and re-arms the alarm. The app gate
+   drains `ArchiveStore` into drift on launch and Home's refresh imports any day
+   archived while the app stayed open.
 6. Dart and Kotlin both compare the clock with `next_reset_at`; the alarm only
    makes the transition prompt, it is never required for correctness.
 7. The History screen awaits `archiveImportProvider`, reads the selected window
@@ -189,6 +199,10 @@ logic testable in Dart and the Android-specific code as thin as possible.
 | History query joins the right rows | data | in-memory drift range/join test, including invalid dates |
 | CSV stays valid | domain | `historyCsv` tests for ordering and RFC 4180 quoting |
 | History screen recovers | presentation | widget tests with fake repository/exporter: empty, range switch, share failure, retry |
+| Focus totals cross sessions and midnight | domain + native | `study_timer_test`, `reconcile_settings_test`, `MidnightResetTest` and `BlockingConfig.focusSecondsAt` tests |
+| Goal block lifts exactly at cutoff/goal | domain + native | `study_timer_test`, `focus_lock_test`, `BlockPolicyTest` and controller guard tests |
+| Focus/late-night archives survive the schema change | data | drift in-memory v3 round-trip, native-channel parsing and CSV tests |
+| Comparison chart matches archived metrics | presentation | History widget test asserts the focus chart, totals and late-night labels |
 
 Widget tests cover screens with fake repositories; no test depends on the real
 device clock.

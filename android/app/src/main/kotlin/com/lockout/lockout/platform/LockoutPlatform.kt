@@ -117,13 +117,36 @@ class LockoutPlatform(
                     call.argument<Boolean>("overnightLockEnabled") == true
                 val studyEndsAtMs =
                     call.argument<Number>("studyEndsAtMs")?.toLong() ?: 0L
+                val focusGoalSeconds =
+                    call.argument<Number>("focusGoalSeconds")?.toInt() ?: 0
+                val focusAutoBlockEnabled =
+                    call.argument<Boolean>("focusAutoBlockEnabled") == true
+                val focusCutoffMinuteOfDay =
+                    call.argument<Number>("focusCutoffMinuteOfDay")?.toInt()
+                        ?: 20 * 60
+                val focusBaseSeconds =
+                    call.argument<Number>("focusBaseSeconds")?.toInt() ?: 0
+                val focusDayStartMs =
+                    call.argument<Number>("focusDayStartMs")?.toLong() ?: 0L
+                val focusSessionStartedAtMs =
+                    call.argument<Number>("focusSessionStartedAtMs")?.toLong()
+                        ?: 0L
+                val focusSessionEndsAtMs =
+                    call.argument<Number>("focusSessionEndsAtMs")?.toLong()
+                        ?: 0L
                 if (
                     limitSeconds < 0 ||
                     pendingLimitSeconds < 0 ||
                     pendingEffectiveAtMs < 0 ||
                     lockedAtMs < 0 ||
                     nextResetAtMs < 0 ||
-                    studyEndsAtMs < 0
+                    studyEndsAtMs < 0 ||
+                    focusGoalSeconds < 0 ||
+                    focusCutoffMinuteOfDay !in 0..(24 * 60 - 1) ||
+                    focusBaseSeconds < 0 ||
+                    focusDayStartMs < 0 ||
+                    focusSessionStartedAtMs < 0 ||
+                    focusSessionEndsAtMs < 0
                 ) {
                     result.error(
                         "bad_args",
@@ -142,6 +165,20 @@ class LockoutPlatform(
                     // observed if Dart is open.
                     val previous = BlockingStore.load(activity)
                     val nowMs = System.currentTimeMillis()
+
+                    // Dart reconciles a finished focus timer as soon as the app
+                    // opens, which can be before a missed midnight alarm runs.
+                    // Recover the old config first so the finished day is
+                    // archived with its timer bounds instead of the new day's
+                    // already-cleared snapshot.
+                    val todayStart = DayMath.startOfLocalDay(nowMs)
+                    val staleFocus = previous.focusDayStartMs != todayStart &&
+                        (previous.focusDayStartMs != 0L ||
+                            previous.focusSessionStartedAtMs > 0L)
+                    if (staleFocus) {
+                        MidnightReset.recover(activity, previous, nowMs)
+                    }
+
                     val keepNativeLock = previous.isLocked &&
                         nowMs < previous.nextResetAtMs
                     val keepDartLock = isLocked && nowMs < nextResetAtMs
@@ -164,6 +201,13 @@ class LockoutPlatform(
                         },
                         overnightLockEnabled = overnightLockEnabled,
                         studyEndsAtMs = studyEndsAtMs,
+                        focusGoalSeconds = focusGoalSeconds,
+                        focusAutoBlockEnabled = focusAutoBlockEnabled,
+                        focusCutoffMinuteOfDay = focusCutoffMinuteOfDay,
+                        focusBaseSeconds = focusBaseSeconds,
+                        focusDayStartMs = focusDayStartMs,
+                        focusSessionStartedAtMs = focusSessionStartedAtMs,
+                        focusSessionEndsAtMs = focusSessionEndsAtMs,
                     )
                     BlockingStore.save(activity, config)
                     LockoutLog.info(
@@ -217,6 +261,12 @@ class LockoutPlatform(
                         "limitSeconds" to archive.limitSeconds,
                         "limitHitAtMs" to archive.limitHitAtMs,
                         "apps" to archive.apps.map { (packageName, seconds) ->
+                            mapOf("packageName" to packageName, "seconds" to seconds)
+                        },
+                        "focusSeconds" to archive.focusSeconds,
+                        "lateNightSeconds" to archive.lateNightSeconds,
+                        "lateNightApps" to archive.lateNightApps.map {
+                                (packageName, seconds) ->
                             mapOf("packageName" to packageName, "seconds" to seconds)
                         },
                     )

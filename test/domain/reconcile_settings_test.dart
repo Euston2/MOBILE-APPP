@@ -131,6 +131,49 @@ void main() {
     expect(atEnd.studyLengthMinutes, 45);
   });
 
+  test('banks a finished focus session into today’s total', () {
+    final startedAt = DateTime(2026, 10, 30, 9);
+    final endedAt = DateTime(2026, 10, 30, 9, 25);
+    final settings = settingsWith(
+      focusDate: '2026-10-30',
+      focusSecondsToday: 600,
+      focusSessionStartedAt: startedAt,
+      focusSessionEndsAt: endedAt,
+      focusSessionRemainingSeconds: 1500,
+      nextResetAt: resetAt,
+    );
+
+    final before = reconcileSettings(
+      settings,
+      endedAt.subtract(const Duration(seconds: 1)),
+    );
+    expect(before.focusSessionEndsAt, endedAt);
+    expect(before.focusSecondsToday, 600);
+
+    final atEnd = reconcileSettings(settings, endedAt);
+    expect(atEnd.focusSessionStartedAt, isNull);
+    expect(atEnd.focusSessionEndsAt, isNull);
+    expect(atEnd.focusSessionRemainingSeconds, 0);
+    expect(atEnd.focusDate, '2026-10-30');
+    expect(atEnd.focusSecondsToday, 600 + 25 * 60);
+  });
+
+  test('banks only the current day portion of a cross-midnight session', () {
+    final settings = settingsWith(
+      focusDate: '2026-10-30',
+      focusSessionStartedAt: DateTime(2026, 10, 30, 23, 50),
+      focusSessionEndsAt: DateTime(2026, 10, 31, 0, 20),
+      focusSessionRemainingSeconds: 1800,
+      nextResetAt: resetAt,
+    );
+
+    final result = reconcileSettings(settings, DateTime(2026, 10, 31, 0, 21));
+
+    expect(result.focusDate, '2026-10-31');
+    expect(result.focusSecondsToday, 20 * 60);
+    expect(result.focusSessionEndsAt, isNull);
+  });
+
   test('keeps the overnight toggle across reconciliations', () {
     final settings = settingsWith(
       overnightLockEnabled: true,

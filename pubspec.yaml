@@ -4,7 +4,7 @@ publish_to: 'none'
 
 # Semantic versioning: MAJOR.MINOR.PATCH+BUILD.
 # Stage 0 is the project scaffold.
-version: 1.1.0+11
+version: 1.2.0+12
 
 environment:
   sdk: ^3.11.4
