@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_names.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/history_day.dart';
 import '../../../domain/entities/installed_app.dart';
 import '../../../domain/entities/monitored_app.dart';
@@ -43,7 +45,20 @@ class HistoryScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('History'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'LOCKOUT',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: LockoutPalette.mint,
+                letterSpacing: 3,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text('History', style: theme.textTheme.headlineSmall),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Share history',
@@ -80,7 +95,14 @@ class HistoryScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _ComparisonCard(report: report),
                 const SizedBox(height: 24),
-                Text('Days', style: theme.textTheme.titleMedium),
+                LockoutSectionLabel(
+                  'Day by day',
+                  trailing: Text(
+                    '${report.days.where((day) => day.hasActivity).length} '
+                    '${report.days.where((day) => day.hasActivity).length == 1 ? 'day' : 'days'}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 for (final day in report.days.reversed.where(
                   (day) => day.hasActivity,
@@ -165,85 +187,100 @@ class _StatsCard extends StatelessWidget {
     final theme = Theme.of(context);
     final stats = report.stats;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Last $range days',
-                    style: theme.textTheme.titleMedium,
-                  ),
+    return LockoutCardSurface(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      borderColor: LockoutPalette.mint.withValues(alpha: 0.18),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          LockoutPalette.mint.withValues(alpha: 0.08),
+          LockoutPalette.surface,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Last $range days',
+                  style: theme.textTheme.titleMedium,
                 ),
-                Text(
-                  '${stats.trackedDays} of $range days recorded',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+              ),
+              LockoutPill(
+                '${stats.trackedDays}/$range tracked',
+                icon: Icons.calendar_today_outlined,
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '${stats.trackedDays} of $range days recorded',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _Metric(
-                    label: 'Total',
-                    value: formatDuration(stats.totalSeconds),
-                  ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _Metric(
+                  label: 'Total',
+                  value: formatDuration(stats.totalSeconds),
                 ),
-                Expanded(
-                  child: _Metric(
-                    label: 'Daily average',
-                    value: formatDuration(stats.averageSeconds),
-                  ),
+              ),
+              Expanded(
+                child: _Metric(
+                  label: 'Daily average',
+                  value: formatDuration(stats.averageSeconds),
                 ),
-                Expanded(
-                  child: _Metric(
-                    label: 'Over limit',
-                    value: '${stats.limitHitDays}',
-                    color: stats.limitHitDays > 0
-                        ? theme.colorScheme.error
-                        : null,
-                  ),
+              ),
+              Expanded(
+                child: _Metric(
+                  label: 'Over limit',
+                  value: '${stats.limitHitDays}',
+                  color: stats.limitHitDays > 0
+                      ? theme.colorScheme.error
+                      : null,
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _Metric(
-                    label: 'Focus time',
-                    value: formatDuration(stats.totalFocusSeconds),
-                    color: theme.colorScheme.tertiary,
-                  ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 13),
+            child: Divider(height: 1),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _Metric(
+                  label: 'Focus time',
+                  value: formatDuration(stats.totalFocusSeconds),
+                  color: theme.colorScheme.tertiary,
                 ),
-                Expanded(
-                  child: _Metric(
-                    label: 'Late night',
-                    value: formatDuration(stats.totalLateNightSeconds),
-                    color: stats.totalLateNightSeconds > 0
-                        ? theme.colorScheme.error
-                        : null,
-                  ),
+              ),
+              Expanded(
+                child: _Metric(
+                  label: 'Late night',
+                  value: formatDuration(stats.totalLateNightSeconds),
+                  color: stats.totalLateNightSeconds > 0
+                      ? theme.colorScheme.error
+                      : null,
                 ),
-                Expanded(
-                  child: _Metric(
-                    label: 'Under limit',
-                    value: '${stats.underLimitDays}',
-                  ),
+              ),
+              Expanded(
+                child: _Metric(
+                  label: 'Under limit',
+                  value: '${stats.underLimitDays}',
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -264,14 +301,19 @@ class _Metric extends StatelessWidget {
       children: [
         Text(
           value,
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w600,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            color: color ?? LockoutPalette.text,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.6,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 3),
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -289,32 +331,26 @@ class _ChartCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Daily usage',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  rangeLabel(report.days),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(height: 220, child: HistoryChart(days: report.days)),
-          ],
-        ),
+    return LockoutCardSurface(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('Daily usage', style: theme.textTheme.titleMedium),
+              ),
+              LockoutPill(
+                rangeLabel(report.days),
+                color: LockoutPalette.amber,
+                icon: Icons.show_chart,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(height: 220, child: HistoryChart(days: report.days)),
+        ],
       ),
     );
   }
@@ -328,40 +364,37 @@ class _ComparisonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Social vs focus',
-                    style: theme.textTheme.titleMedium,
-                  ),
+    return LockoutCardSurface(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Social vs focus',
+                  style: theme.textTheme.titleMedium,
                 ),
-                Text(
-                  rangeLabel(report.days),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Late night is the part of social screen time used between '
-              '12:00 AM and 8:00 AM.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
               ),
+              LockoutPill(
+                rangeLabel(report.days),
+                color: LockoutPalette.mint,
+                icon: Icons.compare_arrows,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Late night is the part of social screen time used between '
+            '12:00 AM and 8:00 AM.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 16),
-            FocusComparisonChart(days: report.days),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          FocusComparisonChart(days: report.days),
+        ],
       ),
     );
   }
@@ -520,36 +553,27 @@ class _EmptyHistory extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.history_toggle_off,
-                color: colors.onPrimaryContainer,
-              ),
+    return LockoutCardSurface(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const LockoutIconBadge(
+            Icons.history_toggle_off,
+            color: LockoutPalette.mint,
+            size: 56,
+          ),
+          const SizedBox(height: 16),
+          Text('No history yet', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Finished days appear here after the midnight reset. '
+            'Today\'s usage stays on Home.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
             ),
-            const SizedBox(height: 16),
-            Text('No history yet', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              'Finished days appear here after the midnight reset. '
-              'Today\'s usage stays on Home.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

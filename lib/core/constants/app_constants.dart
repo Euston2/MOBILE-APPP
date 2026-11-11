@@ -8,7 +8,7 @@ class AppConstants {
   static const String appName = 'Lockout';
 
   /// Kept in sync with `pubspec.yaml`; used for the in-app version label.
-  static const String appVersion = '1.2.0';
+  static const String appVersion = '1.3.0';
 
   /// Single MethodChannel for request/response calls into the Kotlin layer.
   static const String platformChannelName = 'com.lockout.lockout/platform';
@@ -19,6 +19,10 @@ class AppConstants {
 
   /// Notification channel used by the blocking foreground service (Stage 3).
   static const String serviceNotificationChannelId = 'lockout_service';
+
+  /// Native channel for the 1h/30m/15m/5m remaining-time warnings. The
+  /// 5-minute notification also carries the native-only "+10 minutes" action.
+  static const String usageAlertChannelId = 'lockout_usage_alerts';
 
   /// Hour of the local day at which the daily counter resets.
   static const int dailyResetHour = 0;

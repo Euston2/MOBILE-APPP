@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/lockout_ui.dart';
 import '../../../../domain/entities/permission_snapshot.dart';
 import '../permission_copy.dart';
 
@@ -22,20 +24,22 @@ class PermissionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final copy = permissionCopy(kind);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: LockoutCardSurface(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+        borderColor: isGranted
+            ? LockoutPalette.mint.withValues(alpha: 0.2)
+            : LockoutPalette.outline,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(
+                LockoutIconBadge(
                   copy.icon,
-                  color: isGranted
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
+                  color: isGranted ? LockoutPalette.mint : LockoutPalette.muted,
+                  size: 40,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -44,7 +48,7 @@ class PermissionTile extends StatelessWidget {
                 _StatusChip(isGranted: isGranted),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               copy.description,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -53,7 +57,7 @@ class PermissionTile extends StatelessWidget {
               ),
             ),
             if (!isGranted) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -76,24 +80,10 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = isGranted
-        ? theme.colorScheme.primary
-        : theme.colorScheme.error;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        isGranted ? 'Ready' : 'Needs setup',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return LockoutPill(
+      isGranted ? 'Ready' : 'Needs setup',
+      color: isGranted ? LockoutPalette.mint : LockoutPalette.coral,
+      icon: isGranted ? Icons.check : Icons.priority_high,
     );
   }
 }

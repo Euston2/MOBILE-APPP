@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_names.dart';
 import '../../../core/utils/day_window.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
+import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/installed_app.dart';
 import '../../../domain/entities/monitored_app.dart';
 import '../../../domain/entities/usage_settings.dart';
@@ -22,12 +24,28 @@ class SetLimitsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final settings = ref.watch(settingsControllerProvider);
     final monitored = ref.watch(monitoredAppsControllerProvider);
     final installed = ref.watch(installedAppsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Limit & apps')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'LOCKOUT',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: LockoutPalette.mint,
+                letterSpacing: 3,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text('Limit & apps', style: theme.textTheme.headlineSmall),
+          ],
+        ),
+      ),
       body: settings.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) {
@@ -232,80 +250,92 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
                 ),
                 const SizedBox(height: 12),
               ],
-              Text('Daily limit', style: theme.textTheme.titleMedium),
+              LockoutSectionLabel(
+                'Daily social limit',
+                trailing: LockoutPill(
+                  _locked ? 'Sealed' : 'Hard cap',
+                  color: _locked ? LockoutPalette.coral : LockoutPalette.mint,
+                  icon: _locked ? Icons.lock_outline : Icons.bolt,
+                ),
+              ),
               const SizedBox(height: 8),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Column(
-                    children: [
-                      Text(
-                        formatDuration(_minutes * 60),
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+              LockoutCardSurface(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+                borderColor: LockoutPalette.mint.withValues(alpha: 0.2),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    LockoutPalette.mint.withValues(alpha: 0.1),
+                    LockoutPalette.surface,
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      formatDuration(_minutes * 60),
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        color: LockoutPalette.mint,
                       ),
-                      Text(
-                        'combined across ${_selected.length} '
-                        '${_selected.length == 1 ? 'app' : 'apps'}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                    ),
+                    Text(
+                      'combined across ${_selected.length} '
+                      '${_selected.length == 1 ? 'app' : 'apps'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(height: 12),
-                      Slider(
-                        value: _minutes.toDouble(),
-                        min: 15,
-                        max: 480,
-                        divisions: 31,
-                        label: formatDuration(_minutes * 60),
-                        onChanged: _locked
-                            ? null
-                            : (value) =>
-                                  setState(() => _minutes = value.round()),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          for (final preset in _presetMinutes)
-                            ChoiceChip(
-                              label: Text(formatDuration(preset * 60)),
-                              selected: _minutes == preset,
-                              onSelected: _locked
-                                  ? null
-                                  : (_) => setState(() => _minutes = preset),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 12),
+                    Slider(
+                      value: _minutes.toDouble(),
+                      min: 15,
+                      max: 480,
+                      divisions: 31,
+                      label: formatDuration(_minutes * 60),
+                      onChanged: _locked
+                          ? null
+                          : (value) => setState(() => _minutes = value.round()),
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        for (final preset in _presetMinutes)
+                          ChoiceChip(
+                            label: Text(formatDuration(preset * 60)),
+                            selected: _minutes == preset,
+                            onSelected: _locked
+                                ? null
+                                : (_) => setState(() => _minutes = preset),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Once a limit is active, changes begin at midnight.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text('Apps', style: theme.textTheme.titleMedium),
+              LockoutSectionLabel(
+                'Restricted apps',
+                trailing: Text(
+                  '${_selected.length} selected',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  Text(
-                    '${_selected.length} selected',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _search,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
                   hintText: 'Search your apps',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                   isDense: true,
                 ),
                 onChanged: (value) =>
@@ -313,20 +343,28 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
               ),
               const SizedBox(height: 8),
               for (final entry in _visibleApps)
-                CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(entry.value),
-                  value: _selected.contains(entry.key),
-                  onChanged: _locked
-                      ? null
-                      : (checked) => setState(() {
-                          if (checked ?? false) {
-                            _selected.add(entry.key);
-                          } else {
-                            _selected.remove(entry.key);
-                          }
-                        }),
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  decoration: BoxDecoration(
+                    color: LockoutPalette.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: LockoutPalette.outline),
+                  ),
+                  child: CheckboxListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    title: Text(entry.value),
+                    value: _selected.contains(entry.key),
+                    onChanged: _locked
+                        ? null
+                        : (checked) => setState(() {
+                            if (checked ?? false) {
+                              _selected.add(entry.key);
+                            } else {
+                              _selected.remove(entry.key);
+                            }
+                          }),
+                  ),
                 ),
               if (_visibleApps.isEmpty)
                 Padding(
@@ -340,11 +378,20 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
                   ),
                 ),
               const SizedBox(height: 8),
-              Text(
-                'Only the apps you choose count toward your limit. '
-                "Lockout doesn't track itself.",
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              LockoutCardSurface(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    const LockoutIconBadge(Icons.gpp_good_outlined, size: 38),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Only the apps you choose count toward your limit. '
+                        "Lockout doesn't track itself.",
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -352,23 +399,26 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
         ),
         SafeArea(
           minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: FilledButton(
-            onPressed: canSave ? _save : null,
-            child: _saving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    _locked
-                        ? 'Locked'
-                        : _selected.isEmpty
-                        ? 'Select at least one app'
-                        : _alreadyConfigured
-                        ? 'Save for tomorrow'
-                        : 'Save changes',
-                  ),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: canSave ? _save : null,
+              child: _saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      _locked
+                          ? 'Locked'
+                          : _selected.isEmpty
+                          ? 'Select at least one app'
+                          : _alreadyConfigured
+                          ? 'Save for tomorrow'
+                          : 'Save changes',
+                    ),
+            ),
           ),
         ),
       ],
@@ -392,28 +442,25 @@ class _ScheduledNotice extends StatelessWidget {
         ? '${formatDuration(activeLimitSeconds)} · $activeAppCount '
               '${activeAppCount == 1 ? 'app' : 'apps'}'
         : 'no limit';
-    return Card(
-      color: theme.colorScheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              Icons.schedule_outlined,
-              color: theme.colorScheme.onSecondaryContainer,
+    return LockoutCardSurface(
+      padding: const EdgeInsets.all(15),
+      borderColor: LockoutPalette.amber.withValues(alpha: 0.3),
+      child: Row(
+        children: [
+          const LockoutIconBadge(
+            Icons.schedule_outlined,
+            color: LockoutPalette.amber,
+            size: 38,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'These changes start tomorrow at midnight. '
+              "Today's limit is $today.",
+              style: theme.textTheme.bodySmall,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'These changes start tomorrow at midnight. '
-                "Today's limit is $today.",
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSecondaryContainer,
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -428,29 +475,26 @@ class _FocusLockedNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final remaining = until.difference(DateTime.now());
-    return Card(
-      color: theme.colorScheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              Icons.timer_outlined,
-              color: theme.colorScheme.onErrorContainer,
+    return LockoutCardSurface(
+      padding: const EdgeInsets.all(15),
+      borderColor: LockoutPalette.coral.withValues(alpha: 0.34),
+      child: Row(
+        children: [
+          const LockoutIconBadge(
+            Icons.timer_outlined,
+            color: LockoutPalette.coral,
+            size: 38,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'A focus lock is on until ${formatClockTime(until)} '
+              '(${formatCountdown(remaining)}). '
+              "You can't change the limit or apps yet.",
+              style: theme.textTheme.bodySmall,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'A focus lock is on until ${formatClockTime(until)} '
-                '(${formatCountdown(remaining)}). '
-                "You can't change the limit or apps yet.",
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onErrorContainer,
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -465,25 +509,25 @@ class _LockedNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final remaining = nextResetAt.difference(DateTime.now());
-    return Card(
-      color: theme.colorScheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(Icons.lock_outline, color: theme.colorScheme.onErrorContainer),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Locked until midnight (${formatCountdown(remaining)}). '
-                "You can't change the limit or apps yet.",
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onErrorContainer,
-                ),
-              ),
+    return LockoutCardSurface(
+      padding: const EdgeInsets.all(15),
+      borderColor: LockoutPalette.coral.withValues(alpha: 0.34),
+      child: Row(
+        children: [
+          const LockoutIconBadge(
+            Icons.lock_outline,
+            color: LockoutPalette.coral,
+            size: 38,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Locked until midnight (${formatCountdown(remaining)}). '
+              "You can't change the limit or apps yet.",
+              style: theme.textTheme.bodySmall,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

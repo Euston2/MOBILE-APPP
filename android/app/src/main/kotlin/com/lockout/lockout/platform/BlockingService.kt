@@ -40,6 +40,7 @@ class BlockingService : Service() {
     private lateinit var worker: Handler
     private val tracker = ForegroundAppTracker()
     private var lastLaunchMs = 0L
+    private var lastAlertCheckMs = 0L
 
     private val pollRunnable = object : Runnable {
         override fun run() {
@@ -51,6 +52,7 @@ class BlockingService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        UsageAlerts.ensureChannel(this)
         workerThread = HandlerThread("lockout-blocking").also { it.start() }
         worker = Handler(workerThread.looper)
     }
@@ -101,6 +103,7 @@ class BlockingService : Service() {
         worker.removeCallbacksAndMessages(null)
         workerThread.quitSafely()
         mainHandler.post { BlockOverlay.hide() }
+        UsageAlerts.cancel(this)
         super.onDestroy()
     }
 
@@ -113,6 +116,28 @@ class BlockingService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * Usage-alert checks are intentionally less frequent than the blocking
+     * poll: a warning only needs to be timely to the minute, and this keeps the
+     * UsageStats query from running twice every two seconds.
+     */
+    private fun maybeCheckUsageAlerts(config: BlockingConfig, nowMs: Long) {
+        if (nowMs - lastAlertCheckMs < ALERT_CHECK_INTERVAL_MS) return
+        lastAlertCheckMs = nowMs
+
+        val active = config.effectiveAt(nowMs)
+        if (!active.isActive) {
+            UsageAlerts.cancel(this)
+            return
+        }
+        val usedSeconds = BlockUsage.usedSecondsToday(
+            this,
+            nowMs,
+            active.packages,
+        )
+        UsageAlerts.check(this, config, usedSeconds, nowMs)
+    }
 
     /** Runs on the worker thread; never touches views directly. */
     private fun poll() {
@@ -131,6 +156,8 @@ class BlockingService : Service() {
         if (recovery.changed) {
             MidnightAlarm.scheduleNext(this, nowMs)
         }
+
+        maybeCheckUsageAlerts(config, nowMs)
 
         val active = config.effectiveAt(nowMs)
         val foreground = tracker.currentPackage(this, nowMs)
@@ -333,6 +360,9 @@ class BlockingService : Service() {
 
         /** Matches the "within ~2 seconds" blocking target. */
         private const val POLL_INTERVAL_MS = 2_000L
+
+        /** A warning only needs minute-level accuracy. */
+        private const val ALERT_CHECK_INTERVAL_MS = 30_000L
 
         /** Minimum gap between block-activity launch attempts. */
         private const val LAUNCH_COOLDOWN_MS = 5_000L

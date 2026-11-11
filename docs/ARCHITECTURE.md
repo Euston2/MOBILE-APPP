@@ -103,6 +103,8 @@ com.lockout.lockout/
     ├── BlockingService.kt     # foreground service, polls the foreground app
     ├── ForegroundAppTracker.kt# event stream -> current foreground package
     ├── BlockUsage.kt          # combined monitored usage since local midnight
+    ├── UsageAlertPolicy.kt    # threshold crossings + dedupe masks (JVM-tested)
+    ├── UsageAlerts.kt         # native warnings + "Add 10 min" action
     ├── BlockActivity.kt       # full-screen block screen
     ├── BlockOverlay.kt        # overlay fallback when activity starts are dropped
     ├── BlockCopy.kt           # native strings + duration formatting (JVM-tested)
@@ -140,7 +142,10 @@ logic testable in Dart and the Android-specific code as thin as possible.
 2. Every 2 s the service resolves the foreground package from `UsageEvents`,
    sums today's monitored usage, and asks the pure `BlockPolicy` for a verdict.
    The usage query only runs while a monitored app is actually in front, keeping
-   the poll cheap.
+   the poll cheap. Every 30 s the same loop also passes the live allowance and
+   cached config through `UsageAlertPolicy`: it posts at 1h/30m/15m/5m remaining,
+   stores one dedupe mask per local day and limit in private prefs, and skips
+   warnings while a hard block is active.
 3. When usage reaches the effective limit, the service calls `LockState.lock`
    once: it writes `is_locked`, `locked_at`, `next_reset_at` to `BlockingStore`
    and to Flutter's prefs, then launches `BlockActivity`. If that activity does
@@ -155,6 +160,9 @@ logic testable in Dart and the Android-specific code as thin as possible.
    Focus state is owned by `SettingsController`; `SetLimitsScreen` and
    `MonitoredAppsController` reject edits while a lock or missed-goal block is
    running so the selection cannot be relaxed out from under an active block.
+   The 5-minute warning's `Add 10 min` action is a native `PendingIntent` to
+   `UsageAlertActionReceiver`; it extends the active config, mirrors the new
+   limit into Flutter's prefs and shows a confirmation without opening the app.
 4. The block surfaces re-evaluate every 2 s and close themselves when the
    verdict clears. `BlockPolicy` trusts the persisted lock until
    `now >= next_reset_at`, so changing the limit cannot unblock early.
@@ -201,6 +209,7 @@ logic testable in Dart and the Android-specific code as thin as possible.
 | History screen recovers | presentation | widget tests with fake repository/exporter: empty, range switch, share failure, retry |
 | Focus totals cross sessions and midnight | domain + native | `study_timer_test`, `reconcile_settings_test`, `MidnightResetTest` and `BlockingConfig.focusSecondsAt` tests |
 | Goal block lifts exactly at cutoff/goal | domain + native | `study_timer_test`, `focus_lock_test`, `BlockPolicyTest` and controller guard tests |
+| Warnings fire once at 1h/30m/15m/5m | native | `UsageAlertPolicyTest`: tier mapping, downward crossings, dedupe masks, fresh-start and exact-threshold handling |
 | Focus/late-night archives survive the schema change | data | drift in-memory v3 round-trip, native-channel parsing and CSV tests |
 | Comparison chart matches archived metrics | presentation | History widget test asserts the focus chart, totals and late-night labels |
 

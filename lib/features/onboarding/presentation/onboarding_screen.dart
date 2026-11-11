@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_resume_observer.dart';
+import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/permission_snapshot.dart';
 import '../../limits/presentation/settings_controller.dart';
 import '../../protection/presentation/protection_screen.dart';
@@ -41,7 +43,23 @@ class OnboardingScreen extends ConsumerWidget {
       onResume: refresh,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(isRoot ? 'Set up Lockout' : 'Allow access'),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'LOCKOUT',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: LockoutPalette.mint,
+                  letterSpacing: 3,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                isRoot ? 'Set up Lockout' : 'Allow access',
+                style: theme.textTheme.headlineSmall,
+              ),
+            ],
+          ),
           actions: [
             IconButton(
               tooltip: 'Check again',
@@ -142,44 +160,51 @@ class _IntroCard extends StatelessWidget {
     final theme = Theme.of(context);
     final granted = snapshot.granted.length;
 
-    return Card(
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.lock_clock_outlined,
-                  size: 28,
-                  color: theme.colorScheme.primary,
+    return LockoutCardSurface(
+      padding: const EdgeInsets.all(18),
+      borderColor: LockoutPalette.mint.withValues(alpha: 0.2),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          LockoutPalette.mint.withValues(alpha: 0.08),
+          LockoutPalette.surface,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const LockoutIconBadge(Icons.lock_clock_outlined, size: 42),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'A few settings keep Lockout running',
+                  style: theme.textTheme.titleMedium,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'A few settings keep Lockout running',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: granted / PermissionKind.values.length,
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$granted of ${PermissionKind.values.length} ready',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
               ),
+              LockoutPill(
+                '$granted/${PermissionKind.values.length}',
+                color: granted == PermissionKind.values.length
+                    ? LockoutPalette.mint
+                    : LockoutPalette.amber,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          LockoutProgressBar(
+            value: granted / PermissionKind.values.length,
+            height: 7,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$granted of ${PermissionKind.values.length} ready',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

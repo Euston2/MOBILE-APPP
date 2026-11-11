@@ -24,11 +24,28 @@ class UsageRing extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    color.withValues(alpha: 0.12),
+                    color.withValues(alpha: 0.02),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.68, 1.0],
+                ),
+              ),
+            ),
+          ),
           SizedBox.square(
             dimension: size,
             child: CircularProgressIndicator(
-              value: status.progress,
-              strokeWidth: 14,
+              value: status.progress.isFinite
+                  ? status.progress.clamp(0.0, 1.0)
+                  : 0,
+              strokeWidth: 11,
               strokeCap: StrokeCap.round,
               backgroundColor: theme.colorScheme.surfaceContainerHighest,
               color: color,
@@ -38,9 +55,17 @@ class UsageRing extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
+                'USED TODAY',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
                 formatDuration(status.usedSeconds),
                 style: theme.textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: reached ? color : theme.colorScheme.onSurface,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),

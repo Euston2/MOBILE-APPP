@@ -138,7 +138,12 @@ void main() {
   });
 
   test('persists the daily goal, cutoff and automation', () async {
-    final settings = FakeSettingsRepository();
+    final today = localDateKey(DateTime.now());
+    final settings = FakeSettingsRepository(
+      // Keep the goal already met so enabling automation after tonight's cutoff
+      // cannot start a hard block and make the test depend on wall-clock time.
+      initial: settingsWith(focusDate: today, focusSecondsToday: 100 * 60),
+    );
     final container = containerFor(
       settings: settings,
       monitored: FakeMonitoredAppsRepository(const [instagram]),

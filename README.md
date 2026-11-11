@@ -7,7 +7,7 @@ way to talk yourself out of it at 11 p.m.
 
 <p>
   <img alt="CI" src="https://github.com/Euston2/MOBILE-APPP/actions/workflows/ci.yml/badge.svg" />
-  <img alt="version" src="https://img.shields.io/badge/version-1.2.0-blue" />
+  <img alt="version" src="https://img.shields.io/badge/version-1.3.0-blue" />
   <img alt="platform" src="https://img.shields.io/badge/platform-Android-3DDC84" />
   <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
 </p>
@@ -25,9 +25,10 @@ way to talk yourself out of it at 11 p.m.
 | 6 | Hardening (OEMs, edge cases, logging) | `v0.6.0` | ✅ done |
 | 7 | Release (friends-and-family preview) | `v1.0.2` | ✅ preview |
 | 8 | Focus locks (overnight + study) | `v1.1.0` | ✅ preview |
-| 9 | Cumulative study timer, missed-goal automation, focus analytics | `v1.2.0` | 🚧 preview |
+| 9 | Cumulative study timer, missed-goal automation, focus analytics | `v1.2.0` | ✅ preview |
+| 10 | Dark neon redesign + remaining-time notifications | `v1.3.0` | 🚧 preview |
 
-The `1.2.0` APK is currently a friends-and-family preview built from `develop`.
+The `1.3.0` APK is currently a friends-and-family preview built from `develop`.
 It is debug-signed and not on Play Store; use it only for feedback. A tagged
 public release waits until release signing secrets and the device matrix are
 complete.
@@ -52,6 +53,12 @@ Two optional hard focus locks sit on top of that:
   active, the goal/cutoff and Limit & apps controls are locked, but starting a
   focus session still works — that is the way out.
 
+- **Remaining-time warnings** arrive natively at 1 hour, 30 minutes, 15 minutes
+  and 5 minutes left on the active daily limit, even when another app is in front
+  and Flutter is closed. The 5-minute notification has an **Add 10 min** action
+  that works from the notification shade; it is intentionally the only place the
+  extension exists.
+
 While either focus lock or the missed-goal block is active, Limit & apps is
 read-only so the block cannot be bypassed by relaxing the limit or changing the
 app selection.
@@ -71,6 +78,12 @@ app selection.
   cache. The block decision then trusts the persisted lock, not the live usage
   counter, so changing or removing the limit cannot unblock an app before
   midnight. The setting is read-only while locked.
+- **Remaining-time warnings** — the watcher checks the live allowance every 30
+  seconds and posts at 1 hour, 30 minutes, 15 minutes and 5 minutes left. Each
+  tier is recorded in private native prefs per day and limit, so it fires once;
+  active hard blocks cancel the warning instead. The 5-minute action adds 600
+  seconds to the native config and writes the same limit into Flutter's prefs,
+  so no Flutter engine is required.
 - **Next-day changes** — while a limit is active, editing the limit or app
   selection saves a complete pending configuration for the next local midnight
   (`pending_limit_seconds`, `pending_effective_at`, and `pending_enabled` per

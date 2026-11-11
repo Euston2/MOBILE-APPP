@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/utils/focus_window.dart';
 import '../../../core/widgets/app_resume_observer.dart';
+import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/usecases/focus_lock.dart';
 import '../../../domain/usecases/study_timer.dart';
@@ -22,11 +24,27 @@ class FocusScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final settings = ref.watch(settingsControllerProvider);
     final monitored = ref.watch(monitoredAppsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Focus locks')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'LOCKOUT',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: LockoutPalette.mint,
+                letterSpacing: 3,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text('Focus locks', style: theme.textTheme.headlineSmall),
+          ],
+        ),
+      ),
       body: AppResumeObserver(
         onResume: () => ref.read(settingsControllerProvider.notifier).reload(),
         child: settings.when(
@@ -171,9 +189,10 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
           ),
         ),
         const SizedBox(height: 12),
-        Card(
+        LockoutCardSurface(
+          padding: EdgeInsets.zero,
           child: ListTile(
-            leading: const Icon(Icons.apps),
+            leading: const LockoutIconBadge(Icons.apps, size: 38),
             title: const Text('Selected apps'),
             subtitle: Text(
               hasApps ? countLabel : 'No apps selected yet',
@@ -195,9 +214,14 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
           ),
         ],
         const SizedBox(height: 20),
-        Card(
+        LockoutCardSurface(
+          padding: EdgeInsets.zero,
           child: ListTile(
-            leading: const Icon(Icons.timer_outlined),
+            leading: const LockoutIconBadge(
+              Icons.timer_outlined,
+              color: LockoutPalette.amber,
+              size: 38,
+            ),
             title: const Text('Study timer'),
             subtitle: Text(
               focusGoal > 0
@@ -211,9 +235,10 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Overnight lock', style: theme.textTheme.titleMedium),
+        LockoutSectionLabel('Overnight lock'),
         const SizedBox(height: 8),
-        Card(
+        LockoutCardSurface(
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: SwitchListTile(
             title: const Text('Block every night'),
             subtitle: Text(_overnightSubtitle),
@@ -233,60 +258,58 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
           ),
         ],
         const SizedBox(height: 24),
-        Text('Study lock', style: theme.textTheme.titleMedium),
+        LockoutSectionLabel('Study lock'),
         const SizedBox(height: 8),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    _studyActive ? 'Study lock is on' : 'Start study lock',
-                  ),
-                  subtitle: Text(_studySubtitle),
-                  value: _studyActive,
-                  onChanged: hasApps && !_saving && !_studyActive
-                      ? (enabled) {
-                          if (enabled) _startStudy();
-                        }
-                      : null,
+        LockoutCardSurface(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  _studyActive ? 'Study lock is on' : 'Start study lock',
                 ),
-                if (!_studyActive) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Study for',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                subtitle: Text(_studySubtitle),
+                value: _studyActive,
+                onChanged: hasApps && !_saving && !_studyActive
+                    ? (enabled) {
+                        if (enabled) _startStudy();
+                      }
+                    : null,
+              ),
+              if (!_studyActive) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Study for',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      for (final minutes in _presetMinutes)
-                        ChoiceChip(
-                          label: Text(formatDuration(minutes * 60)),
-                          selected: _minutes == minutes,
-                          onSelected: hasApps && !_saving
-                              ? (_) => setState(() => _minutes = minutes)
-                              : null,
-                        ),
-                    ],
-                  ),
-                ] else if (studyEndsAt != null) ...[
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: _studyProgress(studyEndsAt),
-                    minHeight: 6,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    for (final minutes in _presetMinutes)
+                      ChoiceChip(
+                        label: Text(formatDuration(minutes * 60)),
+                        selected: _minutes == minutes,
+                        onSelected: hasApps && !_saving
+                            ? (_) => setState(() => _minutes = minutes)
+                            : null,
+                      ),
+                  ],
+                ),
+              ] else if (studyEndsAt != null) ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: _studyProgress(studyEndsAt),
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ],
-            ),
+            ],
           ),
         ),
         if (_studyActive) ...[
@@ -357,25 +380,20 @@ class _FocusNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon, color: theme.colorScheme.onSecondaryContainer),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                text,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSecondaryContainer,
-                  height: 1.4,
-                ),
-              ),
+    return LockoutCardSurface(
+      padding: const EdgeInsets.all(14),
+      borderColor: LockoutPalette.amber.withValues(alpha: 0.26),
+      child: Row(
+        children: [
+          LockoutIconBadge(icon, color: LockoutPalette.amber, size: 36),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
