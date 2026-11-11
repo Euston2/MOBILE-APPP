@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
+import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/usecases/study_timer.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
@@ -21,11 +23,27 @@ class StudyTimerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final settings = ref.watch(settingsControllerProvider);
     final monitored = ref.watch(monitoredAppsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Study timer')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'LOCKOUT',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: LockoutPalette.mint,
+                letterSpacing: 3,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text('Study timer', style: theme.textTheme.headlineSmall),
+          ],
+        ),
+      ),
       body: AppResumeObserver(
         onResume: () => ref.read(settingsControllerProvider.notifier).reload(),
         child: settings.when(
@@ -220,77 +238,87 @@ class _StudyTimerBodyState extends ConsumerState<_StudyTimerBody> {
           ),
         ),
         const SizedBox(height: 12),
-        Card(
-          color: blockActive ? theme.colorScheme.errorContainer : null,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      blockActive
-                          ? Icons.lock_clock_outlined
-                          : Icons.track_changes_outlined,
-                      color: blockActive
-                          ? theme.colorScheme.onErrorContainer
-                          : theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text("Today's focus", style: theme.textTheme.titleMedium),
-                  ],
+        LockoutCardSurface(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          borderColor: blockActive
+              ? LockoutPalette.coral.withValues(alpha: 0.34)
+              : LockoutPalette.mint.withValues(alpha: 0.2),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              (blockActive ? LockoutPalette.coral : LockoutPalette.mint)
+                  .withValues(alpha: 0.1),
+              LockoutPalette.surface,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  LockoutIconBadge(
+                    blockActive
+                        ? Icons.lock_clock_outlined
+                        : Icons.track_changes_outlined,
+                    color: blockActive
+                        ? LockoutPalette.coral
+                        : LockoutPalette.mint,
+                    size: 38,
+                  ),
+                  const SizedBox(width: 10),
+                  Text("Today's focus", style: theme.textTheme.titleMedium),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                formatDuration(todaySeconds),
+                style: theme.textTheme.displaySmall?.copyWith(
+                  color: blockActive
+                      ? theme.colorScheme.onErrorContainer
+                      : theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 4),
+              if (goalSeconds > 0) ...[
+                LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(999),
+                  color: blockActive ? theme.colorScheme.error : null,
+                ),
+                const SizedBox(height: 6),
                 Text(
-                  formatDuration(todaySeconds),
-                  style: theme.textTheme.displaySmall?.copyWith(
+                  '${formatDuration(todaySeconds)} of '
+                  '${formatDuration(goalSeconds)} goal',
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: blockActive
                         ? theme.colorScheme.onErrorContainer
-                        : theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 4),
-                if (goalSeconds > 0) ...[
-                  LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    borderRadius: BorderRadius.circular(999),
-                    color: blockActive ? theme.colorScheme.error : null,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${formatDuration(todaySeconds)} of '
-                    '${formatDuration(goalSeconds)} goal',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: blockActive
-                          ? theme.colorScheme.onErrorContainer
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ] else
-                  Text(
-                    'No goal set. You can still track focus sessions.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.tonalIcon(
-                    onPressed: blockActive || _saving ? null : _pickGoal,
-                    icon: const Icon(Icons.edit_outlined),
-                    label: Text(
-                      settings.focusGoalMinutes > 0
-                          ? 'Edit goal'
-                          : 'Set daily goal',
-                    ),
+              ] else
+                Text(
+                  'No goal set. You can still track focus sessions.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ],
-            ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.tonalIcon(
+                  onPressed: blockActive || _saving ? null : _pickGoal,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: Text(
+                    settings.focusGoalMinutes > 0
+                        ? 'Edit goal'
+                        : 'Set daily goal',
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         if (blockActive) ...[
@@ -306,130 +334,128 @@ class _StudyTimerBodyState extends ConsumerState<_StudyTimerBody> {
           ),
         ],
         const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+        LockoutCardSurface(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Focus timer',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(
+                      running
+                          ? 'Focusing'
+                          : paused
+                          ? 'Paused'
+                          : 'Ready',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                formatTimerClock(clockSeconds),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.displayMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                  color: paused
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                running
+                    ? 'The clock keeps running while this screen is open or '
+                          'closed.'
+                    : paused
+                    ? 'Resume when you are ready. The remaining time is '
+                          'saved.'
+                    : 'Pick a length, then start focusing.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (running)
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        'Focus timer',
-                        style: theme.textTheme.titleMedium,
+                      child: FilledButton.icon(
+                        onPressed: _saving ? null : _pause,
+                        icon: const Icon(Icons.pause),
+                        label: const Text('Pause'),
                       ),
                     ),
-                    Chip(
-                      visualDensity: VisualDensity.compact,
-                      label: Text(
-                        running
-                            ? 'Focusing'
-                            : paused
-                            ? 'Paused'
-                            : 'Ready',
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _saving ? null : _end,
+                      child: const Text('End'),
+                    ),
+                  ],
+                )
+              else if (paused)
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _saving ? null : _resume,
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('Resume'),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _saving ? null : _end,
+                      child: const Text('End'),
+                    ),
+                  ],
+                )
+              else
+                FilledButton.icon(
+                  onPressed: _saving ? null : _start,
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Start focus'),
+                ),
+              if (!running && !paused) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final minutes in _presetMinutes)
+                      ChoiceChip(
+                        label: Text(formatDuration(minutes * 60)),
+                        selected: _selectedMinutes == minutes,
+                        onSelected: _saving
+                            ? null
+                            : (_) => setState(() => _selectedMinutes = minutes),
+                      ),
+                    ActionChip(
+                      avatar: const Icon(Icons.tune, size: 18),
+                      label: const Text('Custom'),
+                      onPressed: _saving ? null : _pickCustomSession,
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  formatTimerClock(clockSeconds),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                    color: paused
-                        ? theme.colorScheme.onSurfaceVariant
-                        : theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  running
-                      ? 'The clock keeps running while this screen is open or '
-                            'closed.'
-                      : paused
-                      ? 'Resume when you are ready. The remaining time is '
-                            'saved.'
-                      : 'Pick a length, then start focusing.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (running)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _saving ? null : _pause,
-                          icon: const Icon(Icons.pause),
-                          label: const Text('Pause'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: _saving ? null : _end,
-                        child: const Text('End'),
-                      ),
-                    ],
-                  )
-                else if (paused)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _saving ? null : _resume,
-                          icon: const Icon(Icons.play_arrow),
-                          label: const Text('Resume'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: _saving ? null : _end,
-                        child: const Text('End'),
-                      ),
-                    ],
-                  )
-                else
-                  FilledButton.icon(
-                    onPressed: _saving ? null : _start,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start focus'),
-                  ),
-                if (!running && !paused) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      for (final minutes in _presetMinutes)
-                        ChoiceChip(
-                          label: Text(formatDuration(minutes * 60)),
-                          selected: _selectedMinutes == minutes,
-                          onSelected: _saving
-                              ? null
-                              : (_) =>
-                                    setState(() => _selectedMinutes = minutes),
-                        ),
-                      ActionChip(
-                        avatar: const Icon(Icons.tune, size: 18),
-                        label: const Text('Custom'),
-                        onPressed: _saving ? null : _pickCustomSession,
-                      ),
-                    ],
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
         const SizedBox(height: 20),
-        Text('Goal automation', style: theme.textTheme.titleMedium),
+        LockoutSectionLabel('Goal automation'),
         const SizedBox(height: 8),
-        Card(
+        LockoutCardSurface(
+          padding: EdgeInsets.zero,
           child: Column(
             children: [
               SwitchListTile(
@@ -504,34 +530,24 @@ class _TimerNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final background = error
-        ? theme.colorScheme.errorContainer
-        : theme.colorScheme.secondaryContainer;
-    final foreground = error
-        ? theme.colorScheme.onErrorContainer
-        : theme.colorScheme.onSecondaryContainer;
+    final accent = error ? LockoutPalette.coral : LockoutPalette.amber;
 
-    return Card(
-      color: background,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: foreground),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                text,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: foreground,
-                  height: 1.4,
-                ),
-              ),
+    return LockoutCardSurface(
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+      borderColor: accent.withValues(alpha: error ? 0.34 : 0.22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LockoutIconBadge(icon, color: accent, size: 34),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
             ),
-            ?action,
-          ],
-        ),
+          ),
+          ?action,
+        ],
       ),
     );
   }

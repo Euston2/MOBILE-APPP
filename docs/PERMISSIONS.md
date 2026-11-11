@@ -39,7 +39,8 @@ and the Home screen warns that blocking is unreliable.
 ### `android.permission.POST_NOTIFICATIONS` (runtime, API 33+)
 **Why:** a foreground service must post a persistent notification; on API 33+
 the service stays alive but the notification is hidden without consent, which
-looks like spyware. The block fallback also needs it.
+looks like spyware. The block fallback and the 1h/30m/15m/5m remaining-time
+warnings (including the native 5-minute **Add 10 min** action) also use it.
 **How requested:** `ActivityResultContracts.RequestPermission` after the overlay
 step.
 

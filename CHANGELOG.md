@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Release 1.3.0 preview
+
+- Version `1.3.0+13`.
+- Added native remaining-time warnings for the active daily social limit at
+  **1 hour, 30 minutes, 15 minutes and 5 minutes** left. Checks run from the
+  foreground watcher, so the warnings arrive while Flutter is closed and another
+  app is in front.
+- The 5-minute warning carries a native **Add 10 min** action. It extends the
+  allowance and mirrors the new limit into Flutter's prefs without opening the
+  app; the action is unavailable while the daily lock is already in force. The
+  Flutter UI deliberately has no equivalent control.
+- Warnings are deduplicated per local day and limit, do not fire while a hard
+  block is active, and suppress stale tiers after a watcher restart. A limit that
+  starts exactly on a threshold now gets that warning instead of missing it.
+- Applied the dark neon **Lockout** design across Home, History, Limit & apps,
+  Focus locks, Study timer, onboarding, Protection check and the native block
+  screen/overlay: near-black surfaces, mint progress, coral locked states,
+  rounded outlined cards, prominent tabular numbers and compact status pills.
+- Home now opens with a daily-budget hero, remaining/limit metrics, a hard-lock
+  commitment card and redesigned per-app rows; History groups totals, focus and
+  late-night data on a matching dark surface.
+- Added `UsageAlertPolicyTest` coverage for thresholds, dedupe masks, fresh-start
+  handling and the native extension copy. Existing limits, focus locks, study
+  timer, history, persistence and the pinned `sqlite3_flutter_libs: 0.5.42`
+  remain unchanged.
+
 ### Release 1.2.0 preview
 
 - Version `1.2.0+12`.

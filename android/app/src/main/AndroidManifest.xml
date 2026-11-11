@@ -124,6 +124,16 @@
             android:exported="false" />
 
         <!--
+          The 5-minute usage warning's "Add 10 min" action. The action is only
+          present in that notification; the app UI deliberately has no
+          equivalent control. Exported=false because the PendingIntent is
+          explicit and only Lockout can send it.
+        -->
+        <receiver
+            android:name=".platform.UsageAlertActionReceiver"
+            android:exported="false" />
+
+        <!--
           Boot/time-change recovery. Exported=true is required to receive these
           protected system broadcasts; RECEIVE_BOOT_COMPLETED restricts who can
           deliver BOOT_COMPLETED.

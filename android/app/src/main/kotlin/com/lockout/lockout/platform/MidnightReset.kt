@@ -163,6 +163,16 @@ object MidnightReset {
                 pendingEffectiveAtMs = 0L,
             )
             BlockingStore.save(context, current)
+            // Keep Flutter's recurring-limit cache in step with the native
+            // materialisation. Without this, a notification extension applied
+            // after midnight could be overwritten by a stale pending value on
+            // the next app launch.
+            FlutterSettings.writeLimits(
+                context,
+                current.dailyLimitSeconds,
+                null,
+                null,
+            )
             materialised = true
             LockoutLog.info(context, "scheduled app/limit change applied")
         }

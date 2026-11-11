@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
+import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/device_diagnostics.dart';
 import '../../../domain/entities/permission_snapshot.dart';
 import '../../onboarding/presentation/permissions_controller.dart';
@@ -61,13 +63,27 @@ class ProtectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final diagnostics = ref.watch(diagnosticsControllerProvider);
 
     return AppResumeObserver(
       onResume: () => unawaited(_refresh(ref)),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Protection check'),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'LOCKOUT',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: LockoutPalette.mint,
+                  letterSpacing: 3,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text('Protection check', style: theme.textTheme.headlineSmall),
+            ],
+          ),
           actions: [
             IconButton(
               tooltip: 'Refresh status',
@@ -228,9 +244,6 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final allGood = diagnostics.allRequiredChecks;
-    final background = allGood
-        ? theme.colorScheme.primaryContainer
-        : theme.colorScheme.errorContainer;
     final foreground = allGood
         ? theme.colorScheme.onPrimaryContainer
         : theme.colorScheme.onErrorContainer;
@@ -252,92 +265,95 @@ class _StatusCard extends StatelessWidget {
           '${formatDuration(diagnostics.limitSeconds)} daily limit';
     }
 
-    return Card(
-      color: background,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  allGood
-                      ? Icons.verified_user_outlined
-                      : Icons.gpp_maybe_outlined,
-                  size: 30,
-                  color: foreground,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        allGood
-                            ? 'Ready to protect'
-                            : 'Protection needs attention',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: foreground,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        deviceLabel,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: foreground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value:
-                    diagnostics.passedRequiredChecks /
-                    DeviceDiagnostics.requiredCheckCount,
-                minHeight: 6,
+    return LockoutCardSurface(
+      padding: const EdgeInsets.all(18),
+      borderColor: foreground.withValues(alpha: 0.28),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [foreground.withValues(alpha: 0.1), LockoutPalette.surface],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                allGood
+                    ? Icons.verified_user_outlined
+                    : Icons.gpp_maybe_outlined,
+                size: 30,
                 color: foreground,
-                backgroundColor: foreground.withValues(alpha: 0.18),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${diagnostics.passedRequiredChecks} of '
-              '${DeviceDiagnostics.requiredCheckCount} checks ready',
-              style: theme.textTheme.bodySmall?.copyWith(color: foreground),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              enforcement,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: foreground,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (diagnostics.powerSaveMode) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.battery_saver, size: 16, color: foreground),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Battery saver is on. Lockout may be delayed.',
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      allGood
+                          ? 'Ready to protect'
+                          : 'Protection needs attention',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      deviceLabel,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: foreground,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value:
+                  diagnostics.passedRequiredChecks /
+                  DeviceDiagnostics.requiredCheckCount,
+              minHeight: 6,
+              color: foreground,
+              backgroundColor: foreground.withValues(alpha: 0.18),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${diagnostics.passedRequiredChecks} of '
+            '${DeviceDiagnostics.requiredCheckCount} checks ready',
+            style: theme.textTheme.bodySmall?.copyWith(color: foreground),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            enforcement,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (diagnostics.powerSaveMode) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.battery_saver, size: 16, color: foreground),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Battery saver is on. Lockout may be delayed.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: foreground,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -369,31 +385,36 @@ class _CheckTile extends StatelessWidget {
         ? theme.colorScheme.tertiary
         : theme.colorScheme.error;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(
-          passed
-              ? Icons.check_circle
-              : isOptional
-              ? Icons.info_outline
-              : Icons.error_outline,
-          color: colour,
-        ),
-        title: Text(title),
-        subtitle: Text(
-          detail,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            height: 1.35,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: LockoutCardSurface(
+        padding: EdgeInsets.zero,
+        borderColor: colour.withValues(alpha: passed ? 0.2 : 0.3),
+        child: ListTile(
+          leading: LockoutIconBadge(
+            passed
+                ? Icons.check_circle
+                : isOptional
+                ? Icons.info_outline
+                : Icons.error_outline,
+            color: colour,
+            size: 38,
           ),
+          title: Text(title),
+          subtitle: Text(
+            detail,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.35,
+            ),
+          ),
+          trailing: passed
+              ? Text(
+                  'Ready',
+                  style: theme.textTheme.labelSmall?.copyWith(color: colour),
+                )
+              : TextButton(onPressed: onFix, child: Text(fixLabel)),
         ),
-        trailing: passed
-            ? Text(
-                'Ready',
-                style: theme.textTheme.labelSmall?.copyWith(color: colour),
-              )
-            : TextButton(onPressed: onFix, child: Text(fixLabel)),
       ),
     );
   }

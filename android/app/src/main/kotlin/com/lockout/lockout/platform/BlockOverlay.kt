@@ -44,30 +44,48 @@ object BlockOverlay {
         val root = LinearLayout(app).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.rgb(18, 18, 18))
+            setBackgroundColor(Color.rgb(0x06, 0x0A, 0x0C))
             setPadding(dp(app, 32), dp(app, 32), dp(app, 32), dp(app, 32))
         }
 
         root.addView(TextView(app).apply {
             text = "LOCKOUT"
-            setTextColor(Color.rgb(0xB3, 0x26, 0x1E))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            letterSpacing = 0.2f
+            setTextColor(Color.rgb(0x63, 0xF4, 0xCE))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            letterSpacing = 0.3f
+            gravity = Gravity.CENTER
+        })
+        root.addView(TextView(app).apply {
+            text = "ENFORCEMENT ACTIVE"
+            setTextColor(Color.rgb(0xFF, 0x96, 0x96))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            letterSpacing = 0.12f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(app, 10), 0, dp(app, 18))
         })
         root.addView(TextView(app).apply {
             text = title
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
+            setTextColor(Color.rgb(0xF2, 0xF9, 0xF7))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 32f)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
             setPadding(0, dp(app, 8), 0, dp(app, 12))
         })
         root.addView(TextView(app).apply {
             text = detail
-            setTextColor(Color.rgb(0xC7, 0xC7, 0xC7))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextColor(Color.rgb(0x89, 0x98, 0x95))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            gravity = Gravity.CENTER
+            setLineSpacing(dp(app, 3).toFloat(), 1f)
             setPadding(0, 0, 0, dp(app, 20))
         })
         root.addView(Button(app).apply {
             text = "Open details"
+            isAllCaps = false
+            setTextColor(Color.rgb(0x06, 0x0A, 0x0C))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(
+                Color.rgb(0x63, 0xF4, 0xCE),
+            )
             setOnClickListener { openDetails(app) }
         })
 

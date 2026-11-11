@@ -22,6 +22,7 @@ What must always be covered by unit tests:
 | Lock logic | lock set once, cannot be cleared while `now < next_reset_at`, persists across cold start (`reconcileSettings`, `BlockPolicyTest`) |
 | Focus locks | fixed 00:00–08:00 window, study active/expired, study-over-overnight priority, expired session cleanup, controller edit guards (`focus_window_test`, `focus_lock_test`, `reconcile_settings_test`, `settings_controller_test`) |
 | Blocking decisions | unmonitored app, exact limit, over limit, active/expired lock, no limit, study/overnight focus (`BlockPolicyTest`) |
+| Remaining-time warnings | tier mapping, downward crossings, exact-threshold fresh start, dedupe masks and extension copy (`UsageAlertPolicyTest`) |
 | Next-day settings | pending limit applied at its effective midnight, app add/remove planned and reconciled (`reconcile_settings_test`, `monitored_apps_planning_test`) |
 | Reset logic | alarm fired at 00:00, missed alarm recovered on start, pending config materialised, double reset is idempotent (`DayMathTest`, manual matrix) |
 | Archive | native queue imported once, drift upsert idempotent (`drift_monitored_apps_repository_test`, `archive_import_test`) |
@@ -68,6 +69,10 @@ Run before every release. Record device, Android version and OEM.
 | 22 | Let a study session expire with the app open | block screen closes; Home returns to the normal focus card; selection is editable again |
 | 23 | Start a study session, then kill Lockout from Recents | native watcher keeps the app blocked until the study end time |
 | 24 | Study session active, try to change the limit or app selection | both surfaces reject the edit and explain the active focus lock |
+| 25 | Set a 1-hour limit and let remaining time fall through 1h/30m/15m/5m with another app in front | one native warning per tier, even while Flutter is closed; no warning during an active hard block |
+| 26 | On the 5-minute warning, tap **Add 10 min** without opening Lockout | action succeeds, confirmation appears, the limit grows by 10 minutes and the app is not launched |
+| 27 | Try to find an add-time control in the Flutter UI | no equivalent control exists; the notification action is the only route |
+| 28 | Revoke notification permission while a limit is active | enforcement continues, remaining-time warnings stay hidden, Protection check reports notifications off |
 
 ## Stage acceptance log
 

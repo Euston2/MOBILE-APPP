@@ -25,6 +25,44 @@ object FlutterSettings {
     private const val KEY_IS_LOCKED = KEY_PREFIX + "settings.is_locked"
     private const val KEY_LOCKED_AT = KEY_PREFIX + "settings.locked_at"
     private const val KEY_NEXT_RESET_AT = KEY_PREFIX + "settings.next_reset_at"
+    private const val KEY_DAILY_LIMIT = KEY_PREFIX + "settings.daily_limit_seconds"
+    private const val KEY_PENDING_LIMIT =
+        KEY_PREFIX + "settings.pending_limit_seconds"
+    private const val KEY_PENDING_EFFECTIVE_AT =
+        KEY_PREFIX + "settings.pending_effective_at"
+
+    /**
+     * Mirrors a native limit change into Flutter's cache.
+     *
+     * Used by the 5-minute notification action and by the midnight
+     * materialisation of a scheduled limit. `pending` is null when there is no
+     * scheduled change, in which case its keys are removed so a stale pending
+     * value cannot overwrite the native limit when Dart next reconciles.
+     */
+    fun writeLimits(
+        context: Context,
+        dailyLimitSeconds: Int,
+        pendingLimitSeconds: Int?,
+        pendingEffectiveAtMs: Long?,
+    ) {
+        val editor = context
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(KEY_DAILY_LIMIT, dailyLimitSeconds.toLong())
+
+        if (pendingLimitSeconds != null &&
+            pendingLimitSeconds > 0 &&
+            pendingEffectiveAtMs != null &&
+            pendingEffectiveAtMs > 0L
+        ) {
+            editor.putLong(KEY_PENDING_LIMIT, pendingLimitSeconds.toLong())
+            editor.putLong(KEY_PENDING_EFFECTIVE_AT, pendingEffectiveAtMs)
+        } else {
+            editor.remove(KEY_PENDING_LIMIT)
+            editor.remove(KEY_PENDING_EFFECTIVE_AT)
+        }
+        editor.commit()
+    }
 
     /** Writes a lock (or its clearing) and commits before the process can die. */
     fun writeLock(

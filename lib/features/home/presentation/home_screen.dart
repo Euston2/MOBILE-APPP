@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_names.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/utils/focus_window.dart';
 import '../../../core/widgets/app_resume_observer.dart';
+import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/app_usage.dart';
 import '../../../domain/entities/installed_app.dart';
 import '../../../domain/entities/permission_snapshot.dart';
@@ -119,10 +121,49 @@ class HomeScreen extends ConsumerWidget {
       usedSeconds: summary?.totalSeconds ?? 0,
       limitSeconds: settings?.dailyLimitSeconds ?? 0,
     );
+    final statusLabel = locked
+        ? 'Locked'
+        : status.isReached
+        ? 'Limit hit'
+        : status.hasLimit
+        ? 'Strict mode'
+        : 'Set up';
+    final statusAccent = locked || status.isReached
+        ? LockoutPalette.coral
+        : status.hasLimit
+        ? LockoutPalette.mint
+        : LockoutPalette.amber;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Today'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'LOCKOUT',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: LockoutPalette.mint,
+                letterSpacing: 3,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Text('Today', style: theme.textTheme.headlineSmall),
+                const SizedBox(width: 10),
+                LockoutPill(
+                  statusLabel,
+                  color: statusAccent,
+                  icon: locked
+                      ? Icons.lock_outline
+                      : status.hasLimit
+                      ? Icons.shield_outlined
+                      : Icons.add_circle_outline,
+                ),
+              ],
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'History',
@@ -181,30 +222,91 @@ class HomeScreen extends ConsumerWidget {
                 nextResetAt: nextResetAt,
                 onConfigure: () => _openLimits(context),
               ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: LockoutMetricCard(
+                      label: 'Remaining',
+                      value: status.hasLimit
+                          ? formatDuration(status.remainingSeconds)
+                          : '—',
+                      caption: status.hasLimit
+                          ? 'before hard lock'
+                          : 'no limit configured',
+                      icon: Icons.shield_outlined,
+                      accent: statusAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: LockoutMetricCard(
+                      label: 'Daily limit',
+                      value: status.hasLimit
+                          ? formatDuration(status.limitSeconds)
+                          : 'Not set',
+                      caption: 'resets at midnight',
+                      icon: Icons.tune,
+                      accent: LockoutPalette.amber,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               _StudyTimerCard(
                 settings: settings,
                 onTap: () => _openStudyTimer(context),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
               _FocusCard(settings: settings, onTap: () => _openFocus(context)),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text('Apps', style: theme.textTheme.titleMedium),
-                  ),
-                  Text(
-                    monitoredCount == 0
-                        ? 'all apps'
-                        : '$monitoredCount ${monitoredCount == 1 ? 'app' : 'apps'}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(height: 10),
+              LockoutCardSurface(
+                onTap: () => _openLimits(context),
+                padding: const EdgeInsets.all(16),
+                borderColor: LockoutPalette.mint.withValues(alpha: 0.2),
+                child: Row(
+                  children: [
+                    const LockoutIconBadge(Icons.gavel_outlined, size: 40),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hard lock commitment',
+                            style: theme.textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'A lock cannot be relaxed from inside a blocked '
+                            'app. Your rules reset at midnight.',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    const Icon(Icons.chevron_right, size: 20),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 24),
+              LockoutSectionLabel(
+                'Monitored social apps',
+                trailing: Text(
+                  monitoredCount == 0
+                      ? 'all apps'
+                      : '$monitoredCount ${monitoredCount == 1 ? 'app' : 'apps'}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Combined time counts against one daily allowance.',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 10),
               usage.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
@@ -240,15 +342,36 @@ class HomeScreen extends ConsumerWidget {
                       ),
               ),
               const SizedBox(height: 16),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.health_and_safety_outlined),
-                  title: const Text('Protection check'),
-                  subtitle: const Text(
-                    'Battery help, access and recent activity',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _openProtection(context),
+              LockoutCardSurface(
+                onTap: () => _openProtection(context),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 13,
+                ),
+                child: Row(
+                  children: [
+                    const LockoutIconBadge(
+                      Icons.health_and_safety_outlined,
+                      size: 40,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Protection check',
+                            style: theme.textTheme.titleSmall,
+                          ),
+                          Text(
+                            'Battery help, access and recent activity',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 20),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -304,68 +427,104 @@ class _LimitCard extends StatelessWidget {
       statusLine = '${formatDuration(status.remainingSeconds)} left today';
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-        child: Column(
-          children: [
-            UsageRing(status: status),
-            const SizedBox(height: 16),
-            Text(
-              statusLine,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: reached || locked
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
+    final accent = reached || locked
+        ? LockoutPalette.coral
+        : LockoutPalette.mint;
+
+    return LockoutCardSurface(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      borderColor: accent.withValues(alpha: 0.24),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          accent.withValues(alpha: 0.14),
+          LockoutPalette.surface,
+          LockoutPalette.surface,
+        ],
+        stops: const [0, 0.48, 1],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: LockoutSectionLabel('Daily budget')),
+              LockoutPill(
+                locked
+                    ? 'Sealed'
+                    : reached
+                    ? 'Limit hit'
+                    : status.hasLimit
+                    ? 'Active'
+                    : 'Not set',
+                color: accent,
+                icon: locked
+                    ? Icons.lock_outline
+                    : status.hasLimit
+                    ? Icons.bolt
+                    : Icons.tune,
               ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          UsageRing(status: status),
+          const SizedBox(height: 14),
+          Text(
+            statusLine,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: reached || locked ? accent : theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            summary == null
+                ? 'Reading usage…'
+                : appCount == 0
+                ? 'Since midnight'
+                : 'Since midnight · $appCount '
+                      '${appCount == 1 ? 'app' : 'apps'}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (locked && resetAt != null) ...[
             const SizedBox(height: 4),
             Text(
-              summary == null
-                  ? 'Reading usage…'
-                  : appCount == 0
-                  ? 'Since midnight'
-                  : 'Since midnight · $appCount '
-                        '${appCount == 1 ? 'app' : 'apps'}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              'Resets in '
+              '${formatCountdown(resetAt.difference(DateTime.now()))}',
+              style: theme.textTheme.bodySmall?.copyWith(color: accent),
+            ),
+          ],
+          if (locked || reached) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Your chosen apps are blocked until midnight.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(color: accent),
+            ),
+          ],
+          const SizedBox(height: 14),
+          if (!status.hasLimit)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onConfigure,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Set limit & apps'),
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: locked ? null : onConfigure,
+                icon: Icon(locked ? Icons.lock_outline : Icons.tune, size: 18),
+                label: Text(locked ? 'Locked' : 'Edit limit & apps'),
               ),
             ),
-            if (locked && resetAt != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Resets in '
-                '${formatCountdown(resetAt.difference(DateTime.now()))}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ],
-            if (locked || reached) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Your chosen apps are blocked until midnight.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            if (!status.hasLimit)
-              FilledButton.tonal(
-                onPressed: onConfigure,
-                child: const Text('Set limit & apps'),
-              )
-            else
-              TextButton(
-                onPressed: onConfigure,
-                child: Text(locked ? 'Locked' : 'Edit limit & apps'),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -416,33 +575,49 @@ class _StudyTimerCard extends StatelessWidget {
       subtitle = 'Set a daily goal or start a focus session.';
     }
 
-    final foreground = blockActive ? theme.colorScheme.onErrorContainer : null;
+    final accent = blockActive
+        ? LockoutPalette.coral
+        : running
+        ? LockoutPalette.mint
+        : LockoutPalette.amber;
 
-    return Card(
-      color: blockActive ? theme.colorScheme.errorContainer : null,
-      child: ListTile(
-        leading: Icon(
-          blockActive
-              ? Icons.lock_clock_outlined
-              : running
-              ? Icons.timelapse
-              : Icons.timer_outlined,
-          color: foreground,
-        ),
-        title: Text(
-          title,
-          style: foreground == null
-              ? null
-              : theme.textTheme.titleSmall?.copyWith(color: foreground),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: foreground == null
-              ? null
-              : theme.textTheme.bodySmall?.copyWith(color: foreground),
-        ),
-        trailing: Icon(Icons.chevron_right, color: foreground),
-        onTap: onTap,
+    return LockoutCardSurface(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      borderColor: accent.withValues(alpha: blockActive ? 0.34 : 0.16),
+      child: Row(
+        children: [
+          LockoutIconBadge(
+            blockActive
+                ? Icons.lock_clock_outlined
+                : running
+                ? Icons.timelapse
+                : Icons.timer_outlined,
+            color: accent,
+            size: 40,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: blockActive ? accent : null,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: blockActive ? accent : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, size: 20),
+        ],
       ),
     );
   }
@@ -495,34 +670,41 @@ class _FocusCard extends StatelessWidget {
       subtitle = 'Overnight 12-8 AM and one-off study sessions.';
     }
 
-    return Card(
-      color: active ? theme.colorScheme.secondaryContainer : null,
-      child: ListTile(
-        leading: Icon(
-          active ? Icons.lock_clock_outlined : Icons.timer_outlined,
-          color: active ? theme.colorScheme.onSecondaryContainer : null,
-        ),
-        title: Text(
-          title,
-          style: active
-              ? theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSecondaryContainer,
-                )
-              : null,
-        ),
-        subtitle: Text(
-          subtitle,
-          style: active
-              ? theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSecondaryContainer,
-                )
-              : null,
-        ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: active ? theme.colorScheme.onSecondaryContainer : null,
-        ),
-        onTap: onTap,
+    final accent = active ? LockoutPalette.amber : LockoutPalette.mint;
+
+    return LockoutCardSurface(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      borderColor: accent.withValues(alpha: active ? 0.3 : 0.14),
+      child: Row(
+        children: [
+          LockoutIconBadge(
+            active ? Icons.lock_clock_outlined : Icons.nightlight_outlined,
+            color: accent,
+            size: 40,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: active ? accent : null,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: active ? accent : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, size: 20),
+        ],
       ),
     );
   }
@@ -695,42 +877,66 @@ class _AppUsageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final value = fraction.isFinite ? fraction.clamp(0.02, 1.0) : 0.02;
+    final initial = label.trim().isEmpty
+        ? '?'
+        : label.trim().substring(0, 1).toUpperCase();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
+      padding: const EdgeInsets.only(bottom: 8),
+      child: LockoutCardSurface(
+        padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: LockoutPalette.mintDeep,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: LockoutPalette.mint.withValues(alpha: 0.22),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                formatDuration(usage.seconds),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+              child: Text(
+                initial,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: LockoutPalette.mint,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: value,
-              minHeight: 6,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        formatDuration(usage.seconds),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: LockoutPalette.mint,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  LockoutProgressBar(value: value),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -741,30 +947,12 @@ class _EmptyUsageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Icon(
-              Icons.hourglass_empty,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'No usage recorded yet today. Use your phone normally and pull '
-                'down to refresh.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return const LockoutEmptyState(
+      icon: Icons.hourglass_empty,
+      title: 'A clear day so far',
+      message:
+          'No usage recorded yet today. Use your phone normally and pull '
+          'down to refresh.',
     );
   }
 }
