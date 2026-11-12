@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Release 1.4.0 preview
+
+- Version `1.4.0+14`.
+- Added a finite, offline-capable **Reader** as the second bottom-navigation tab:
+  up to ten curated articles per local day, reading-time estimates, source
+  attribution, and an explicit "You're done for today" state. There is no
+  infinite scroll, autoplay, next-up recommendation loop or new-article
+  notification.
+- Added `assets/reader/sources.json` with RSS, Hacker News and dev.to sources.
+  Reader settings let you enable sources and choose topics; changes persist
+  immediately and apply on the next refresh.
+- Articles are cached in new drift tables (`sources`, `articles`, `bookmarks`,
+  `reading_sessions`). A WorkManager job refreshes roughly every six hours with a
+  network constraint; the Reader is cache-first, fetches only when the cache is
+  empty, and limits manual refreshes to once per 15 minutes.
+- Added a native article screen with cached Readability extraction, excerpt
+  fallback, original-source attribution, bookmarks, and a restricted "Open
+  original" WebView with no address bar. The WebView only allows the article and
+  source hosts, hard-blocks Instagram, TikTok, Facebook, X/Twitter, Snapchat,
+  YouTube and Reddit, and asks before opening any external link.
+- Added per-day reading-time tracking that stops when the article screen is
+  hidden and splits sessions across local midnight. History now shows a
+  **Scrolling vs reading** card plus reading time on each finished day.
+- Added **Read something instead** to the native block screen and overlay. It
+  opens the Reader tab without unlocking or bypassing the social lock, including
+  from a cold start or while Lockout is already running.
+- Added dark-theme empty, loading, offline and refresh-warning states, bookmark
+  list navigation, and Reader entry points without changing existing limits,
+  focus locks, study timer or history archives.
+
 ### Release 1.3.0 preview
 
 - Version `1.3.0+13`.
