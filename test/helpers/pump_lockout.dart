@@ -3,7 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lockout/app.dart';
 import 'package:lockout/core/di.dart';
+import 'package:lockout/domain/entities/reader_feed.dart';
+import 'package:lockout/domain/entities/reader_source.dart';
+import 'package:lockout/domain/repositories/reader_repository.dart';
+import 'package:lockout/domain/repositories/reader_source_repository.dart';
+import 'package:lockout/domain/usecases/refresh_reader.dart';
 
+import 'fake_reader.dart';
 import 'fake_stores.dart';
 import 'fakes.dart';
 import 'test_surface.dart';
@@ -22,8 +28,14 @@ Future<void> pumpLockoutApp(
   FakeHistoryRepository? history,
   FakeHistoryExporter? exporter,
   FakeDiagnosticsRepository? diagnostics,
+  ReaderRepository? reader,
+  ReaderSourceRepository? readerSources,
+  RefreshReader? readerRefresh,
 }) async {
   useTallScreen(tester);
+  final readerRepository = reader ?? FakeReaderRepository();
+  final readerSourceRepository = readerSources ?? FakeReaderSourceRepository();
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -46,6 +58,18 @@ Future<void> pumpLockoutApp(
         ),
         diagnosticsRepositoryProvider.overrideWithValue(
           diagnostics ?? FakeDiagnosticsRepository(),
+        ),
+        readerRepositoryProvider.overrideWithValue(readerRepository),
+        readerSourceRepositoryProvider.overrideWithValue(
+          readerSourceRepository,
+        ),
+        refreshReaderProvider.overrideWithValue(
+          readerRefresh ??
+              RefreshReader(
+                repository: readerRepository,
+                sources: readerSourceRepository,
+                clients: const <ReaderSourceKind, ReaderFeedClient>{},
+              ),
         ),
         usagePollIntervalProvider.overrideWithValue(const Duration(hours: 1)),
       ],

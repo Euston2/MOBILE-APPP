@@ -5,11 +5,11 @@ import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_resume_observer.dart';
 import 'features/blocking/presentation/blocking_controller.dart';
-import 'features/home/presentation/home_screen.dart';
 import 'features/history/presentation/archive_import_controller.dart';
 import 'features/limits/presentation/settings_controller.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
 import 'features/onboarding/presentation/permissions_controller.dart';
+import 'features/shell/presentation/main_shell.dart';
 
 /// Root widget of the Lockout application.
 class LockoutApp extends StatelessWidget {
@@ -75,9 +75,7 @@ class _AppGate extends ConsumerWidget {
         final current = settings.value;
         if (current == null) return const _StartupScreen();
         final ready = current.onboardingCompleted || snapshot.allGranted;
-        return ready
-            ? const HomeScreen()
-            : const OnboardingScreen(isRoot: true);
+        return ready ? const MainShell() : const OnboardingScreen(isRoot: true);
       },
     );
   }

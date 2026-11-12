@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lockout/core/utils/day_window.dart';
 import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
 
+import 'helpers/fake_reader.dart';
 import 'helpers/fake_stores.dart';
 import 'helpers/fakes.dart';
 import 'helpers/pump_lockout.dart';
@@ -33,7 +35,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Today'), findsNWidgets(2));
     expect(find.text('1h 05m'), findsWidgets);
     expect(find.text('No daily limit set yet'), findsOneWidget);
 
@@ -54,7 +56,7 @@ void main() {
     await tester.tap(find.text('Skip for now'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Today'), findsNWidgets(2));
     expect(find.text('4 settings need attention'), findsOneWidget);
     expect(settings.settings.onboardingCompleted, isTrue);
     expect(settings.saveCalls, 1);
@@ -75,7 +77,7 @@ void main() {
       settings: settings,
     );
 
-    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Today'), findsNWidgets(2));
     expect(find.text('Set up Lockout'), findsNothing);
 
     await disposeTestApp(tester);
@@ -329,6 +331,40 @@ void main() {
     expect(blocking.synced, isEmpty);
     // The gate may recompute while settings and apps load; stop is idempotent.
     expect(blocking.stopCalls, greaterThanOrEqualTo(1));
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('opens the Reader from bottom navigation and its settings', (
+    tester,
+  ) async {
+    final reader = FakeReaderRepository();
+    reader.articles['cached'] = readerArticle(
+      id: 'cached',
+      title: 'Already here',
+      sourceName: 'Example Review',
+    );
+    reader.dailyPicks[localDateKey(DateTime.now())] = ['cached'];
+
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      reader: reader,
+    );
+
+    // Reader is built lazily, so its app-bar action is absent until opened.
+    expect(find.byTooltip('Reader settings'), findsNothing);
+
+    await tester.tap(find.text('Reader'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Already here'), findsOneWidget);
+    expect(find.byTooltip('Reader settings'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Reader settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sources & topics'), findsOneWidget);
 
     await disposeTestApp(tester);
   });

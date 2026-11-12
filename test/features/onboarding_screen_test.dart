@@ -57,7 +57,7 @@ void main() {
     await tester.tap(find.text('Continue with limited protection'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Today'), findsNWidgets(2));
     expect(settings.settings.onboardingCompleted, isTrue);
 
     await disposeTestApp(tester);
