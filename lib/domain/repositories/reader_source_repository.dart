@@ -7,6 +7,9 @@ abstract interface class ReaderSourceRepository {
 
   Future<List<ReaderSource>> enabledSources();
 
+  /// One source by id, without synchronising the bundled catalogue.
+  Future<ReaderSource?> sourceById(String sourceId);
+
   Future<void> setEnabled(String sourceId, bool enabled);
 
   Future<void> setTopics(String sourceId, List<String> topics);

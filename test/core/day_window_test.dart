@@ -83,4 +83,35 @@ void main() {
       expect(parseLocalDateKey('2028-02-29'), DateTime(2028, 2, 29));
     });
   });
+
+  group('secondsByLocalDay', () {
+    test('keeps a same-day session on one key', () {
+      expect(
+        secondsByLocalDay(
+          DateTime(2026, 11, 12, 9, 0),
+          DateTime(2026, 11, 12, 9, 2, 5),
+        ),
+        {'2026-11-12': 125},
+      );
+    });
+
+    test('splits a session that crosses midnight', () {
+      expect(
+        secondsByLocalDay(
+          DateTime(2026, 11, 12, 23, 59, 50),
+          DateTime(2026, 11, 13, 0, 0, 10),
+        ),
+        {'2026-11-12': 10, '2026-11-13': 10},
+      );
+    });
+
+    test('returns no buckets for an empty or reversed interval', () {
+      final moment = DateTime(2026, 11, 12, 10);
+      expect(secondsByLocalDay(moment, moment), isEmpty);
+      expect(
+        secondsByLocalDay(moment, moment.subtract(const Duration(seconds: 1))),
+        isEmpty,
+      );
+    });
+  });
 }

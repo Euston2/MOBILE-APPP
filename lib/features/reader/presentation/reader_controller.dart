@@ -248,3 +248,11 @@ class ReaderController extends AsyncNotifier<ReaderDay> {
 
 final readerControllerProvider =
     AsyncNotifierProvider<ReaderController, ReaderDay>(ReaderController.new);
+
+/// Saved articles, ordered by the repository's most-recent-first query.
+///
+/// Auto-dispose keeps the list fresh after bookmarks are changed elsewhere
+/// (for example from the daily Reader) and drops the small cache when closed.
+final readerBookmarksProvider = FutureProvider.autoDispose<List<ReaderArticle>>(
+  (ref) => ref.watch(readerRepositoryProvider).bookmarks(),
+);

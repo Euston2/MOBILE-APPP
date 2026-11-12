@@ -158,6 +158,14 @@ class FakeReaderSourceRepository implements ReaderSourceRepository {
   }
 
   @override
+  Future<ReaderSource?> sourceById(String sourceId) async {
+    for (final source in _sources) {
+      if (source.id == sourceId) return source;
+    }
+    return null;
+  }
+
+  @override
   Future<void> setEnabled(String sourceId, bool enabled) async {
     final index = _sources.indexWhere((source) => source.id == sourceId);
     if (index >= 0) {

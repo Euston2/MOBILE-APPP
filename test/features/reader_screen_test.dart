@@ -50,6 +50,7 @@ void main() {
         overrides: [
           readerRepositoryProvider.overrideWithValue(reader),
           readerSourceRepositoryProvider.overrideWithValue(sources),
+          readerContentExtractionEnabledProvider.overrideWithValue(false),
           refreshReaderProvider.overrideWithValue(
             refresh ??
                 RefreshReader(
@@ -143,6 +144,58 @@ void main() {
       find.text('A deliberately long article title that needs to wrap cleanly'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('opens an article and refreshes its read state on return', (
+    tester,
+  ) async {
+    final reader = FakeReaderRepository();
+    reader.articles['quiet'] = readerArticle(
+      id: 'quiet',
+      title: 'The quiet web',
+      sourceName: 'Example Review',
+      contentHtml: '<p>A slower kind of internet, saved for reading.</p>',
+      readingMinutes: 4,
+    );
+    reader.dailyPicks[today] = ['quiet'];
+    final sources = FakeReaderSourceRepository(sources: const [feedSource]);
+
+    await pumpReader(tester, reader: reader, sources: sources);
+    await tester.tap(find.text('The quiet web'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'A slower kind of internet, saved for reading.',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Open original'), findsOneWidget);
+    expect(reader.articles['quiet']!.isRead, isTrue);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('The quiet web'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle), findsOneWidget);
+  });
+
+  testWidgets('opens saved bookmarks from the app bar', (tester) async {
+    final reader = FakeReaderRepository();
+    reader.articles['saved'] = readerArticle(
+      id: 'saved',
+      title: 'Saved story',
+      sourceName: 'Example Review',
+      isBookmarked: true,
+    );
+    final sources = FakeReaderSourceRepository(sources: const [feedSource]);
+
+    await pumpReader(tester, reader: reader, sources: sources);
+    await tester.tap(find.byTooltip('Bookmarks'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved story'), findsOneWidget);
   });
 
   testWidgets('shows the final done state when every pick is read', (

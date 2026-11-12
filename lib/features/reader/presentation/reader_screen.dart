@@ -8,6 +8,9 @@ import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/reader_article.dart';
+import 'reader_article_card.dart';
+import 'reader_article_screen.dart';
+import 'reader_bookmarks_screen.dart';
 import 'reader_controller.dart';
 import 'reader_settings_screen.dart';
 
@@ -46,6 +49,28 @@ class ReaderScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _openBookmarks(BuildContext context, WidgetRef ref) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ReaderBookmarksScreen()),
+    );
+    if (!context.mounted) return;
+    ref.invalidate(readerControllerProvider);
+  }
+
+  Future<void> _openArticle(
+    BuildContext context,
+    WidgetRef ref,
+    ReaderArticle article,
+  ) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReaderArticleScreen(article: article),
+      ),
+    );
+    if (!context.mounted) return;
+    ref.invalidate(readerControllerProvider);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -82,6 +107,11 @@ class ReaderScreen extends ConsumerWidget {
                 : const Icon(Icons.refresh),
           ),
           IconButton(
+            tooltip: 'Bookmarks',
+            onPressed: () => unawaited(_openBookmarks(context, ref)),
+            icon: const Icon(Icons.bookmarks_outlined),
+          ),
+          IconButton(
             tooltip: 'Reader settings',
             onPressed: () => unawaited(_openSettings(context)),
             icon: const Icon(Icons.tune),
@@ -91,6 +121,7 @@ class ReaderScreen extends ConsumerWidget {
       body: AppResumeObserver(
         onResume: () => ref.invalidate(readerControllerProvider),
         child: reader.when(
+          skipLoadingOnReload: true,
           loading: () => const _ReaderLoading(),
           error: (error, _) {
             debugPrint('Reader load failed: $error');
@@ -139,7 +170,11 @@ class ReaderScreen extends ConsumerWidget {
                   for (final article in value.picks)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _ArticleCard(article: article),
+                      child: ReaderArticleCard(
+                        article: article,
+                        onTap: () =>
+                            unawaited(_openArticle(context, ref, article)),
+                      ),
                     ),
                 ],
                 const SizedBox(height: 18),
@@ -406,75 +441,6 @@ class _RefreshWarning extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ArticleCard extends StatelessWidget {
-  const _ArticleCard({required this.article});
-
-  final ReaderArticle article;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final excerpt = article.excerpt.trim();
-
-    return LockoutCardSurface(
-      padding: const EdgeInsets.all(16),
-      color: article.isRead
-          ? LockoutPalette.surface.withValues(alpha: 0.7)
-          : LockoutPalette.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (article.isRead) ...[
-                const Padding(
-                  padding: EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.check_circle,
-                    size: 16,
-                    color: LockoutPalette.mint,
-                  ),
-                ),
-                const SizedBox(width: 7),
-              ],
-              Expanded(
-                child: Text(
-                  article.title,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: article.isRead
-                        ? theme.colorScheme.onSurfaceVariant
-                        : LockoutPalette.text,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${article.sourceName} · ${article.readingMinutes} min read',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: LockoutPalette.mint,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (excerpt.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              excerpt,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
         ],
       ),
     );

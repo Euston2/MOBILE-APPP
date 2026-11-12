@@ -62,4 +62,64 @@ void main() {
     expect(isSocialReaderHost('m.facebook.com'), isTrue);
     expect(isSocialReaderHost('example.com'), isFalse);
   });
+
+  group('reader link policy', () {
+    final allowed = readerAllowedHosts(
+      'https://news.example.com/story',
+      sourceSiteUrl: 'https://example.com',
+    );
+
+    test('includes the article host and source site host', () {
+      expect(allowed, containsAll(['news.example.com', 'example.com']));
+    });
+
+    test('never adds a social host to the allowlist', () {
+      final hosts = readerAllowedHosts(
+        'https://example.com/story',
+        sourceSiteUrl: 'https://www.instagram.com/example',
+      );
+      expect(hosts, {'example.com'});
+    });
+
+    test('keeps publication links inside the restricted view', () {
+      expect(
+        classifyReaderLink(
+          'https://example.com/another',
+          allowedHosts: allowed,
+        ),
+        ReaderLinkKind.allowed,
+      );
+      expect(
+        classifyReaderLink(
+          'https://cdn.news.example.com/image',
+          allowedHosts: allowed,
+        ),
+        ReaderLinkKind.allowed,
+      );
+    });
+
+    test('marks off-allowlist web links as external', () {
+      expect(
+        classifyReaderLink(
+          'https://another.example.net/story',
+          allowedHosts: allowed,
+        ),
+        ReaderLinkKind.external,
+      );
+    });
+
+    test('blocks social and unsupported links', () {
+      expect(
+        classifyReaderLink(
+          'https://www.tiktok.com/@someone',
+          allowedHosts: allowed,
+        ),
+        ReaderLinkKind.social,
+      );
+      expect(
+        classifyReaderLink('mailto:hello@example.com', allowedHosts: allowed),
+        ReaderLinkKind.unsupported,
+      );
+    });
+  });
 }

@@ -50,6 +50,12 @@ class DriftReaderSourceRepository implements ReaderSourceRepository {
   }
 
   @override
+  Future<ReaderSource?> sourceById(String sourceId) async {
+    final row = await _dao.sourceById(sourceId);
+    return row == null ? null : _toDomain(row);
+  }
+
+  @override
   Future<void> setEnabled(String sourceId, bool enabled) {
     return _dao.setSourceEnabled(sourceId, enabled);
   }

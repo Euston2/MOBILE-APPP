@@ -68,6 +68,42 @@ bool isSocialReaderHost(String host) {
   );
 }
 
+/// Hosts Reader will keep inside its restricted WebView.
+///
+/// The article host is always included. The source's site host is added when
+/// known, so links to the publication itself still work if the article lives on
+/// a CDN or a different subdomain.
+Set<String> readerAllowedHosts(String articleUrl, {String? sourceSiteUrl}) {
+  final hosts = <String>{};
+  for (final raw in [articleUrl, sourceSiteUrl ?? '']) {
+    final uri = Uri.tryParse(raw.trim());
+    if (uri == null || uri.host.isEmpty) continue;
+    if (uri.scheme != 'http' && uri.scheme != 'https') continue;
+    if (isSocialReaderHost(uri.host)) continue;
+    hosts.add(_normalizedHost(uri.host));
+  }
+  return Set.unmodifiable(hosts);
+}
+
+/// How Reader should handle a tapped or navigated-to link.
+enum ReaderLinkKind { allowed, external, social, unsupported }
+
+/// Classifies [raw] against the restricted Reader allowlist.
+ReaderLinkKind classifyReaderLink(
+  String raw, {
+  required Set<String> allowedHosts,
+}) {
+  final uri = Uri.tryParse(raw.trim());
+  if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+    return ReaderLinkKind.unsupported;
+  }
+  if (isSocialReaderHost(uri.host)) return ReaderLinkKind.social;
+  if (allowedHosts.any((host) => isReaderHostAllowed(uri, host))) {
+    return ReaderLinkKind.allowed;
+  }
+  return ReaderLinkKind.external;
+}
+
 /// True when [url] belongs to [allowedHost] or one of its subdomains.
 bool isReaderHostAllowed(Uri url, String allowedHost) {
   final candidate = _normalizedHost(url.host);

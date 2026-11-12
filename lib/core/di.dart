@@ -93,6 +93,12 @@ final refreshReaderProvider = Provider<RefreshReader>(
   ),
 );
 
+/// Whether opening an uncached article may run Readability in a hidden WebView.
+///
+/// Tests disable this so widget trees never need a platform WebView. Production
+/// keeps it on; extraction only runs once per article and the result is cached.
+final readerContentExtractionEnabledProvider = Provider<bool>((ref) => true);
+
 /// How often the Home screen re-reads the usage counter.
 ///
 /// The native `BlockingService` enforces the limit independently (every 2 s);
