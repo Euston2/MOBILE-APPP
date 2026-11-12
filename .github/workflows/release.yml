@@ -51,10 +51,6 @@ jobs:
       - name: Test
         run: flutter test
 
-      - name: Kotlin unit tests
-        working-directory: android
-        run: ./gradlew :app:testDebugUnitTest --no-daemon
-
       # Secrets required for a properly signed APK (see docs/RELEASING.md):
       #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
       #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
@@ -88,6 +84,12 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           flutter build apk --release --build-name="$VERSION"
+
+      # The Flutter build regenerates android/gradlew, which is gitignored. Run
+      # the Kotlin tests afterwards so the wrapper exists in CI.
+      - name: Kotlin unit tests
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
 
       - name: Verify bundled SQLite library
         run: |
