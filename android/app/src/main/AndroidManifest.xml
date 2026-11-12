@@ -5,6 +5,12 @@
       permission granted in Settings > Special access > Usage access; it cannot
       be granted at runtime and is the only supported source of app usage data.
     -->
+    <!--
+      INTERNET: Reader downloads RSS/Atom feeds, Hacker News items and dev.to
+      articles. The WebView and image loading also need it.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
