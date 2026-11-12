@@ -75,12 +75,135 @@ class DailySummaries extends Table {
   Set<Column<Object>> get primaryKey => {date};
 }
 
+/// Reader source definitions and the user's enabled/topic choices.
+///
+/// The bundled `assets/reader/sources.json` is the editable catalogue; this
+/// table stores the choices that must survive an app update.
+@DataClassName('ReaderSourceRow')
+class ReaderSources extends Table {
+  @override
+  String get tableName => 'sources';
+
+  TextColumn get id => text()();
+
+  TextColumn get name => text()();
+
+  /// Wire value from [ReaderSourceKind]: rss, hackerNews or devTo.
+  TextColumn get kind => text()();
+
+  TextColumn get feedUrl => text().nullable()();
+
+  TextColumn get siteUrl => text()();
+
+  BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+
+  /// JSON array of selected topic IDs.
+  TextColumn get topicsJson => text().withDefault(const Constant('[]'))();
+
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  DateTimeColumn get lastFetchedAt => dateTime().nullable()();
+
+  TextColumn get lastError => text().nullable()();
+
+  TextColumn get etag => text().nullable()();
+
+  TextColumn get lastModified => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// Locally cached Reader articles.
+///
+/// `pickDate` and `pickRank` freeze the daily list. They are not user-visible
+/// state, but they stop a later refresh from growing a list after it is opened.
+@DataClassName('ReaderArticleRow')
+class ReaderArticles extends Table {
+  @override
+  String get tableName => 'articles';
+
+  TextColumn get id => text()();
+
+  TextColumn get sourceId => text()();
+
+  /// Snapshot used for attribution if the source row is edited later.
+  TextColumn get sourceName => text()();
+
+  TextColumn get title => text()();
+
+  TextColumn get url => text()();
+
+  TextColumn get excerpt => text().withDefault(const Constant(''))();
+
+  TextColumn get contentHtml => text().nullable()();
+
+  IntColumn get readingMinutes => integer().withDefault(const Constant(1))();
+
+  DateTimeColumn get publishedAt => dateTime().nullable()();
+
+  DateTimeColumn get fetchedAt => dateTime()();
+
+  BoolColumn get isRead => boolean().withDefault(const Constant(false))();
+
+  TextColumn get pickDate => text().nullable()();
+
+  IntColumn get pickRank => integer().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {url},
+  ];
+}
+
+@DataClassName('ReaderBookmarkRow')
+class ReaderBookmarks extends Table {
+  @override
+  String get tableName => 'bookmarks';
+
+  TextColumn get articleId => text()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {articleId};
+}
+
+/// Seconds spent in native article screens, aggregated per local day/article.
+@DataClassName('ReadingSessionRow')
+class ReadingSessions extends Table {
+  @override
+  String get tableName => 'reading_sessions';
+
+  TextColumn get date => text()();
+
+  TextColumn get articleId => text()();
+
+  IntColumn get seconds => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {date, articleId};
+}
+
 /// Local SQLite database (drift).
 ///
 /// Settings and lock state deliberately live in `shared_preferences` (they are
 /// a handful of scalars read on every tick of the service); everything that
 /// grows over time goes here.
-@DriftDatabase(tables: [MonitoredApps, DailyUsages, DailySummaries])
+@DriftDatabase(
+  tables: [
+    MonitoredApps,
+    DailyUsages,
+    DailySummaries,
+    ReaderSources,
+    ReaderArticles,
+    ReaderBookmarks,
+    ReadingSessions,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
@@ -88,7 +211,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -103,6 +226,13 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(dailyUsages, dailyUsages.lateNightSeconds);
         await m.addColumn(dailySummaries, dailySummaries.focusSeconds);
         await m.addColumn(dailySummaries, dailySummaries.lateNightSeconds);
+      }
+      if (from < 4) {
+        // Reader cache, sources, bookmarks and reading-time sessions.
+        await m.createTable(readerSources);
+        await m.createTable(readerArticles);
+        await m.createTable(readerBookmarks);
+        await m.createTable(readingSessions);
       }
     },
   );

@@ -183,7 +183,25 @@ class BlockActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             gravity = Gravity.CENTER
             setLineSpacing(dp(2).toFloat(), 1f)
-            setPadding(dp(4), dp(18), dp(4), dp(24))
+            setPadding(dp(4), dp(18), dp(4), dp(8))
+        })
+
+        root.addView(Button(this).apply {
+            text = "Read something instead"
+            isAllCaps = false
+            setTextColor(MINT)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            backgroundTintList = ColorStateList.valueOf(SURFACE_HIGH)
+            setOnClickListener { openReader() }
+        }, matchWidth())
+
+        root.addView(TextView(this).apply {
+            text = "A short, finite reading list. No feed, no autoplay."
+            setTextColor(MUTED)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(6), dp(4), dp(18))
         })
 
         root.addView(Button(this).apply {
@@ -311,6 +329,21 @@ class BlockActivity : Activity() {
         finish()
     }
 
+    /**
+     * Opens Lockout on the Reader tab.
+     *
+     * This does not unlock the guarded app or stop enforcement: the blocked app
+     * is still covered when the user comes back to it.
+     */
+    private fun openReader() {
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .putExtra(EXTRA_OPEN_READER, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+        )
+        finish()
+    }
+
     private fun matchWidth(topMarginDp: Int = 0): LinearLayout.LayoutParams =
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -332,6 +365,13 @@ class BlockActivity : Activity() {
 
     companion object {
         private const val REFRESH_MS = 2_000L
+
+        /**
+         * Intent extra that opens Lockout on the Reader tab instead of Today.
+         *
+         * Also read by [LockoutPlatform] and set by [BlockOverlay].
+         */
+        const val EXTRA_OPEN_READER = "com.lockout.lockout.OPEN_READER"
 
         private val BACKGROUND = Color.rgb(0x06, 0x0A, 0x0C)
         private val SURFACE = Color.rgb(0x10, 0x16, 0x19)

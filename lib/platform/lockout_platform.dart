@@ -157,4 +157,18 @@ class LockoutPlatform {
         'subject': subject,
         'text': text,
       });
+
+  /// Registers the native block screen's "Read something instead" shortcut.
+  ///
+  /// Android calls back when a new Reader intent reaches an already-running
+  /// activity. Cold starts are handled by [consumeReaderRequest].
+  void onReaderRequested(void Function() callback) {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'readerRequested') callback();
+    });
+  }
+
+  /// Consumes a Reader shortcut that launched the app from cold start.
+  Future<bool> consumeReaderRequest() async =>
+      await _channel.invokeMethod<bool>('consumeReaderRequest') ?? false;
 }

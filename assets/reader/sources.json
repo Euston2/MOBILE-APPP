@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "topics": [
+    { "id": "technology", "label": "Technology" },
+    { "id": "programming", "label": "Programming" },
+    { "id": "android", "label": "Android" },
+    { "id": "flutter", "label": "Flutter" },
+    { "id": "webdev", "label": "Web development" },
+    { "id": "design", "label": "Design" },
+    { "id": "science", "label": "Science" },
+    { "id": "culture", "label": "Culture" }
+  ],
+  "sources": [
+    {
+      "id": "hacker-news",
+      "name": "Hacker News",
+      "kind": "hackerNews",
+      "feedUrl": "https://hacker-news.firebaseio.com/v0/topstories.json",
+      "siteUrl": "https://news.ycombinator.com",
+      "enabled": true,
+      "availableTopics": ["technology", "programming"],
+      "defaultTopics": ["technology"],
+      "sortOrder": 0
+    },
+    {
+      "id": "devto",
+      "name": "dev.to",
+      "kind": "devTo",
+      "feedUrl": "https://dev.to/api/articles",
+      "siteUrl": "https://dev.to",
+      "enabled": true,
+      "availableTopics": [
+        "technology",
+        "programming",
+        "android",
+        "flutter",
+        "webdev"
+      ],
+      "defaultTopics": ["android", "flutter", "webdev"],
+      "sortOrder": 1
+    },
+    {
+      "id": "ars-technica",
+      "name": "Ars Technica",
+      "kind": "rss",
+      "feedUrl": "https://feeds.arstechnica.com/arstechnica/index",
+      "siteUrl": "https://arstechnica.com",
+      "enabled": true,
+      "availableTopics": ["technology", "science", "culture"],
+      "defaultTopics": ["technology"],
+      "sortOrder": 2
+    },
+    {
+      "id": "smashing-magazine",
+      "name": "Smashing Magazine",
+      "kind": "rss",
+      "feedUrl": "https://www.smashingmagazine.com/feed/",
+      "siteUrl": "https://www.smashingmagazine.com",
+      "enabled": true,
+      "availableTopics": ["programming", "webdev", "design"],
+      "defaultTopics": ["webdev"],
+      "sortOrder": 3
+    },
+    {
+      "id": "android-developers",
+      "name": "Android Developers",
+      "kind": "rss",
+      "feedUrl": "https://android-developers.googleblog.com/feeds/posts/default",
+      "siteUrl": "https://android-developers.googleblog.com",
+      "enabled": true,
+      "availableTopics": ["android", "programming"],
+      "defaultTopics": ["android"],
+      "sortOrder": 4
+    }
+  ]
+}

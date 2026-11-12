@@ -16,6 +16,7 @@ class HistoryStats {
     required this.underLimitDays,
     this.totalFocusSeconds = 0,
     this.totalLateNightSeconds = 0,
+    this.totalReadingSeconds = 0,
   });
 
   const HistoryStats.empty()
@@ -25,7 +26,8 @@ class HistoryStats {
       limitHitDays = 0,
       underLimitDays = 0,
       totalFocusSeconds = 0,
-      totalLateNightSeconds = 0;
+      totalLateNightSeconds = 0,
+      totalReadingSeconds = 0;
 
   final int trackedDays;
   final int totalSeconds;
@@ -40,6 +42,9 @@ class HistoryStats {
 
   /// Social-app usage between 00:00 and 08:00 across the window.
   final int totalLateNightSeconds;
+
+  /// In-app Reader time across the window.
+  final int totalReadingSeconds;
 }
 
 /// A padded, chart-ready view of the selected window plus its statistics.
@@ -53,17 +58,21 @@ class HistoryReport {
   final List<HistoryDay> days;
   final HistoryStats stats;
 
-  bool get hasData => days.any((day) => day.hasActivity);
+  bool get hasData =>
+      days.any((day) => day.hasActivity) || stats.totalReadingSeconds > 0;
 }
 
 /// Builds the padded report for the window `[endExclusive - dayCount, endExclusive)`.
 ///
 /// [stored] is what the database returned for that window; it may contain fewer
-/// days (or none) when Lockout was not running.
+/// days (or none) when Lockout was not running. [readingSecondsByDay] uses local
+/// `yyyy-MM-dd` keys and is attached to the matching day, including days that
+/// have no archived social usage.
 HistoryReport buildHistoryReport({
   required Iterable<HistoryDay> stored,
   required DateTime endExclusive,
   required int dayCount,
+  Map<String, int> readingSecondsByDay = const {},
 }) {
   assert(dayCount > 0, 'dayCount must be positive');
   if (dayCount <= 0) {
@@ -78,10 +87,10 @@ HistoryReport buildHistoryReport({
   final days = <HistoryDay>[];
   for (var offset = dayCount; offset >= 1; offset--) {
     final date = DateTime(end.year, end.month, end.day - offset);
-    days.add(
-      byDate[localDateKey(date)] ??
-          HistoryDay(date: date, totalSeconds: 0, limitSeconds: 0),
-    );
+    final key = localDateKey(date);
+    final base =
+        byDate[key] ?? HistoryDay(date: date, totalSeconds: 0, limitSeconds: 0);
+    days.add(base.withReading(readingSecondsByDay[key] ?? 0));
   }
 
   return HistoryReport(
@@ -98,10 +107,12 @@ HistoryStats summarizeHistory(Iterable<HistoryDay> days) {
   var underLimitDays = 0;
   var totalFocusSeconds = 0;
   var totalLateNightSeconds = 0;
+  var totalReadingSeconds = 0;
 
   for (final day in days) {
     totalFocusSeconds += day.focusSeconds;
     totalLateNightSeconds += day.lateNightSeconds;
+    totalReadingSeconds += day.readingSeconds;
     if (!day.hasUsage) continue;
     trackedDays++;
     totalSeconds += day.totalSeconds;
@@ -120,5 +131,6 @@ HistoryStats summarizeHistory(Iterable<HistoryDay> days) {
     underLimitDays: underLimitDays,
     totalFocusSeconds: totalFocusSeconds,
     totalLateNightSeconds: totalLateNightSeconds,
+    totalReadingSeconds: totalReadingSeconds,
   );
 }

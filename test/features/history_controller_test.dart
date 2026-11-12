@@ -5,13 +5,17 @@ import 'package:lockout/core/utils/day_window.dart';
 import 'package:lockout/domain/entities/daily_archive.dart';
 import 'package:lockout/features/history/presentation/history_controller.dart';
 
+import '../helpers/fake_reader.dart';
 import '../helpers/fake_stores.dart';
 
 void main() {
   test('refresh imports a newly queued archive before reloading', () async {
     final history = FakeHistoryRepository();
     final container = ProviderContainer(
-      overrides: [historyRepositoryProvider.overrideWithValue(history)],
+      overrides: [
+        historyRepositoryProvider.overrideWithValue(history),
+        readerRepositoryProvider.overrideWithValue(FakeReaderRepository()),
+      ],
     );
     addTearDown(container.dispose);
 

@@ -90,6 +90,8 @@ class HistoryScreen extends ConsumerWidget {
                 const _EmptyHistory()
               else ...[
                 _StatsCard(report: report, range: range),
+                const SizedBox(height: 16),
+                _ReadingBalanceCard(report: report),
                 const SizedBox(height: 20),
                 _ChartCard(report: report),
                 const SizedBox(height: 16),
@@ -323,6 +325,72 @@ class _Metric extends StatelessWidget {
   }
 }
 
+/// Totals for the two ways to spend a phone minute: social apps and reading.
+class _ReadingBalanceCard extends StatelessWidget {
+  const _ReadingBalanceCard({required this.report});
+
+  final HistoryReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final stats = report.stats;
+
+    return LockoutCardSurface(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      borderColor: LockoutPalette.mint.withValues(alpha: 0.16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Scrolling vs reading',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              LockoutPill(
+                rangeLabel(report.days),
+                color: LockoutPalette.mint,
+                icon: Icons.menu_book_outlined,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Reading time counts only while an article is open in Lockout. '
+            'It never affects your social limit.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _Metric(
+                  label: 'Scrolling',
+                  value: formatDuration(stats.totalSeconds),
+                  color: LockoutPalette.amber,
+                ),
+              ),
+              Expanded(
+                child: _Metric(
+                  label: 'Reading',
+                  value: formatDuration(stats.totalReadingSeconds),
+                  color: LockoutPalette.mint,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChartCard extends StatelessWidget {
   const _ChartCard({required this.report});
 
@@ -451,7 +519,9 @@ class _DayTile extends StatelessWidget {
     final title = Text(
       day.hasUsage
           ? formatDuration(day.totalSeconds)
-          : '${formatDuration(day.focusSeconds)} focus',
+          : day.hasFocus
+          ? '${formatDuration(day.focusSeconds)} focus'
+          : '${formatDuration(day.readingSeconds)} reading',
       style: theme.textTheme.titleMedium,
     );
     final subtitle = Text(
@@ -541,6 +611,9 @@ class _DayTile extends StatelessWidget {
     if (day.hasFocus) parts.add('${formatDuration(day.focusSeconds)} focus');
     if (day.hasLateNight) {
       parts.add('${formatDuration(day.lateNightSeconds)} late night');
+    }
+    if (day.hasReading) {
+      parts.add('${formatDuration(day.readingSeconds)} reading');
     }
     return parts.join(' · ');
   }

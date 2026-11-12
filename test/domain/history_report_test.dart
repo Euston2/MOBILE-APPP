@@ -76,11 +76,20 @@ void main() {
         limitSeconds: 0,
         lateNightSeconds: 300,
       );
+      final reading = HistoryDay(
+        date: DateTime(2026, 11, 1),
+        totalSeconds: 0,
+        limitSeconds: 0,
+        readingSeconds: 600,
+      );
 
       expect(focus.hasUsage, isFalse);
       expect(focus.hasActivity, isTrue);
       expect(late.hasUsage, isFalse);
       expect(late.hasActivity, isTrue);
+      expect(reading.hasUsage, isFalse);
+      expect(reading.hasReading, isTrue);
+      expect(reading.hasActivity, isTrue);
     });
   });
 
@@ -196,6 +205,47 @@ void main() {
       expect(report.stats.limitHitDays, 0);
       expect(report.stats.underLimitDays, 0);
     });
+
+    test('attaches Reader time to stored and padded days', () {
+      final report = buildHistoryReport(
+        stored: [
+          HistoryDay(
+            date: DateTime(2026, 10, 30),
+            totalSeconds: 1800,
+            limitSeconds: 3600,
+          ),
+        ],
+        endExclusive: DateTime(2026, 10, 31),
+        dayCount: 7,
+        readingSecondsByDay: const {
+          '2026-10-30': 900,
+          '2026-10-25': 300,
+          '2026-10-20': 999,
+        },
+      );
+
+      expect(report.days[6].readingSeconds, 900);
+      expect(report.days[1].dateKey, '2026-10-25');
+      expect(report.days[1].readingSeconds, 300);
+      expect(report.stats.totalReadingSeconds, 1200);
+      expect(report.stats.totalSeconds, 1800);
+      expect(report.stats.trackedDays, 1);
+    });
+
+    test('counting-only days still count as history data', () {
+      final report = buildHistoryReport(
+        stored: const [],
+        endExclusive: DateTime(2026, 10, 31),
+        dayCount: 7,
+        readingSecondsByDay: const {'2026-10-30': 1200},
+      );
+
+      expect(report.hasData, isTrue);
+      expect(report.stats.totalReadingSeconds, 1200);
+      expect(report.stats.trackedDays, 0);
+      expect(report.days.last.hasReading, isTrue);
+      expect(report.days.last.hasActivity, isTrue);
+    });
   });
 
   group('summarizeHistory', () {
@@ -224,6 +274,7 @@ void main() {
           date: DateTime(2026, 10, 30),
           totalSeconds: 0,
           limitSeconds: 3600,
+          readingSeconds: 450,
         ),
       ]);
 
@@ -234,6 +285,7 @@ void main() {
       expect(stats.underLimitDays, 1);
       expect(stats.totalFocusSeconds, 2400);
       expect(stats.totalLateNightSeconds, 420);
+      expect(stats.totalReadingSeconds, 450);
     });
 
     test('returns zeros for no days', () {
@@ -246,6 +298,7 @@ void main() {
       expect(stats.underLimitDays, 0);
       expect(stats.totalFocusSeconds, 0);
       expect(stats.totalLateNightSeconds, 0);
+      expect(stats.totalReadingSeconds, 0);
     });
   });
 }

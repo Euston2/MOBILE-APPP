@@ -29,6 +29,30 @@ String localDateKey(DateTime moment) {
   return '$year-$month-$day';
 }
 
+/// Splits the half-open interval [start, end) into local-day buckets.
+///
+/// A reading session that crosses midnight is charged to both days instead of
+/// being added to whichever day happened to be active when the screen closed.
+/// Seconds are rounded down and empty buckets are omitted.
+Map<String, int> secondsByLocalDay(DateTime start, DateTime end) {
+  if (!end.isAfter(start)) return const {};
+
+  final totals = <String, int>{};
+  var cursor = start;
+  while (cursor.isBefore(end)) {
+    final midnight = nextLocalMidnight(cursor);
+    final segmentEnd = end.isBefore(midnight) ? end : midnight;
+    final seconds = segmentEnd.difference(cursor).inSeconds;
+    if (seconds > 0) {
+      final key = localDateKey(cursor);
+      totals[key] = (totals[key] ?? 0) + seconds;
+    }
+    if (!segmentEnd.isAfter(cursor)) break;
+    cursor = segmentEnd;
+  }
+  return totals;
+}
+
 /// Parses a strict `yyyy-MM-dd` key into local midnight.
 ///
 /// Returns null for malformed keys or impossible dates such as `2026-02-30`,

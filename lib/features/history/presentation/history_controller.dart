@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
@@ -47,10 +48,22 @@ class HistoryController extends AsyncNotifier<HistoryReport> {
         .read(historyRepositoryProvider)
         .loadDays(start: start, end: end);
 
+    // Reader time lives in its own table. A failure there must not hide the
+    // social history, so treat it as zero reading and keep going.
+    var readingByDay = const <String, int>{};
+    try {
+      readingByDay = await ref
+          .read(readerRepositoryProvider)
+          .readingTotalsByDay(start: start, end: end);
+    } on Object catch (error, stackTrace) {
+      debugPrint('Reading totals failed: $error\n$stackTrace');
+    }
+
     return buildHistoryReport(
       stored: stored,
       endExclusive: end,
       dayCount: range,
+      readingSecondsByDay: readingByDay,
     );
   }
 
