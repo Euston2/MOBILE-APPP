@@ -353,14 +353,16 @@ class BlockPolicyTest {
 
     @Test
     fun `focus configuration decides whether the watcher is still needed`() {
-        val overnight = config.copy(
+        // Keep focus tracking on a different local day so `trackingToday`
+        // cannot keep the watcher armed by itself. Without this, the test is
+        // timezone-dependent: on UTC, the epoch-based `now` has a local day
+        // start of 0, which equals the default `focusDayStartMs`.
+        val base = config.copy(
             dailyLimitSeconds = 0,
-            overnightLockEnabled = true,
+            focusDayStartMs = DayMath.startOfLocalDay(now) - 86_400_000L,
         )
-        val study = config.copy(
-            dailyLimitSeconds = 0,
-            studyEndsAtMs = now + 60_000L,
-        )
+        val overnight = base.copy(overnightLockEnabled = true)
+        val study = base.copy(studyEndsAtMs = now + 60_000L)
 
         assertTrue(overnight.isActiveAt(localTime(12)))
         assertTrue(study.isActiveAt(now))
