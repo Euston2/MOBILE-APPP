@@ -14,6 +14,7 @@ class HistoryDay {
     this.focusSeconds = 0,
     this.lateNightSeconds = 0,
     this.lateNightApps = const {},
+    this.readingSeconds = 0,
   });
 
   final DateTime date;
@@ -39,6 +40,12 @@ class HistoryDay {
   /// Late-night seconds per monitored package, only positive entries.
   final Map<String, int> lateNightApps;
 
+  /// Seconds spent reading articles in the in-app Reader on this day.
+  ///
+  /// Reading sessions are stored separately from social usage, so this does not
+  /// count towards any limit.
+  final int readingSeconds;
+
   String get dateKey => localDateKey(date);
 
   bool get hasUsage => totalSeconds > 0;
@@ -47,7 +54,23 @@ class HistoryDay {
 
   bool get hasLateNight => lateNightSeconds > 0;
 
-  bool get hasActivity => hasUsage || hasFocus || hasLateNight;
+  /// True when the Reader recorded time on this day.
+  bool get hasReading => readingSeconds > 0;
+
+  bool get hasActivity => hasUsage || hasFocus || hasLateNight || hasReading;
+
+  /// Returns a copy with the Reader total for the same day attached.
+  HistoryDay withReading(int seconds) => HistoryDay(
+    date: date,
+    totalSeconds: totalSeconds,
+    limitSeconds: limitSeconds,
+    limitHitAt: limitHitAt,
+    apps: apps,
+    focusSeconds: focusSeconds,
+    lateNightSeconds: lateNightSeconds,
+    lateNightApps: lateNightApps,
+    readingSeconds: seconds,
+  );
 
   bool get hasLimit => limitSeconds > 0;
 

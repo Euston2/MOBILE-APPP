@@ -6,6 +6,7 @@ import 'package:lockout/domain/entities/installed_app.dart';
 import 'package:lockout/features/history/presentation/widgets/focus_comparison_chart.dart';
 import 'package:lockout/features/history/presentation/widgets/history_chart.dart';
 
+import '../helpers/fake_reader.dart';
 import '../helpers/fake_stores.dart';
 import '../helpers/fakes.dart';
 import '../helpers/pump_lockout.dart';
@@ -42,6 +43,8 @@ void main() {
 
   testWidgets('shows stats, chart, days and a shareable CSV', (tester) async {
     final exporter = FakeHistoryExporter();
+    final reader = FakeReaderRepository();
+    reader.readingSessions[localDateKey(daysAgo(1))] = {'article': 1500};
     final history = FakeHistoryRepository(
       days: [
         HistoryDay(
@@ -89,6 +92,7 @@ void main() {
       ),
       history: history,
       exporter: exporter,
+      reader: reader,
     );
 
     await tester.tap(find.byTooltip('History'));
@@ -96,9 +100,16 @@ void main() {
 
     expect(find.text('Last 7 days'), findsOneWidget);
     expect(find.text('2 of 7 days recorded'), findsOneWidget);
-    expect(find.text('1h 30m'), findsOneWidget); // total
+    expect(
+      find.text('1h 30m'),
+      findsNWidgets(2),
+    ); // total + scrolling comparison
     expect(find.text('45m'), findsOneWidget); // tracked-day average
     expect(find.text('Over limit'), findsOneWidget);
+    expect(find.text('Scrolling vs reading'), findsOneWidget);
+    expect(find.text('Scrolling'), findsOneWidget);
+    expect(find.text('Reading'), findsOneWidget);
+    expect(find.text('25m'), findsOneWidget);
     expect(find.byType(HistoryChart), findsOneWidget);
     expect(find.byType(FocusComparisonChart), findsOneWidget);
     expect(find.text('Social vs focus'), findsOneWidget);
@@ -108,7 +119,7 @@ void main() {
     expect(find.text('5m'), findsOneWidget);
     expect(find.text('Limit reached at 14:05'), findsOneWidget);
     expect(
-      find.text('30m left of 1h · 20m focus · 5m late night'),
+      find.text('30m left of 1h · 20m focus · 5m late night · 25m reading'),
       findsOneWidget,
     );
 

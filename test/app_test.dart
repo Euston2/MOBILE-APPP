@@ -1,7 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lockout/core/utils/day_window.dart';
 import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/domain/entities/permission_snapshot.dart';
+import 'package:lockout/features/shell/presentation/main_shell.dart';
+import 'package:lockout/features/shell/presentation/reader_launch_controller.dart';
 
 import 'helpers/fake_reader.dart';
 import 'helpers/fake_stores.dart';
@@ -365,6 +368,39 @@ void main() {
     await tester.tap(find.byTooltip('Reader settings'));
     await tester.pumpAndSettle();
     expect(find.text('Sources & topics'), findsOneWidget);
+
+    await disposeTestApp(tester);
+  });
+
+  testWidgets('opens the Reader when the block screen requests it', (
+    tester,
+  ) async {
+    final reader = FakeReaderRepository();
+    reader.articles['cached'] = readerArticle(
+      id: 'cached',
+      title: 'Read this instead',
+      sourceName: 'Example Review',
+    );
+    reader.dailyPicks[localDateKey(DateTime.now())] = ['cached'];
+
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      reader: reader,
+    );
+
+    // A normal launch stays on Today.
+    expect(find.text('Reader settings'), findsNothing);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MainShell)),
+    );
+    container.read(readerLaunchProvider.notifier).open();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Read this instead'), findsOneWidget);
+    expect(find.byTooltip('Reader settings'), findsOneWidget);
 
     await disposeTestApp(tester);
   });

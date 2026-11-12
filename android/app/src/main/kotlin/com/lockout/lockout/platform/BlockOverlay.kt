@@ -12,6 +12,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.lockout.lockout.MainActivity
 
 /**
  * Full-screen overlay used as the fallback block surface.
@@ -89,6 +90,19 @@ object BlockOverlay {
             setOnClickListener { openDetails(app) }
         })
 
+        root.addView(Button(app).apply {
+            text = "Read something instead"
+            isAllCaps = false
+            setTextColor(Color.rgb(0x63, 0xF4, 0xCE))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(
+                Color.rgb(0x17, 0x20, 0x24),
+            )
+            setOnClickListener { openReader(app) }
+        }, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(app, 8) })
+
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -135,6 +149,19 @@ object BlockOverlay {
             )
         } catch (_: Exception) {
             // Nothing else to show; the overlay still blocks the app.
+        }
+    }
+
+    /** Opens Lockout's Reader without unlocking or hiding the block. */
+    private fun openReader(context: Context) {
+        try {
+            context.startActivity(
+                Intent(context, MainActivity::class.java)
+                    .putExtra(BlockActivity.EXTRA_OPEN_READER, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            )
+        } catch (_: Exception) {
+            // The overlay stays in place if the activity cannot be launched.
         }
     }
 

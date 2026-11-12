@@ -30,8 +30,25 @@ class LockoutPlatform(
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /**
+     * True when the activity was started (or re-launched) by the block screen's
+     * "Read something instead" shortcut.
+     */
+    private var pendingReaderLaunch =
+        activity.intent?.getBooleanExtra(BlockActivity.EXTRA_OPEN_READER, false) == true
+
     init {
         channel.setMethodCallHandler(this)
+    }
+
+    /**
+     * Handles a Reader shortcut delivered to an activity that was already
+     * running, where Flutter never restarts and cannot read the intent itself.
+     */
+    fun handleNewIntent(intent: Intent) {
+        if (!intent.getBooleanExtra(BlockActivity.EXTRA_OPEN_READER, false)) return
+        pendingReaderLaunch = true
+        channel.invokeMethod("readerRequested", null)
     }
 
     /** Called from `MainActivity.onDestroy` to avoid leaking the activity. */
@@ -276,6 +293,15 @@ class LockoutPlatform(
             "clearPendingArchives" -> {
                 ArchiveStore.clearPending(activity)
                 result.success(null)
+            }
+
+            // Read once by Dart after startup. A warm Reader shortcut arrives
+            // through `readerRequested` instead.
+            "consumeReaderRequest" -> {
+                val requested = pendingReaderLaunch
+                pendingReaderLaunch = false
+                activity.intent?.removeExtra(BlockActivity.EXTRA_OPEN_READER)
+                result.success(requested)
             }
 
             // History CSV export. Sending plain text keeps the app free of a
