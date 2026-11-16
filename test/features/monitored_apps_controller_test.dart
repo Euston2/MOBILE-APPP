@@ -4,6 +4,7 @@ import 'package:lockout/core/di.dart';
 import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/features/limits/presentation/monitored_apps_controller.dart';
 
+import '../helpers/fake_reader.dart';
 import '../helpers/fake_stores.dart';
 
 void main() {
@@ -26,6 +27,37 @@ void main() {
           ),
         ),
         monitoredAppsRepositoryProvider.overrideWithValue(monitored),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(monitoredAppsControllerProvider.future);
+    final controller = container.read(monitoredAppsControllerProvider.notifier);
+
+    await expectLater(controller.applySelectionNow(const []), throwsStateError);
+    await expectLater(controller.scheduleSelection(const []), throwsStateError);
+
+    expect(monitored.apps.map((app) => app.packageName), [
+      'com.instagram.android',
+    ]);
+    expect(monitored.replaceCalls, 0);
+  });
+
+  test('rejects app-selection edits while a reading block is active', () async {
+    final monitored = FakeMonitoredAppsRepository(const [instagram]);
+    final container = ProviderContainer(
+      overrides: [
+        settingsRepositoryProvider.overrideWithValue(
+          FakeSettingsRepository(
+            initial: settingsWith(
+              dailyLimitSeconds: 1800,
+              readingGoalMinutes: 30,
+              readingAutoBlockEnabled: true,
+              readingCutoffMinutes: 0,
+            ),
+          ),
+        ),
+        monitoredAppsRepositoryProvider.overrideWithValue(monitored),
+        readerRepositoryProvider.overrideWithValue(FakeReaderRepository()),
       ],
     );
     addTearDown(container.dispose);

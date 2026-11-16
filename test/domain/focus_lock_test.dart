@@ -69,6 +69,34 @@ void main() {
       );
       expect(isFocusLockActive(settings, DateTime(2026, 11, 3, 20)), isTrue);
     });
+
+    test('includes the missed-reading block when seconds are supplied', () {
+      final settings = settingsWith(
+        readingGoalMinutes: 30,
+        readingAutoBlockEnabled: true,
+        readingCutoffMinutes: 20 * 60,
+      );
+      final atCutoff = DateTime(2026, 11, 3, 20);
+
+      // Existing callers without reading data keep the focus-only behaviour.
+      expect(isFocusLockActive(settings, atCutoff), isFalse);
+      expect(
+        isFocusLockActive(settings, atCutoff, readingSecondsToday: 0),
+        isTrue,
+      );
+      expect(
+        isFocusLockActive(settings, atCutoff, readingSecondsToday: 1800),
+        isFalse,
+      );
+      expect(
+        isFocusLockActive(
+          settings,
+          DateTime(2026, 11, 3, 19, 59),
+          readingSecondsToday: 0,
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('canTurnOffOvernightLock', () {
@@ -130,6 +158,20 @@ void main() {
           focusDate: '2026-11-03',
         ),
         DateTime(2026, 11, 3, 21),
+      );
+
+      expect(end, DateTime(2026, 11, 4));
+    });
+
+    test('returns midnight for an active reading-goal block', () {
+      final end = activeFocusLockEnd(
+        settingsWith(
+          readingGoalMinutes: 30,
+          readingAutoBlockEnabled: true,
+          readingCutoffMinutes: 20 * 60,
+        ),
+        DateTime(2026, 11, 3, 21),
+        readingSecondsToday: 0,
       );
 
       expect(end, DateTime(2026, 11, 4));

@@ -340,8 +340,11 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
 
     if (requireUnlocked &&
         (current.isLocked ||
-            isFocusLockActive(current, now) ||
-            isReadingGoalBlockActive(current, now, readingSeconds))) {
+            isFocusLockActive(
+              current,
+              now,
+              readingSecondsToday: readingSeconds,
+            ))) {
       throw StateError('The limit is locked until the current block ends.');
     }
     if (requireFocusGoalEditable && isFocusGoalBlockActive(current, now)) {

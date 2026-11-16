@@ -12,6 +12,7 @@ import '../../../domain/entities/monitored_app.dart';
 import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/usecases/focus_lock.dart';
 import '../../home/presentation/today_usage_controller.dart';
+import '../../reader/presentation/reading_progress.dart';
 import 'monitored_apps_controller.dart';
 import 'settings_controller.dart';
 
@@ -28,6 +29,7 @@ class SetLimitsScreen extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider);
     final monitored = ref.watch(monitoredAppsControllerProvider);
     final installed = ref.watch(installedAppsProvider);
+    final readingSeconds = ref.watch(readingSecondsTodayProvider).value ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -80,6 +82,7 @@ class SetLimitsScreen extends ConsumerWidget {
               settings: settingsValue,
               monitored: monitoredApps,
               installed: installedApps,
+              readingSecondsToday: readingSeconds,
             ),
           ),
         ),
@@ -93,11 +96,13 @@ class _LimitsEditor extends ConsumerStatefulWidget {
     required this.settings,
     required this.monitored,
     required this.installed,
+    required this.readingSecondsToday,
   });
 
   final UsageSettings settings;
   final List<MonitoredApp> monitored;
   final List<InstalledApp> installed;
+  final int readingSecondsToday;
 
   @override
   ConsumerState<_LimitsEditor> createState() => _LimitsEditorState();
@@ -113,8 +118,11 @@ class _LimitsEditorState extends ConsumerState<_LimitsEditor> {
   String _query = '';
   bool _saving = false;
 
-  DateTime? get _focusUntil =>
-      activeFocusLockEnd(widget.settings, DateTime.now());
+  DateTime? get _focusUntil => activeFocusLockEnd(
+    widget.settings,
+    DateTime.now(),
+    readingSecondsToday: widget.readingSecondsToday,
+  );
 
   bool get _locked => widget.settings.isLocked || _focusUntil != null;
 

@@ -6,6 +6,7 @@ import 'package:lockout/domain/entities/installed_app.dart';
 import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/features/limits/presentation/set_limits_screen.dart';
 
+import '../helpers/fake_reader.dart';
 import '../helpers/fake_stores.dart';
 import '../helpers/fakes.dart';
 import '../helpers/test_surface.dart';
@@ -16,6 +17,7 @@ void main() {
     required FakeSettingsRepository settings,
     required FakeMonitoredAppsRepository monitored,
     FakeUsageRepository? usage,
+    FakeReaderRepository? reader,
   }) async {
     useTallScreen(tester);
     await tester.pumpWidget(
@@ -23,6 +25,9 @@ void main() {
         overrides: [
           settingsRepositoryProvider.overrideWithValue(settings),
           monitoredAppsRepositoryProvider.overrideWithValue(monitored),
+          readerRepositoryProvider.overrideWithValue(
+            reader ?? FakeReaderRepository(),
+          ),
           usageRepositoryProvider.overrideWithValue(
             usage ??
                 FakeUsageRepository(
@@ -258,6 +263,36 @@ void main() {
           dailyLimitSeconds: 1800,
           studyEndsAt: DateTime.now().add(const Duration(minutes: 25)),
           studyLengthMinutes: 25,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+    );
+
+    expect(find.textContaining('A focus lock is on until'), findsOneWidget);
+
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    expect(slider.onChanged, isNull);
+
+    final tile = tester.widget<CheckboxListTile>(
+      find.widgetWithText(CheckboxListTile, 'TikTok'),
+    );
+    expect(tile.onChanged, isNull);
+  });
+
+  testWidgets('is read-only while a reading lock is active', (tester) async {
+    await pumpLimits(
+      tester,
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 1800,
+          readingGoalMinutes: 30,
+          readingAutoBlockEnabled: true,
+          readingCutoffMinutes: 0,
         ),
       ),
       monitored: FakeMonitoredAppsRepository(const [

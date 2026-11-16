@@ -14,6 +14,7 @@ import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/entities/usage_summary.dart';
 import '../../../domain/usecases/evaluate_limit.dart';
 import '../../../domain/usecases/focus_lock.dart';
+import '../../../domain/usecases/reading_goal.dart';
 import '../../../domain/usecases/study_timer.dart';
 import '../../blocking/presentation/blocking_controller.dart';
 import '../../focus/presentation/focus_screen.dart';
@@ -27,6 +28,7 @@ import '../../onboarding/presentation/onboarding_screen.dart';
 import '../../onboarding/presentation/permission_copy.dart';
 import '../../onboarding/presentation/permissions_controller.dart';
 import '../../protection/presentation/protection_screen.dart';
+import '../../reader/presentation/reading_progress.dart';
 import 'today_usage_controller.dart';
 import 'widgets/usage_ring.dart';
 
@@ -258,7 +260,12 @@ class HomeScreen extends ConsumerWidget {
                 onTap: () => _openStudyTimer(context),
               ),
               const SizedBox(height: 10),
-              _FocusCard(settings: settings, onTap: () => _openFocus(context)),
+              _FocusCard(
+                settings: settings,
+                readingSecondsToday:
+                    ref.watch(readingSecondsTodayProvider).value ?? 0,
+                onTap: () => _openFocus(context),
+              ),
               const SizedBox(height: 10),
               LockoutCardSurface(
                 onTap: () => _openLimits(context),
@@ -624,9 +631,14 @@ class _StudyTimerCard extends StatelessWidget {
 }
 
 class _FocusCard extends StatelessWidget {
-  const _FocusCard({required this.settings, required this.onTap});
+  const _FocusCard({
+    required this.settings,
+    required this.readingSecondsToday,
+    required this.onTap,
+  });
 
   final UsageSettings? settings;
+  final int readingSecondsToday;
   final VoidCallback onTap;
 
   @override
@@ -641,10 +653,18 @@ class _FocusCard extends StatelessWidget {
         isOvernightLockWindow(now);
     final focusGoalActive =
         current != null && isFocusGoalBlockActive(current, now);
+    final readingGoalActive =
+        current != null &&
+        isReadingGoalBlockActive(current, now, readingSecondsToday);
     final activeUntil = current == null
         ? null
-        : activeFocusLockEnd(current, now);
-    final active = studyActive || overnightActive || focusGoalActive;
+        : activeFocusLockEnd(
+            current,
+            now,
+            readingSecondsToday: readingSecondsToday,
+          );
+    final active =
+        studyActive || overnightActive || focusGoalActive || readingGoalActive;
 
     final String title;
     final String subtitle;
@@ -662,6 +682,11 @@ class _FocusCard extends StatelessWidget {
       subtitle =
           'Until ${formatClockTime(overnightLockEndFor(now))}. '
           'Selected apps are blocked.';
+    } else if (readingGoalActive) {
+      title = 'Reading goal missed';
+      subtitle =
+          'Selected apps are blocked until midnight. Read in Reader to unlock '
+          'them early.';
     } else if (current?.overnightLockEnabled ?? false) {
       title = 'Overnight lock on';
       subtitle = 'Every night, 12:00 AM to 8:00 AM.';

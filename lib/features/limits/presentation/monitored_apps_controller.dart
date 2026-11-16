@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di.dart';
+import '../../../core/utils/day_window.dart';
 import '../../../domain/entities/monitored_app.dart';
 import '../../../domain/usecases/focus_lock.dart';
 import '../../../domain/usecases/monitored_apps_planning.dart';
+import '../../../domain/usecases/reading_goal.dart';
 import '../../../domain/usecases/reconcile_settings.dart';
 
 /// The apps selected for monitoring, persisted in the `monitored_apps` table.
@@ -54,8 +56,23 @@ class MonitoredAppsController extends AsyncNotifier<List<MonitoredApp>> {
     await settingsRepository.reload();
     final now = DateTime.now();
     final settings = reconcileSettings(await settingsRepository.load(), now);
-    if (settings.isLocked || isFocusLockActive(settings, now)) {
+    final readingSeconds = hasReadingGoal(settings)
+        ? await _readingSecondsToday()
+        : null;
+    if (settings.isLocked ||
+        isFocusLockActive(settings, now, readingSecondsToday: readingSeconds)) {
       throw StateError('The limit is locked until the current block ends.');
+    }
+  }
+
+  Future<int> _readingSecondsToday() async {
+    try {
+      return await ref
+          .read(readerRepositoryProvider)
+          .readingSecondsForDay(localDateKey(DateTime.now()));
+    } on Object {
+      // A storage failure must not turn a hard reading block into an unlock.
+      return 0;
     }
   }
 }
