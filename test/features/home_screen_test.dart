@@ -291,6 +291,36 @@ void main() {
     await disposeTestApp(tester);
   });
 
+  testWidgets('shows a missed reading goal on Home', (tester) async {
+    await pumpLockoutApp(
+      tester,
+      usage: FakeUsageRepository(),
+      permissions: FakePermissionsRepository(allGranted),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          dailyLimitSeconds: 3600,
+          readingGoalMinutes: 30,
+          readingAutoBlockEnabled: true,
+          readingCutoffMinutes: 0,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+    );
+
+    expect(find.text('Reading goal missed'), findsOneWidget);
+    expect(
+      find.textContaining('Read in Reader to unlock them early.'),
+      findsOneWidget,
+    );
+
+    await disposeTestApp(tester);
+  });
+
   testWidgets('shows a retry banner when protection fails to start', (
     tester,
   ) async {

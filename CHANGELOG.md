@@ -21,8 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and can be removed to make room for another.
 - Added an optional daily **reading goal** with a cutoff-time block for selected
   apps. Reading minutes are recorded from the Reader, the block lifts as soon as
-  the goal is met, and goal or cutoff changes are rejected while the missed-goal
-  block is active.
+  the goal is met, and goal, cutoff, limit or app-selection changes are rejected
+  while the missed-goal block is active.
 - Added a **Reading goal** screen under Focus with today's progress, goal editing,
   the automation switch and a cutoff-time picker. The Reader remains finite: no
   feed, autoplay, recommendation loop or new-article notifications.
