@@ -32,6 +32,10 @@ class BlockCopyTest {
             "Focus goal not met",
             BlockCopy.title(BlockReason.FOCUS_GOAL_MISSED),
         )
+        assertEquals(
+            "Reading goal not met",
+            BlockCopy.title(BlockReason.READING_GOAL_MISSED),
+        )
     }
 
     @Test
@@ -71,5 +75,20 @@ class BlockCopyTest {
         assertTrue(detail.contains("goal is 1h"))
         assertTrue(detail.contains("focused 30m today"))
         assertTrue(detail.contains("blocked until you meet the goal"))
+    }
+
+    @Test
+    fun `reading goal detail compares today's reading with the goal`() {
+        val detail = BlockCopy.detail(
+            BlockReason.READING_GOAL_MISSED,
+            0,
+            0,
+            readingUsedSeconds = 600,
+            readingGoalSeconds = 1800,
+        )
+
+        assertTrue(detail.contains("reading goal is 30m"))
+        assertTrue(detail.contains("read 10m today"))
+        assertTrue(detail.contains("blocked until you read the rest"))
     }
 }

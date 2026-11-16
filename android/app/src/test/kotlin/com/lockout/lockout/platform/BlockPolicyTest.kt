@@ -458,4 +458,84 @@ class BlockPolicyTest {
         assertTrue(tracking.isActiveAt(localTime(12)))
         assertFalse(tracking.isActiveAt(dayStart + 2 * 24 * 60 * 60_000L))
     }
+
+    @Test
+    fun `reading goal blocks at the cutoff only while the goal is short`() {
+        val at = localTime(20)
+        val goal = config.copy(
+            dailyLimitSeconds = 0,
+            readingGoalSeconds = 1800,
+            readingAutoBlockEnabled = true,
+            readingCutoffMinuteOfDay = 20 * 60,
+            readingDayStartMs = DayMath.startOfLocalDay(at),
+        )
+
+        assertEquals(
+            BlockReason.READING_GOAL_MISSED,
+            BlockPolicy.reasonForForeground(
+                foregroundPackage = "com.instagram.android",
+                config = goal,
+                usedSecondsToday = 0,
+                nowMs = at,
+            ),
+        )
+        assertNull(
+            BlockPolicy.reasonForForeground(
+                foregroundPackage = "com.instagram.android",
+                config = goal,
+                usedSecondsToday = 0,
+                nowMs = localTime(19, 59),
+            ),
+        )
+        assertNull(
+            BlockPolicy.reasonForForeground(
+                foregroundPackage = "com.android.chrome",
+                config = goal,
+                usedSecondsToday = 0,
+                nowMs = at,
+            ),
+        )
+        assertNull(
+            BlockPolicy.reasonForForeground(
+                foregroundPackage = "com.instagram.android",
+                config = goal.copy(readingBaseSeconds = 1800),
+                usedSecondsToday = 0,
+                nowMs = at,
+            ),
+        )
+    }
+
+    @Test
+    fun `reading seconds from a previous day do not count today`() {
+        val at = localTime(20)
+        val goal = config.copy(
+            dailyLimitSeconds = 0,
+            readingGoalSeconds = 1800,
+            readingAutoBlockEnabled = true,
+            readingCutoffMinuteOfDay = 20 * 60,
+            readingBaseSeconds = 1800,
+            readingDayStartMs = DayMath.startOfLocalDay(at) - 86_400_000L,
+        )
+
+        assertEquals(0, goal.readingSecondsAt(at))
+        assertEquals(
+            BlockReason.READING_GOAL_MISSED,
+            BlockPolicy.reasonFor(goal, usedSecondsToday = 0, nowMs = at),
+        )
+    }
+
+    @Test
+    fun `a configured reading goal keeps the watcher alive`() {
+        val reading = config.copy(
+            dailyLimitSeconds = 0,
+            readingGoalSeconds = 1800,
+            readingAutoBlockEnabled = true,
+        )
+
+        assertTrue(reading.isActive)
+        assertTrue(reading.isActiveAt(localTime(12)))
+        assertFalse(
+            reading.copy(readingAutoBlockEnabled = false).isActive,
+        )
+    }
 }

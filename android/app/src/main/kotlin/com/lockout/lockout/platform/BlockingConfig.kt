@@ -48,6 +48,16 @@ data class BlockingConfig(
     /** Running focus timer bounds (0 when idle or paused). */
     val focusSessionStartedAtMs: Long = 0L,
     val focusSessionEndsAtMs: Long = 0L,
+    /** Daily reading goal in seconds (0 = no goal). */
+    val readingGoalSeconds: Int = 0,
+    /** Whether missing the daily reading goal should block the selected apps. */
+    val readingAutoBlockEnabled: Boolean = false,
+    /** Local minute of day (0-1439) at which the missed-reading block starts. */
+    val readingCutoffMinuteOfDay: Int = 20 * 60,
+    /** Reading seconds already banked for [readingDayStartMs]. */
+    val readingBaseSeconds: Int = 0,
+    /** Local midnight of the day [readingBaseSeconds] belongs to (0 = none). */
+    val readingDayStartMs: Long = 0L,
 ) {
     /** Configuration that applies at [nowMs]. */
     fun effectiveAt(nowMs: Long): ActiveLimit {
@@ -115,6 +125,31 @@ data class BlockingConfig(
         return focusSecondsAt(nowMs) < focusGoalSeconds
     }
 
+    /** True when a reading goal and automation are configured. */
+    val hasReadingGoal: Boolean
+        get() = readingAutoBlockEnabled &&
+            readingGoalSeconds > 0 &&
+            monitoredPackages.isNotEmpty()
+
+    /** Reading seconds for the local day containing [nowMs]. */
+    fun readingSecondsAt(nowMs: Long): Int {
+        if (readingDayStartMs == 0L) return 0
+        return if (readingDayStartMs == DayMath.startOfLocalDay(nowMs)) {
+            readingBaseSeconds
+        } else {
+            0
+        }
+    }
+
+    /** True after the cutoff when reading is still short of the goal. */
+    fun isReadingGoalBlockActive(nowMs: Long): Boolean {
+        if (!hasReadingGoal) return false
+        if (DayMath.minuteOfLocalDay(nowMs) < readingCutoffMinuteOfDay) {
+            return false
+        }
+        return readingSecondsAt(nowMs) < readingGoalSeconds
+    }
+
     /**
      * Only run the service when something is configured, now or from midnight.
      * The pending configuration keeps the watcher alive so a scheduled change
@@ -128,6 +163,7 @@ data class BlockingConfig(
             (overnightLockEnabled && monitoredPackages.isNotEmpty()) ||
             (studyEndsAtMs > 0L && monitoredPackages.isNotEmpty()) ||
             hasFocusGoal ||
+            hasReadingGoal ||
             focusDayStartMs > 0L ||
             focusSessionEndsAtMs > 0L
 
@@ -150,6 +186,7 @@ data class BlockingConfig(
             (overnightLockEnabled && monitoredPackages.isNotEmpty()) ||
             (studyEndsAtMs > nowMs && monitoredPackages.isNotEmpty()) ||
             hasFocusGoal ||
+            hasReadingGoal ||
             trackingToday ||
             sessionRunning
     }

@@ -16,6 +16,7 @@ class ReadingSessionTracker {
     required String articleId,
     DateTime Function()? now,
     this.flushInterval = const Duration(seconds: 15),
+    this.onFlushed,
   }) : _repository = repository,
        _articleId = articleId,
        _now = now ?? DateTime.now;
@@ -24,6 +25,10 @@ class ReadingSessionTracker {
   final String _articleId;
   final DateTime Function() _now;
   final Duration flushInterval;
+
+  /// Called after reading seconds were persisted, so progress watchers can
+  /// refresh and a missed-reading block can lift as soon as the goal is met.
+  final void Function()? onFlushed;
 
   Timer? _timer;
   DateTime? _lastTick;
@@ -77,6 +82,7 @@ class ReadingSessionTracker {
   Future<void> _persist(DateTime start, DateTime end) async {
     if (!end.isAfter(start)) return;
     final totals = secondsByLocalDay(start, end);
+    var wrote = false;
     for (final entry in totals.entries) {
       if (entry.value <= 0) continue;
       try {
@@ -85,10 +91,12 @@ class ReadingSessionTracker {
           articleId: _articleId,
           seconds: entry.value,
         );
+        wrote = true;
       } on Object catch (error, stackTrace) {
         debugPrint('Reading session save failed: $error\n$stackTrace');
         return;
       }
     }
+    if (wrote) onFlushed?.call();
   }
 }

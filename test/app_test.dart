@@ -290,6 +290,46 @@ void main() {
     await disposeTestApp(tester);
   });
 
+  testWidgets('pushes today\'s reading progress to the native watcher', (
+    tester,
+  ) async {
+    final blocking = FakeBlockingRepository();
+    final reader = FakeReaderRepository();
+    reader.readingSessions[localDateKey(DateTime.now())] = {'article': 600};
+
+    await pumpLockoutApp(
+      tester,
+      permissions: FakePermissionsRepository(allGranted),
+      usage: FakeUsageRepository(),
+      settings: FakeSettingsRepository(
+        initial: settingsWith(
+          readingGoalMinutes: 30,
+          readingAutoBlockEnabled: true,
+          readingCutoffMinutes: 20 * 60,
+        ),
+      ),
+      monitored: FakeMonitoredAppsRepository(const [
+        MonitoredApp(
+          packageName: 'com.instagram.android',
+          displayName: 'Instagram',
+        ),
+      ]),
+      blocking: blocking,
+      reader: reader,
+    );
+
+    final config = blocking.synced.last;
+    expect(config.readingGoalSeconds, 30 * 60);
+    expect(config.readingAutoBlockEnabled, isTrue);
+    expect(config.readingCutoffMinuteOfDay, 20 * 60);
+    expect(config.readingBaseSeconds, 600);
+    expect(config.readingDayStart, startOfLocalDay(DateTime.now()));
+    expect(config.hasReadingGoal, isTrue);
+    expect(config.isActive, isTrue);
+
+    await disposeTestApp(tester);
+  });
+
   testWidgets('starts the watcher for a focus lock without a daily limit', (
     tester,
   ) async {
@@ -320,7 +360,7 @@ void main() {
     await disposeTestApp(tester);
   });
 
-  testWidgets('stops the native watcher when no limit is configured', (
+  testWidgets('pushes an inactive config so stale native locks are cleared', (
     tester,
   ) async {
     final blocking = FakeBlockingRepository();
@@ -331,9 +371,14 @@ void main() {
       blocking: blocking,
     );
 
-    expect(blocking.synced, isEmpty);
-    // The gate may recompute while settings and apps load; stop is idempotent.
-    expect(blocking.stopCalls, greaterThanOrEqualTo(1));
+    // Even with nothing to enforce, the snapshot must reach the native store.
+    // Calling stop() alone left a stale overnight lock behind, which a later
+    // service restart could re-enable.
+    expect(blocking.synced, isNotEmpty);
+    final config = blocking.synced.last;
+    expect(config.isActive, isFalse);
+    expect(config.overnightLockEnabled, isFalse);
+    expect(blocking.stopCalls, 0);
 
     await disposeTestApp(tester);
   });

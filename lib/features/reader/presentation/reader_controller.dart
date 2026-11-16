@@ -7,6 +7,7 @@ import '../../../core/di.dart';
 import '../../../core/utils/day_window.dart';
 import '../../../domain/entities/reader_article.dart';
 import '../../../domain/entities/reader_feed.dart';
+import '../../../domain/usecases/custom_reader_link.dart';
 
 /// The shortest gap between two manual Reader refreshes.
 ///
@@ -38,6 +39,25 @@ class ReaderRefreshOutcome {
   final ReaderRefreshKind kind;
   final ReaderRefreshResult? result;
   final Duration cooldownRemaining;
+}
+
+/// What happened when the user tried to add a personal link.
+enum ReaderLinkAddKind { added, duplicate, full, invalid }
+
+class ReaderLinkAddOutcome {
+  const ReaderLinkAddOutcome._(this.kind, {this.article});
+
+  const ReaderLinkAddOutcome.added(ReaderArticle article)
+    : this._(ReaderLinkAddKind.added, article: article);
+
+  const ReaderLinkAddOutcome.duplicate() : this._(ReaderLinkAddKind.duplicate);
+
+  const ReaderLinkAddOutcome.full() : this._(ReaderLinkAddKind.full);
+
+  const ReaderLinkAddOutcome.invalid() : this._(ReaderLinkAddKind.invalid);
+
+  final ReaderLinkAddKind kind;
+  final ReaderArticle? article;
 }
 
 /// Everything the Reader tab needs for one local day.
@@ -210,6 +230,68 @@ class ReaderController extends AsyncNotifier<ReaderDay> {
     } finally {
       _refreshing = false;
     }
+  }
+
+  /// Adds a user-supplied article to today's frozen list.
+  ///
+  /// The daily cap still applies, but a personal link is otherwise just another
+  /// pick: dated, ranked and finite. Nothing is fetched or recommended.
+  Future<ReaderLinkAddOutcome> addLink({
+    required String url,
+    String? title,
+  }) async {
+    final now = DateTime.now();
+    final article = buildCustomReaderArticle(url: url, title: title, now: now);
+    if (article == null) return const ReaderLinkAddOutcome.invalid();
+
+    final repository = ref.read(readerRepositoryProvider);
+    final date = localDateKey(now);
+    final picks = state.value?.picks ?? await repository.picksForDate(date);
+
+    if (picks.any((pick) => pick.id == article.id || pick.url == article.url)) {
+      return const ReaderLinkAddOutcome.duplicate();
+    }
+    if (picks.length >= maxDailyReaderPicks) {
+      return const ReaderLinkAddOutcome.full();
+    }
+
+    final existing = await repository.articleById(article.id);
+    final saved = existing ?? article;
+    if (existing == null) {
+      await repository.saveFetched([article]);
+    }
+    await repository.freezePicks(date, [
+      for (final pick in picks) pick.id,
+      saved.id,
+    ]);
+
+    final ranked = saved.copyWith(pickDate: date, pickRank: picks.length);
+    final current = state.value;
+    if (current != null && ref.mounted) {
+      state = AsyncData(current.copyWith(picks: [...picks, ranked]));
+    } else if (ref.mounted) {
+      ref.invalidateSelf();
+    }
+    return ReaderLinkAddOutcome.added(ranked);
+  }
+
+  /// Removes a personal link from today's list. Curated picks are untouched.
+  Future<bool> removeCustomLink(ReaderArticle article) async {
+    if (article.sourceId != customReaderSourceId) return false;
+
+    await ref.read(readerRepositoryProvider).clearPick(article.id);
+    final current = state.value;
+    if (current != null && ref.mounted) {
+      state = AsyncData(
+        current.copyWith(
+          picks: [
+            for (final pick in current.picks)
+              if (pick.id != article.id) pick,
+          ],
+        ),
+      );
+    }
+    return true;
   }
 
   /// Freezes a new list just after local midnight while the app stays open.

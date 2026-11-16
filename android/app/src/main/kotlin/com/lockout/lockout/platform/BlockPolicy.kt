@@ -16,6 +16,9 @@ enum class BlockReason(val wireName: String) {
 
     /** The daily focus goal was missed and the cutoff has passed. */
     FOCUS_GOAL_MISSED("focus_goal_missed"),
+
+    /** The daily reading goal was missed and the cutoff has passed. */
+    READING_GOAL_MISSED("reading_goal_missed"),
 }
 
 /**
@@ -56,6 +59,9 @@ object BlockPolicy {
             }
             if (config.isFocusGoalBlockActive(nowMs)) {
                 return BlockReason.FOCUS_GOAL_MISSED
+            }
+            if (config.isReadingGoalBlockActive(nowMs)) {
+                return BlockReason.READING_GOAL_MISSED
             }
         }
 

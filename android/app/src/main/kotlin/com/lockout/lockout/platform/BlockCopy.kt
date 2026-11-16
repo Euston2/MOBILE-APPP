@@ -35,6 +35,7 @@ object BlockCopy {
         BlockReason.OVERNIGHT -> "Overnight lock"
         BlockReason.STUDY -> "Study time"
         BlockReason.FOCUS_GOAL_MISSED -> "Focus goal not met"
+        BlockReason.READING_GOAL_MISSED -> "Reading goal not met"
     }
 
     fun detail(
@@ -44,6 +45,8 @@ object BlockCopy {
         studyEndsAtMs: Long = 0L,
         focusUsedSeconds: Long = 0L,
         focusGoalSeconds: Long = 0L,
+        readingUsedSeconds: Long = 0L,
+        readingGoalSeconds: Long = 0L,
     ): String = when (reason) {
         BlockReason.LIMIT_REACHED ->
             "You have used ${formatDuration(usedSeconds)} of your " +
@@ -66,6 +69,11 @@ object BlockCopy {
             "Your daily focus goal is ${formatDuration(focusGoalSeconds)}. " +
                 "You have focused ${formatDuration(focusUsedSeconds)} today. " +
                 "Selected apps are blocked until you meet the goal or the " +
+                "day resets."
+        BlockReason.READING_GOAL_MISSED ->
+            "Your daily reading goal is ${formatDuration(readingGoalSeconds)}. " +
+                "You have read ${formatDuration(readingUsedSeconds)} today. " +
+                "Selected apps are blocked until you read the rest or the " +
                 "day resets."
     }
 

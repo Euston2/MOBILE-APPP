@@ -210,6 +210,9 @@ UsageSettings settingsWith({
   DateTime? focusSessionEndsAt,
   int focusSessionRemainingSeconds = 0,
   int focusSessionLengthMinutes = 25,
+  int readingGoalMinutes = 0,
+  bool readingAutoBlockEnabled = false,
+  int readingCutoffMinutes = 20 * 60,
 }) => UsageSettings(
   dailyLimitSeconds: dailyLimitSeconds,
   isLocked: isLocked,
@@ -230,6 +233,9 @@ UsageSettings settingsWith({
   focusSessionEndsAt: focusSessionEndsAt,
   focusSessionRemainingSeconds: focusSessionRemainingSeconds,
   focusSessionLengthMinutes: focusSessionLengthMinutes,
+  readingGoalMinutes: readingGoalMinutes,
+  readingAutoBlockEnabled: readingAutoBlockEnabled,
+  readingCutoffMinutes: readingCutoffMinutes,
 );
 
 /// Snapshot with only usage access granted, useful for the onboarding flow.

@@ -12,6 +12,8 @@ import '../../../domain/usecases/study_timer.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
 import '../../limits/presentation/set_limits_screen.dart';
 import '../../limits/presentation/settings_controller.dart';
+import '../../reader/presentation/reading_progress.dart';
+import 'reading_goal_screen.dart';
 import 'study_timer_screen.dart';
 
 /// Hard focus windows on top of the daily limit.
@@ -167,6 +169,12 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
     ).push(MaterialPageRoute<void>(builder: (_) => const StudyTimerScreen()));
   }
 
+  Future<void> _openReadingGoal(BuildContext context) {
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const ReadingGoalScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -177,6 +185,8 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
     final now = DateTime.now();
     final focusToday = focusSecondsForToday(_settings, now);
     final focusGoal = _settings.focusGoalMinutes * 60;
+    final readingSeconds = ref.watch(readingSecondsTodayProvider).value ?? 0;
+    final readingGoal = _settings.readingGoalMinutes * 60;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -232,6 +242,27 @@ class _FocusEditorState extends ConsumerState<_FocusEditor> {
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _openStudyTimer(context),
+          ),
+        ),
+        const SizedBox(height: 20),
+        LockoutCardSurface(
+          padding: EdgeInsets.zero,
+          child: ListTile(
+            leading: const LockoutIconBadge(
+              Icons.menu_book_outlined,
+              color: LockoutPalette.mint,
+              size: 38,
+            ),
+            title: const Text('Reading goal'),
+            subtitle: Text(
+              readingGoal > 0
+                  ? '${formatDuration(readingSeconds)} of '
+                        '${formatDuration(readingGoal)} today'
+                  : '${formatDuration(readingSeconds)} read today · '
+                        'set a daily goal',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _openReadingGoal(context),
           ),
         ),
         const SizedBox(height: 20),

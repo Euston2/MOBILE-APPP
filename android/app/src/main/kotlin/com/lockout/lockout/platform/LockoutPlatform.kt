@@ -151,6 +151,17 @@ class LockoutPlatform(
                 val focusSessionEndsAtMs =
                     call.argument<Number>("focusSessionEndsAtMs")?.toLong()
                         ?: 0L
+                val readingGoalSeconds =
+                    call.argument<Number>("readingGoalSeconds")?.toInt() ?: 0
+                val readingAutoBlockEnabled =
+                    call.argument<Boolean>("readingAutoBlockEnabled") == true
+                val readingCutoffMinuteOfDay =
+                    call.argument<Number>("readingCutoffMinuteOfDay")?.toInt()
+                        ?: 20 * 60
+                val readingBaseSeconds =
+                    call.argument<Number>("readingBaseSeconds")?.toInt() ?: 0
+                val readingDayStartMs =
+                    call.argument<Number>("readingDayStartMs")?.toLong() ?: 0L
                 if (
                     limitSeconds < 0 ||
                     pendingLimitSeconds < 0 ||
@@ -163,7 +174,11 @@ class LockoutPlatform(
                     focusBaseSeconds < 0 ||
                     focusDayStartMs < 0 ||
                     focusSessionStartedAtMs < 0 ||
-                    focusSessionEndsAtMs < 0
+                    focusSessionEndsAtMs < 0 ||
+                    readingGoalSeconds < 0 ||
+                    readingCutoffMinuteOfDay !in 0..(24 * 60 - 1) ||
+                    readingBaseSeconds < 0 ||
+                    readingDayStartMs < 0
                 ) {
                     result.error(
                         "bad_args",
@@ -225,6 +240,11 @@ class LockoutPlatform(
                         focusDayStartMs = focusDayStartMs,
                         focusSessionStartedAtMs = focusSessionStartedAtMs,
                         focusSessionEndsAtMs = focusSessionEndsAtMs,
+                        readingGoalSeconds = readingGoalSeconds,
+                        readingAutoBlockEnabled = readingAutoBlockEnabled,
+                        readingCutoffMinuteOfDay = readingCutoffMinuteOfDay,
+                        readingBaseSeconds = readingBaseSeconds,
+                        readingDayStartMs = readingDayStartMs,
                     )
                     BlockingStore.save(activity, config)
                     LockoutLog.info(

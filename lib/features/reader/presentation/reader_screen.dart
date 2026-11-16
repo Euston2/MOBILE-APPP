@@ -8,11 +8,14 @@ import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/app_resume_observer.dart';
 import '../../../core/widgets/lockout_ui.dart';
 import '../../../domain/entities/reader_article.dart';
+import '../../../domain/usecases/custom_reader_link.dart';
+import '../../../domain/usecases/reader_url.dart';
 import 'reader_article_card.dart';
 import 'reader_article_screen.dart';
 import 'reader_bookmarks_screen.dart';
 import 'reader_controller.dart';
 import 'reader_settings_screen.dart';
+import 'reading_progress.dart';
 
 /// The Reader tab: one finite list of articles for today.
 class ReaderScreen extends ConsumerWidget {
@@ -69,6 +72,50 @@ class ReaderScreen extends ConsumerWidget {
     );
     if (!context.mounted) return;
     ref.invalidate(readerControllerProvider);
+    ref.invalidate(readingSecondsTodayProvider);
+  }
+
+  Future<void> _addLink(BuildContext context, WidgetRef ref) async {
+    final request = await showDialog<_AddLinkRequest>(
+      context: context,
+      builder: (_) => const _AddLinkDialog(),
+    );
+    if (request == null || !context.mounted) return;
+
+    final outcome = await ref
+        .read(readerControllerProvider.notifier)
+        .addLink(url: request.url, title: request.title);
+    if (!context.mounted) return;
+
+    final message = switch (outcome.kind) {
+      ReaderLinkAddKind.added => "Added to today's list.",
+      ReaderLinkAddKind.duplicate => "That link is already in today's list.",
+      ReaderLinkAddKind.full =>
+        "Today's list is full (10). Remove a personal link first.",
+      ReaderLinkAddKind.invalid =>
+        'Paste a full http(s) link. Social links are not allowed.',
+    };
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _removeCustomLink(
+    BuildContext context,
+    WidgetRef ref,
+    ReaderArticle article,
+  ) async {
+    final removed = await ref
+        .read(readerControllerProvider.notifier)
+        .removeCustomLink(article);
+    if (!context.mounted || !removed) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text("Removed from today's list.")),
+      );
   }
 
   @override
@@ -138,6 +185,15 @@ class ReaderScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 _ReaderHero(day: value),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => unawaited(_addLink(context, ref)),
+                    icon: const Icon(Icons.add_link, size: 18),
+                    label: const Text('Add a link'),
+                  ),
+                ),
                 if (value.isOffline) ...[
                   const SizedBox(height: 12),
                   _OfflineCard(
@@ -174,6 +230,11 @@ class ReaderScreen extends ConsumerWidget {
                         article: article,
                         onTap: () =>
                             unawaited(_openArticle(context, ref, article)),
+                        onRemove: article.sourceId == customReaderSourceId
+                            ? () => unawaited(
+                                _removeCustomLink(context, ref, article),
+                              )
+                            : null,
                       ),
                     ),
                 ],
@@ -443,6 +504,96 @@ class _RefreshWarning extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AddLinkRequest {
+  const _AddLinkRequest(this.url, this.title);
+
+  final String url;
+  final String? title;
+}
+
+class _AddLinkDialog extends StatefulWidget {
+  const _AddLinkDialog();
+
+  @override
+  State<_AddLinkDialog> createState() => _AddLinkDialogState();
+}
+
+class _AddLinkDialogState extends State<_AddLinkDialog> {
+  final _urlController = TextEditingController();
+  final _titleController = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final canonical = canonicalizeReaderUrl(_urlController.text);
+    if (canonical == null) {
+      setState(() {
+        _error = 'Paste a full http(s) link. Social links are not allowed.';
+      });
+      return;
+    }
+    final title = _titleController.text.trim();
+    Navigator.of(
+      context,
+    ).pop(_AddLinkRequest(canonical, title.isEmpty ? null : title));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: const Text('Add a link'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "It will be added to today's list, within the 10-article cap.",
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _urlController,
+              autofocus: true,
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.next,
+              onChanged: (_) {
+                if (_error != null) setState(() => _error = null);
+              },
+              decoration: InputDecoration(
+                labelText: 'Article URL',
+                hintText: 'https://example.com/article',
+                errorText: _error,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _titleController,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              decoration: const InputDecoration(labelText: 'Title (optional)'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Add')),
+      ],
     );
   }
 }

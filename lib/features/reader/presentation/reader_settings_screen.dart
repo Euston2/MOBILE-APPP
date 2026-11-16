@@ -48,6 +48,33 @@ class ReaderSettingsScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _setGlobalTopic(
+    BuildContext context,
+    WidgetRef ref,
+    String topicId,
+    bool selected,
+  ) async {
+    try {
+      await ref
+          .read(readerSettingsControllerProvider.notifier)
+          .setTopicSelected(topicId, selected);
+    } on Object catch (error, stackTrace) {
+      debugPrint('Reader topic save failed: $error\n$stackTrace');
+      if (!context.mounted) return;
+      _showSaveError(context);
+    }
+  }
+
+  Future<void> _clearTopics(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(readerSettingsControllerProvider.notifier).clearTopics();
+    } on Object catch (error, stackTrace) {
+      debugPrint('Reader topic save failed: $error\n$stackTrace');
+      if (!context.mounted) return;
+      _showSaveError(context);
+    }
+  }
+
   void _showSaveError(BuildContext context) {
     final messenger = ScaffoldMessenger.of(context);
     messenger
@@ -95,6 +122,13 @@ class ReaderSettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
             children: [
               _SettingsIntro(settings: value),
+              const SizedBox(height: 18),
+              _TopicPicker(
+                settings: value,
+                onTopicChanged: (topicId, selected) =>
+                    unawaited(_setGlobalTopic(context, ref, topicId, selected)),
+                onClear: () => unawaited(_clearTopics(context, ref)),
+              ),
               const SizedBox(height: 18),
               LockoutSectionLabel(
                 'Sources',
@@ -201,6 +235,67 @@ class _SettingsIntro extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Global topic shortcut shown above the per-source cards.
+class _TopicPicker extends StatelessWidget {
+  const _TopicPicker({
+    required this.settings,
+    required this.onTopicChanged,
+    required this.onClear,
+  });
+
+  final ReaderSourceSettings settings;
+  final void Function(String topicId, bool selected) onTopicChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final topics = settings.selectableTopics;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LockoutSectionLabel(
+          'Topics you care about',
+          trailing: settings.selectedTopicCount == 0
+              ? null
+              : TextButton(onPressed: onClear, child: const Text('Clear all')),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Tap a topic to add it to every enabled source that supports it. '
+          'You can still fine-tune each source below.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (topics.isEmpty)
+          Text(
+            'Turn on a source below to see the topics it can deliver.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final topic in topics)
+                FilterChip(
+                  label: Text(topic.label),
+                  selected: settings.isTopicSelected(topic.id),
+                  onSelected: (selected) => onTopicChanged(topic.id, selected),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }

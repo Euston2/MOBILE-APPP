@@ -174,7 +174,7 @@ object UsageAlerts {
         } else {
             config.copy(dailyLimitSeconds = newLimit)
         }
-        BlockingStore.save(context, updated)
+        BlockingStore.saveLimits(context, updated)
 
         FlutterSettings.writeLimits(
             context = context,

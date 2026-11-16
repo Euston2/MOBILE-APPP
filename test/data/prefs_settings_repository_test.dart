@@ -32,6 +32,9 @@ void main() {
     expect(settings.focusSessionEndsAt, isNull);
     expect(settings.focusSessionRemainingSeconds, 0);
     expect(settings.focusSessionLengthMinutes, 25);
+    expect(settings.readingGoalMinutes, 0);
+    expect(settings.readingAutoBlockEnabled, isFalse);
+    expect(settings.readingCutoffMinutes, 20 * 60);
   });
 
   test('round-trips every field', () async {
@@ -57,6 +60,9 @@ void main() {
       focusSessionEndsAt: focusEnd,
       focusSessionRemainingSeconds: 1200,
       focusSessionLengthMinutes: 45,
+      readingGoalMinutes: 30,
+      readingAutoBlockEnabled: true,
+      readingCutoffMinutes: 22 * 60 + 15,
     );
 
     await repository.save(original);
@@ -79,6 +85,9 @@ void main() {
     expect(loaded.focusSessionEndsAt, focusEnd);
     expect(loaded.focusSessionRemainingSeconds, 1200);
     expect(loaded.focusSessionLengthMinutes, 45);
+    expect(loaded.readingGoalMinutes, 30);
+    expect(loaded.readingAutoBlockEnabled, isTrue);
+    expect(loaded.readingCutoffMinutes, 22 * 60 + 15);
   });
 
   test('clearing the focus session and date removes their keys', () async {

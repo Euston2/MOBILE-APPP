@@ -8,10 +8,31 @@ void main() {
   test('loads the bundled source catalogue', () async {
     final catalog = await const ReaderSourceCatalogLoader().load();
 
-    expect(catalog.topics, isNotEmpty);
-    expect(catalog.sources, hasLength(5));
+    expect(catalog.topics.length, greaterThanOrEqualTo(20));
+    expect(catalog.sources.length, greaterThanOrEqualTo(20));
     expect(catalog.sources.map((source) => source.id), contains('hacker-news'));
     expect(catalog.sources.map((source) => source.id), contains('devto'));
+    expect(catalog.sources.map((source) => source.id), contains('bbc-world'));
+    expect(catalog.sources.map((source) => source.id), contains('aeon'));
+
+    final topicIds = {for (final topic in catalog.topics) topic.id};
+    for (final source in catalog.sources) {
+      expect(
+        source.availableTopics,
+        isNotEmpty,
+        reason: '${source.id} should advertise at least one topic',
+      );
+      expect(
+        topicIds.containsAll(source.availableTopics),
+        isTrue,
+        reason: '${source.id} has an unknown available topic',
+      );
+      expect(
+        topicIds.containsAll(source.defaultTopics),
+        isTrue,
+        reason: '${source.id} has an unknown default topic',
+      );
+    }
   });
 
   test('parses topics and sources, filtering unknown topics and kinds', () {

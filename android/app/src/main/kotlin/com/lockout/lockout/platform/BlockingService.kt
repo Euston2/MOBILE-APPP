@@ -198,6 +198,8 @@ class BlockingService : Service() {
                 config.studyEndsAtMs,
                 config.focusSecondsAt(nowMs).toLong(),
                 config.focusGoalSeconds.toLong(),
+                config.readingSecondsAt(nowMs).toLong(),
+                config.readingGoalSeconds.toLong(),
             )
         }
     }
@@ -210,6 +212,8 @@ class BlockingService : Service() {
         studyEndsAtMs: Long,
         focusUsedSeconds: Long,
         focusGoalSeconds: Long,
+        readingUsedSeconds: Long,
+        readingGoalSeconds: Long,
     ) {
         if (BlockActivity.isVisible) {
             BlockOverlay.hide()
@@ -236,6 +240,8 @@ class BlockingService : Service() {
                     studyEndsAtMs,
                     focusUsedSeconds,
                     focusGoalSeconds,
+                    readingUsedSeconds,
+                    readingGoalSeconds,
                 )
             }
         }, OVERLAY_DELAY_MS)
@@ -263,6 +269,8 @@ class BlockingService : Service() {
         studyEndsAtMs: Long,
         focusUsedSeconds: Long,
         focusGoalSeconds: Long,
+        readingUsedSeconds: Long,
+        readingGoalSeconds: Long,
     ) {
         if (!Settings.canDrawOverlays(this)) return
         BlockOverlay.show(
@@ -275,6 +283,8 @@ class BlockingService : Service() {
                 studyEndsAtMs,
                 focusUsedSeconds,
                 focusGoalSeconds,
+                readingUsedSeconds,
+                readingGoalSeconds,
             ),
         )
     }
@@ -319,6 +329,8 @@ class BlockingService : Service() {
                 "$appCount $noun blocked until 8:00 AM"
             config.isFocusGoalBlockActive(now) ->
                 "$appCount $noun blocked until the focus goal is met"
+            config.isReadingGoalBlockActive(now) ->
+                "$appCount $noun blocked until the reading goal is met"
             active.isActive ->
                 "$appCount $noun - " +
                     "${BlockCopy.formatDuration(active.limitSeconds.toLong())} " +

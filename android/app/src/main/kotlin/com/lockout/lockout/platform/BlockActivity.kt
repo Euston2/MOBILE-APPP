@@ -263,6 +263,8 @@ class BlockActivity : Activity() {
                     config.studyEndsAtMs,
                     config.focusSecondsAt(nowMs).toLong(),
                     config.focusGoalSeconds.toLong(),
+                    config.readingSecondsAt(nowMs).toLong(),
+                    config.readingGoalSeconds.toLong(),
                 )
                 resetView.text = resetLabel(config, reason, nowMs)
                 metaView.text = metaLabel(active, reason)
@@ -278,7 +280,9 @@ class BlockActivity : Activity() {
         val endMs = when (reason) {
             BlockReason.STUDY -> config.studyEndsAtMs
             BlockReason.OVERNIGHT -> DayMath.overnightEndFor(nowMs)
-            BlockReason.FOCUS_GOAL_MISSED -> DayMath.nextLocalMidnight(nowMs)
+            BlockReason.FOCUS_GOAL_MISSED,
+            BlockReason.READING_GOAL_MISSED,
+            -> DayMath.nextLocalMidnight(nowMs)
             BlockReason.LIMIT_REACHED,
             BlockReason.LOCKED,
             -> if (config.nextResetAtMs > nowMs) {
@@ -302,6 +306,8 @@ class BlockActivity : Activity() {
             BlockReason.OVERNIGHT -> "Overnight focus · 12:00 AM to 8:00 AM"
             BlockReason.STUDY -> "Study lock · $apps $noun paused"
             BlockReason.FOCUS_GOAL_MISSED -> "Focus goal missed · $apps $noun paused"
+            BlockReason.READING_GOAL_MISSED ->
+                "Reading goal missed · $apps $noun paused"
             BlockReason.LIMIT_REACHED,
             BlockReason.LOCKED,
             -> "$apps $noun · ${BlockCopy.formatDuration(active.limitSeconds.toLong())} daily limit"

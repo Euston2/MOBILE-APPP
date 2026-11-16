@@ -8,6 +8,7 @@ import 'package:lockout/domain/entities/reader_feed.dart';
 import 'package:lockout/domain/entities/reader_source.dart';
 import 'package:lockout/domain/repositories/reader_repository.dart';
 import 'package:lockout/domain/repositories/reader_source_repository.dart';
+import 'package:lockout/domain/usecases/custom_reader_link.dart';
 import 'package:lockout/domain/usecases/refresh_reader.dart';
 import 'package:lockout/features/reader/presentation/reader_controller.dart';
 import 'package:lockout/features/reader/presentation/reader_screen.dart';
@@ -337,8 +338,8 @@ void main() {
     );
 
     expect(find.text('Example Review'), findsOneWidget);
-    expect(find.text('Technology'), findsOneWidget);
-    expect(find.text('Design'), findsOneWidget);
+    expect(find.text('Technology'), findsNWidgets(2));
+    expect(find.text('Design'), findsNWidgets(2));
 
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
@@ -348,5 +349,151 @@ void main() {
     await tester.tap(find.text('Design'));
     await tester.pumpAndSettle();
     expect((await sources.loadSources()).single.topics, contains('design'));
+  });
+
+  testWidgets(
+    'global topics apply to every enabled source that supports them',
+    (tester) async {
+      const sourceA = ReaderSource(
+        id: 'alpha',
+        name: 'Alpha Review',
+        kind: ReaderSourceKind.rss,
+        siteUrl: 'https://alpha.example.com',
+        enabled: true,
+        topics: [],
+        sortOrder: 0,
+      );
+      const sourceB = ReaderSource(
+        id: 'beta',
+        name: 'Beta Review',
+        kind: ReaderSourceKind.rss,
+        siteUrl: 'https://beta.example.com',
+        enabled: true,
+        topics: ['design'],
+        sortOrder: 1,
+      );
+      const catalog = ReaderSourceCatalog(
+        topics: [
+          ReaderTopic(id: 'technology', label: 'Technology'),
+          ReaderTopic(id: 'design', label: 'Design'),
+        ],
+        sources: [
+          ReaderSourceDefinition(
+            id: 'alpha',
+            name: 'Alpha Review',
+            kind: ReaderSourceKind.rss,
+            siteUrl: 'https://alpha.example.com',
+            enabled: true,
+            defaultTopics: [],
+            availableTopics: ['technology', 'design'],
+            sortOrder: 0,
+          ),
+          ReaderSourceDefinition(
+            id: 'beta',
+            name: 'Beta Review',
+            kind: ReaderSourceKind.rss,
+            siteUrl: 'https://beta.example.com',
+            enabled: true,
+            defaultTopics: [],
+            availableTopics: ['technology'],
+            sortOrder: 1,
+          ),
+        ],
+      );
+      final sources = FakeReaderSourceRepository(
+        sources: const [sourceA, sourceB],
+        catalog: catalog,
+      );
+
+      await pumpSettings(
+        tester,
+        reader: FakeReaderRepository(),
+        sources: sources,
+      );
+
+      // The global chip plus one chip on each source card.
+      final technologyChips = find.widgetWithText(FilterChip, 'Technology');
+      expect(technologyChips, findsNWidgets(3));
+
+      await tester.tap(technologyChips.first);
+      await tester.pumpAndSettle();
+
+      final loaded = await sources.loadSources();
+      expect(
+        loaded.firstWhere((source) => source.id == 'alpha').topics,
+        contains('technology'),
+      );
+      expect(
+        loaded.firstWhere((source) => source.id == 'beta').topics,
+        containsAll(['design', 'technology']),
+      );
+
+      await tester.tap(find.text('Clear all'));
+      await tester.pumpAndSettle();
+
+      final cleared = await sources.loadSources();
+      expect(cleared.every((source) => source.topics.isEmpty), isTrue);
+    },
+  );
+
+  testWidgets('adds and removes a personal link in the daily list', (
+    tester,
+  ) async {
+    final reader = FakeReaderRepository();
+    await pumpReader(
+      tester,
+      reader: reader,
+      sources: FakeReaderSourceRepository(sources: const [feedSource]),
+    );
+
+    await tester.tap(find.text('Add a link'));
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    expect(fields, findsNWidgets(2));
+    await tester.enterText(fields.at(0), 'https://example.com/the-quiet-web');
+    await tester.enterText(fields.at(1), 'The quiet web');
+    await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('The quiet web'), findsOneWidget);
+    final ids = reader.dailyPicks[today];
+    expect(ids, hasLength(1));
+    final article = reader.articles[ids!.single];
+    expect(article, isNotNull);
+    expect(article!.sourceId, customReaderSourceId);
+    expect(article.url, 'https://example.com/the-quiet-web');
+
+    await tester.tap(find.byTooltip("Remove from today's list"));
+    await tester.pumpAndSettle();
+
+    expect(reader.dailyPicks[today], isEmpty);
+    expect(find.text('The quiet web'), findsNothing);
+  });
+
+  testWidgets('rejects social and unsupported links in the add dialog', (
+    tester,
+  ) async {
+    final reader = FakeReaderRepository();
+    await pumpReader(
+      tester,
+      reader: reader,
+      sources: FakeReaderSourceRepository(sources: const [feedSource]),
+    );
+
+    await tester.tap(find.text('Add a link'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).first,
+      'https://instagram.com/p/123',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Add'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Paste a full http(s) link. Social links are not allowed.'),
+      findsOneWidget,
+    );
+    expect(reader.dailyPicks, isEmpty);
   });
 }

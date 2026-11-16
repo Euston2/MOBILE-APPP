@@ -5,6 +5,7 @@ import '../../../core/utils/day_window.dart';
 import '../../../domain/entities/blocking_config.dart';
 import '../../limits/presentation/monitored_apps_controller.dart';
 import '../../limits/presentation/settings_controller.dart';
+import '../../reader/presentation/reading_progress.dart';
 
 /// Snapshot of what the native service should enforce right now.
 ///
@@ -22,6 +23,8 @@ final blockingConfigProvider = Provider<BlockingConfig?>((ref) {
 
   final pendingLimit =
       settings.pendingLimitSeconds ?? settings.dailyLimitSeconds;
+  final readingSeconds = ref.watch(readingSecondsTodayProvider).value ?? 0;
+  final now = DateTime.now();
 
   return BlockingConfig(
     monitoredPackages: ref.watch(enabledPackagesProvider),
@@ -45,6 +48,11 @@ final blockingConfigProvider = Provider<BlockingConfig?>((ref) {
         : parseLocalDateKey(settings.focusDate!),
     focusSessionStartedAt: settings.focusSessionStartedAt,
     focusSessionEndsAt: settings.focusSessionEndsAt,
+    readingGoalSeconds: settings.readingGoalMinutes * 60,
+    readingAutoBlockEnabled: settings.readingAutoBlockEnabled,
+    readingCutoffMinuteOfDay: settings.readingCutoffMinutes,
+    readingBaseSeconds: readingSeconds,
+    readingDayStart: startOfLocalDay(now),
   );
 });
 
@@ -58,9 +66,9 @@ final blockingSyncProvider = FutureProvider<void>((ref) async {
   final repository = ref.watch(blockingRepositoryProvider);
 
   if (config == null) return;
-  if (!config.isActive) {
-    await repository.stop();
-    return;
-  }
+  // Always push the snapshot, even when it is inactive. `sync` clears the
+  // native store and then stops the watcher; calling `stop()` alone would leave
+  // stale values (for example `overnightLockEnabled=true`) behind, so a later
+  // service restart could re-enable a lock the user just turned off.
   await repository.sync(config);
 });

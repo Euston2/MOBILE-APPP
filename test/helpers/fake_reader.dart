@@ -43,6 +43,17 @@ class FakeReaderRepository implements ReaderRepository {
   }
 
   @override
+  Future<void> clearPick(String id) async {
+    final article = articles[id];
+    if (article != null) {
+      articles[id] = article.copyWith(clearPick: true);
+    }
+    for (final entry in dailyPicks.entries) {
+      entry.value.remove(id);
+    }
+  }
+
+  @override
   Future<ReaderArticle?> articleById(String id) async => articles[id];
 
   @override

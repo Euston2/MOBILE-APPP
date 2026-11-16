@@ -33,6 +33,9 @@ class UsageSettings {
     this.focusSessionEndsAt,
     this.focusSessionRemainingSeconds = 0,
     this.focusSessionLengthMinutes = 25,
+    this.readingGoalMinutes = 0,
+    this.readingAutoBlockEnabled = false,
+    this.readingCutoffMinutes = 20 * 60,
   });
 
   /// Defaults for a fresh install: no limit, unlocked, reset at next midnight.
@@ -127,6 +130,19 @@ class UsageSettings {
   /// Last focus duration chosen by the user, in minutes.
   final int focusSessionLengthMinutes;
 
+  /// Daily reading goal in minutes. 0 means no goal is configured.
+  ///
+  /// Reading seconds are recorded by the Reader in drift, not in prefs; these
+  /// fields only describe the goal and its optional enforcement window.
+  final int readingGoalMinutes;
+
+  /// When true, selected apps are blocked after [readingCutoffMinutes] until
+  /// the reading goal is met or the day resets.
+  final bool readingAutoBlockEnabled;
+
+  /// Local minute of day (0-1439) at which the missed-reading block starts.
+  final int readingCutoffMinutes;
+
   bool get hasLimit => dailyLimitSeconds > 0;
 
   bool get hasPendingLimit => pendingLimitSeconds != null;
@@ -160,6 +176,9 @@ class UsageSettings {
     bool clearFocusSessionEndsAt = false,
     int? focusSessionRemainingSeconds,
     int? focusSessionLengthMinutes,
+    int? readingGoalMinutes,
+    bool? readingAutoBlockEnabled,
+    int? readingCutoffMinutes,
   }) {
     return UsageSettings(
       dailyLimitSeconds: dailyLimitSeconds ?? this.dailyLimitSeconds,
@@ -192,6 +211,10 @@ class UsageSettings {
           focusSessionRemainingSeconds ?? this.focusSessionRemainingSeconds,
       focusSessionLengthMinutes:
           focusSessionLengthMinutes ?? this.focusSessionLengthMinutes,
+      readingGoalMinutes: readingGoalMinutes ?? this.readingGoalMinutes,
+      readingAutoBlockEnabled:
+          readingAutoBlockEnabled ?? this.readingAutoBlockEnabled,
+      readingCutoffMinutes: readingCutoffMinutes ?? this.readingCutoffMinutes,
     );
   }
 
@@ -216,10 +239,13 @@ class UsageSettings {
       other.focusSessionStartedAt == focusSessionStartedAt &&
       other.focusSessionEndsAt == focusSessionEndsAt &&
       other.focusSessionRemainingSeconds == focusSessionRemainingSeconds &&
-      other.focusSessionLengthMinutes == focusSessionLengthMinutes;
+      other.focusSessionLengthMinutes == focusSessionLengthMinutes &&
+      other.readingGoalMinutes == readingGoalMinutes &&
+      other.readingAutoBlockEnabled == readingAutoBlockEnabled &&
+      other.readingCutoffMinutes == readingCutoffMinutes;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     dailyLimitSeconds,
     isLocked,
     lockedAt,
@@ -239,7 +265,10 @@ class UsageSettings {
     focusSessionEndsAt,
     focusSessionRemainingSeconds,
     focusSessionLengthMinutes,
-  );
+    readingGoalMinutes,
+    readingAutoBlockEnabled,
+    readingCutoffMinutes,
+  ]);
 
   @override
   String toString() =>
@@ -248,5 +277,6 @@ class UsageSettings {
       'overnight: $overnightLockEnabled, '
       'studyUntil: ${studyEndsAt?.toIso8601String()}, '
       'focusGoal: ${focusGoalMinutes}m, focusToday: ${focusSecondsToday}s, '
+      'readingGoal: ${readingGoalMinutes}m, '
       'reset: ${nextResetAt.toIso8601String()})';
 }

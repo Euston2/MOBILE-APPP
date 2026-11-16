@@ -184,6 +184,15 @@ class ReaderDao extends DatabaseAccessor<AppDatabase> with _$ReaderDaoMixin {
     });
   }
 
+  Future<void> clearPick(String id) {
+    return (update(readerArticles)..where((row) => row.id.equals(id))).write(
+      const ReaderArticlesCompanion(
+        pickDate: Value(null),
+        pickRank: Value(null),
+      ),
+    );
+  }
+
   Future<void> saveFetched(List<ReaderArticle> articles) {
     return transaction(() async {
       for (final article in articles) {

@@ -13,6 +13,7 @@ import '../../../domain/usecases/reading_time.dart';
 import 'reader_content_extractor.dart';
 import 'reader_link_guard.dart';
 import 'reader_original_webview.dart';
+import 'reading_progress.dart';
 import 'reading_session_tracker.dart';
 
 /// The native article view: cached text, a bookmark toggle and one clear way
@@ -52,6 +53,7 @@ class _ReaderArticleScreenState extends ConsumerState<ReaderArticleScreen>
     _tracker = ReadingSessionTracker(
       repository: ref.read(readerRepositoryProvider),
       articleId: _article.id,
+      onFlushed: _onReadingFlushed,
     )..start();
 
     unawaited(_markRead());
@@ -237,6 +239,11 @@ class _ReaderArticleScreenState extends ConsumerState<ReaderArticleScreen>
     if (!mounted || _coveredByWebView) return;
     if (_lifecycleState != AppLifecycleState.resumed) return;
     _tracker.start();
+  }
+
+  void _onReadingFlushed() {
+    if (!mounted) return;
+    ref.invalidate(readingSecondsTodayProvider);
   }
 
   void _showMessage(String message) {

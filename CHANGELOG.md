@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Release 1.5.0 preview
+
+- Version `1.5.0+15`.
+- Fixed the overnight lock re-arming after it was turned off. Every settings sync
+  now pushes the cleared snapshot to the native store, even when no lock is
+  active, so a service restart cannot resurrect `overnightLockEnabled`.
+- Expanded the Reader catalogue to 34 topics and 25 sources, and added global
+  **Topics you care about** chips. A chip applies its topic to every enabled
+  source that supports it; per-source topic filters remain available.
+- Added personal links to the Reader's frozen daily list. Links are validated
+  (no social or non-web URLs), deduplicated, counted against the 10-article cap,
+  and can be removed to make room for another.
+- Added an optional daily **reading goal** with a cutoff-time block for selected
+  apps. Reading minutes are recorded from the Reader, the block lifts as soon as
+  the goal is met, and goal or cutoff changes are rejected while the missed-goal
+  block is active.
+- Added a **Reading goal** screen under Focus with today's progress, goal editing,
+  the automation switch and a cutoff-time picker. The Reader remains finite: no
+  feed, autoplay, recommendation loop or new-article notifications.
+
 ### Release 1.4.0 preview
 
 - Version `1.4.0+14`.

@@ -146,7 +146,7 @@ object MidnightReset {
         val focusRoll = rollFocusDay(current, nowMs)
         if (focusRoll.changed) {
             current = focusRoll.config
-            BlockingStore.save(context, current)
+            BlockingStore.saveFocus(context, current)
             LockoutLog.info(context, "focus tracking rolled into a new day")
         }
 
@@ -162,7 +162,7 @@ object MidnightReset {
                 pendingLimitSeconds = 0,
                 pendingEffectiveAtMs = 0L,
             )
-            BlockingStore.save(context, current)
+            BlockingStore.saveLimits(context, current)
             // Keep Flutter's recurring-limit cache in step with the native
             // materialisation. Without this, a notification extension applied
             // after midnight could be overwritten by a stale pending value on

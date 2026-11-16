@@ -11,6 +11,9 @@ abstract interface class ReaderRepository {
   /// Stamps the daily list. Call only when [picksForDate] is empty.
   Future<void> freezePicks(String date, List<String> articleIds);
 
+  /// Removes one article from its frozen daily list without deleting the cache.
+  Future<void> clearPick(String id);
+
   Future<ReaderArticle?> articleById(String id);
 
   /// Inserts new articles and refreshes metadata on existing ones.

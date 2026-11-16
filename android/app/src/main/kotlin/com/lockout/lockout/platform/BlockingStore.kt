@@ -31,6 +31,11 @@ object BlockingStore {
     private const val KEY_FOCUS_DAY_START = "focus_day_start_ms"
     private const val KEY_FOCUS_SESSION_START = "focus_session_started_at_ms"
     private const val KEY_FOCUS_SESSION_END = "focus_session_ends_at_ms"
+    private const val KEY_READING_GOAL_SECONDS = "reading_goal_seconds"
+    private const val KEY_READING_AUTO_BLOCK = "reading_auto_block_enabled"
+    private const val KEY_READING_CUTOFF_MINUTE = "reading_cutoff_minute_of_day"
+    private const val KEY_READING_BASE_SECONDS = "reading_base_seconds"
+    private const val KEY_READING_DAY_START = "reading_day_start_ms"
 
     fun load(context: Context): BlockingConfig {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -59,6 +64,17 @@ object BlockingStore {
             focusDayStartMs = prefs.getLong(KEY_FOCUS_DAY_START, 0L),
             focusSessionStartedAtMs = prefs.getLong(KEY_FOCUS_SESSION_START, 0L),
             focusSessionEndsAtMs = prefs.getLong(KEY_FOCUS_SESSION_END, 0L),
+            readingGoalSeconds = prefs.getInt(KEY_READING_GOAL_SECONDS, 0),
+            readingAutoBlockEnabled = prefs.getBoolean(
+                KEY_READING_AUTO_BLOCK,
+                false,
+            ),
+            readingCutoffMinuteOfDay = prefs.getInt(
+                KEY_READING_CUTOFF_MINUTE,
+                20 * 60,
+            ),
+            readingBaseSeconds = prefs.getInt(KEY_READING_BASE_SECONDS, 0),
+            readingDayStartMs = prefs.getLong(KEY_READING_DAY_START, 0L),
         )
     }
 
@@ -86,6 +102,11 @@ object BlockingStore {
             .putLong(KEY_FOCUS_DAY_START, config.focusDayStartMs)
             .putLong(KEY_FOCUS_SESSION_START, config.focusSessionStartedAtMs)
             .putLong(KEY_FOCUS_SESSION_END, config.focusSessionEndsAtMs)
+            .putInt(KEY_READING_GOAL_SECONDS, config.readingGoalSeconds)
+            .putBoolean(KEY_READING_AUTO_BLOCK, config.readingAutoBlockEnabled)
+            .putInt(KEY_READING_CUTOFF_MINUTE, config.readingCutoffMinuteOfDay)
+            .putInt(KEY_READING_BASE_SECONDS, config.readingBaseSeconds)
+            .putLong(KEY_READING_DAY_START, config.readingDayStartMs)
             .commit()
     }
 
@@ -96,6 +117,39 @@ object BlockingStore {
             .putBoolean(KEY_LOCKED, config.isLocked)
             .putLong(KEY_LOCKED_AT, config.lockedAtMs)
             .putLong(KEY_RESET_AT, config.nextResetAtMs)
+            .commit()
+    }
+
+    /**
+     * Writes only the app/limit fields.
+     *
+     * The midnight reset runs from the service thread while Flutter may be
+     * pushing a fresh snapshot. Saving the whole config here would resurrect a
+     * stale `overnightLockEnabled` (or study timer) that the user just changed.
+     * Narrow writes keep each writer responsible for the fields it owns.
+     */
+    fun saveLimits(context: Context, config: BlockingConfig) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(KEY_PACKAGES, config.monitoredPackages)
+            .putInt(KEY_LIMIT, config.dailyLimitSeconds)
+            .putStringSet(KEY_PENDING_PACKAGES, config.pendingPackages)
+            .putInt(KEY_PENDING_LIMIT, config.pendingLimitSeconds)
+            .putLong(KEY_PENDING_EFFECTIVE_AT, config.pendingEffectiveAtMs)
+            .commit()
+    }
+
+    /** Writes only the focus timer/goal fields, leaving other locks intact. */
+    fun saveFocus(context: Context, config: BlockingConfig) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_FOCUS_GOAL_SECONDS, config.focusGoalSeconds)
+            .putBoolean(KEY_FOCUS_AUTO_BLOCK, config.focusAutoBlockEnabled)
+            .putInt(KEY_FOCUS_CUTOFF_MINUTE, config.focusCutoffMinuteOfDay)
+            .putInt(KEY_FOCUS_BASE_SECONDS, config.focusBaseSeconds)
+            .putLong(KEY_FOCUS_DAY_START, config.focusDayStartMs)
+            .putLong(KEY_FOCUS_SESSION_START, config.focusSessionStartedAtMs)
+            .putLong(KEY_FOCUS_SESSION_END, config.focusSessionEndsAtMs)
             .commit()
     }
 }

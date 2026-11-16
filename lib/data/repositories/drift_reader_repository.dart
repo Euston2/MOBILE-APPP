@@ -26,6 +26,9 @@ class DriftReaderRepository implements ReaderRepository {
   }
 
   @override
+  Future<void> clearPick(String id) => _dao.clearPick(id);
+
+  @override
   Future<ReaderArticle?> articleById(String id) async {
     final row = await _dao.articleById(id);
     return row?.toDomain();

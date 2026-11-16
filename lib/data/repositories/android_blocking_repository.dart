@@ -27,6 +27,11 @@ class AndroidBlockingRepository implements BlockingRepository {
     focusDayStart: config.focusDayStart,
     focusSessionStartedAt: config.focusSessionStartedAt,
     focusSessionEndsAt: config.focusSessionEndsAt,
+    readingGoalSeconds: config.readingGoalSeconds,
+    readingAutoBlockEnabled: config.readingAutoBlockEnabled,
+    readingCutoffMinuteOfDay: config.readingCutoffMinuteOfDay,
+    readingBaseSeconds: config.readingBaseSeconds,
+    readingDayStart: config.readingDayStart,
   );
 
   @override

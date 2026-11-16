@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/utils/day_window.dart';
 import '../../domain/entities/usage_settings.dart';
 import '../../domain/repositories/settings_repository.dart';
+import '../../domain/usecases/reading_goal.dart';
 import '../../domain/usecases/study_timer.dart';
 
 /// Settings and lock state in `shared_preferences`.
@@ -44,6 +45,11 @@ class PrefsSettingsRepository implements SettingsRepository {
       'settings.focus_session_remaining_seconds';
   static const String keyFocusSessionLengthMinutes =
       'settings.focus_session_length_minutes';
+  static const String keyReadingGoalMinutes = 'settings.reading_goal_minutes';
+  static const String keyReadingAutoBlockEnabled =
+      'settings.reading_auto_block_enabled';
+  static const String keyReadingCutoffMinutes =
+      'settings.reading_cutoff_minutes';
 
   @override
   Future<UsageSettings> load() async {
@@ -91,6 +97,11 @@ class PrefsSettingsRepository implements SettingsRepository {
           _prefs.getInt(keyFocusSessionRemainingSeconds) ?? 0,
       focusSessionLengthMinutes:
           _prefs.getInt(keyFocusSessionLengthMinutes) ?? 25,
+      readingGoalMinutes: _prefs.getInt(keyReadingGoalMinutes) ?? 0,
+      readingAutoBlockEnabled:
+          _prefs.getBool(keyReadingAutoBlockEnabled) ?? false,
+      readingCutoffMinutes:
+          _prefs.getInt(keyReadingCutoffMinutes) ?? defaultReadingCutoffMinutes,
     );
   }
 
@@ -181,6 +192,13 @@ class PrefsSettingsRepository implements SettingsRepository {
       keyFocusSessionLengthMinutes,
       settings.focusSessionLengthMinutes,
     );
+
+    await _prefs.setInt(keyReadingGoalMinutes, settings.readingGoalMinutes);
+    await _prefs.setBool(
+      keyReadingAutoBlockEnabled,
+      settings.readingAutoBlockEnabled,
+    );
+    await _prefs.setInt(keyReadingCutoffMinutes, settings.readingCutoffMinutes);
   }
 
   @override

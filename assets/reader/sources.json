@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "topics": [
     { "id": "technology", "label": "Technology" },
     { "id": "programming", "label": "Programming" },
@@ -8,7 +8,33 @@
     { "id": "webdev", "label": "Web development" },
     { "id": "design", "label": "Design" },
     { "id": "science", "label": "Science" },
-    { "id": "culture", "label": "Culture" }
+    { "id": "culture", "label": "Culture" },
+    { "id": "ai", "label": "AI" },
+    { "id": "cybersecurity", "label": "Cybersecurity" },
+    { "id": "startups", "label": "Startups" },
+    { "id": "business", "label": "Business" },
+    { "id": "finance", "label": "Finance" },
+    { "id": "economics", "label": "Economics" },
+    { "id": "health", "label": "Health" },
+    { "id": "psychology", "label": "Psychology" },
+    { "id": "philosophy", "label": "Philosophy" },
+    { "id": "history", "label": "History" },
+    { "id": "productivity", "label": "Productivity" },
+    { "id": "environment", "label": "Environment" },
+    { "id": "space", "label": "Space" },
+    { "id": "books", "label": "Books" },
+    { "id": "music", "label": "Music" },
+    { "id": "film", "label": "Film" },
+    { "id": "travel", "label": "Travel" },
+    { "id": "sports", "label": "Sports" },
+    { "id": "gaming", "label": "Gaming" },
+    { "id": "politics", "label": "Politics" },
+    { "id": "world", "label": "World news" },
+    { "id": "education", "label": "Education" },
+    { "id": "mathematics", "label": "Mathematics" },
+    { "id": "physics", "label": "Physics" },
+    { "id": "biology", "label": "Biology" },
+    { "id": "neuroscience", "label": "Neuroscience" }
   ],
   "sources": [
     {
@@ -18,8 +44,14 @@
       "feedUrl": "https://hacker-news.firebaseio.com/v0/topstories.json",
       "siteUrl": "https://news.ycombinator.com",
       "enabled": true,
-      "availableTopics": ["technology", "programming"],
-      "defaultTopics": ["technology"],
+      "availableTopics": [
+        "technology",
+        "programming",
+        "ai",
+        "cybersecurity",
+        "startups"
+      ],
+      "defaultTopics": ["technology", "programming"],
       "sortOrder": 0
     },
     {
@@ -34,7 +66,9 @@
         "programming",
         "android",
         "flutter",
-        "webdev"
+        "webdev",
+        "ai",
+        "cybersecurity"
       ],
       "defaultTopics": ["android", "flutter", "webdev"],
       "sortOrder": 1
@@ -46,8 +80,15 @@
       "feedUrl": "https://feeds.arstechnica.com/arstechnica/index",
       "siteUrl": "https://arstechnica.com",
       "enabled": true,
-      "availableTopics": ["technology", "science", "culture"],
-      "defaultTopics": ["technology"],
+      "availableTopics": [
+        "technology",
+        "science",
+        "culture",
+        "ai",
+        "cybersecurity",
+        "space"
+      ],
+      "defaultTopics": ["technology", "science"],
       "sortOrder": 2
     },
     {
@@ -57,8 +98,8 @@
       "feedUrl": "https://www.smashingmagazine.com/feed/",
       "siteUrl": "https://www.smashingmagazine.com",
       "enabled": true,
-      "availableTopics": ["programming", "webdev", "design"],
-      "defaultTopics": ["webdev"],
+      "availableTopics": ["programming", "webdev", "design", "productivity"],
+      "defaultTopics": ["webdev", "design"],
       "sortOrder": 3
     },
     {
@@ -68,9 +109,273 @@
       "feedUrl": "https://android-developers.googleblog.com/feeds/posts/default",
       "siteUrl": "https://android-developers.googleblog.com",
       "enabled": true,
-      "availableTopics": ["android", "programming"],
+      "availableTopics": ["android", "programming", "ai"],
       "defaultTopics": ["android"],
       "sortOrder": 4
+    },
+    {
+      "id": "bbc-world",
+      "name": "BBC World",
+      "kind": "rss",
+      "feedUrl": "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "siteUrl": "https://www.bbc.com/news/world",
+      "enabled": true,
+      "availableTopics": ["world", "politics", "business", "health"],
+      "defaultTopics": ["world", "politics"],
+      "sortOrder": 5
+    },
+    {
+      "id": "bbc-science",
+      "name": "BBC Science & Environment",
+      "kind": "rss",
+      "feedUrl": "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
+      "siteUrl": "https://www.bbc.com/news/science_and_environment",
+      "enabled": true,
+      "availableTopics": ["science", "environment", "health", "space"],
+      "defaultTopics": ["science", "environment"],
+      "sortOrder": 6
+    },
+    {
+      "id": "mit-tech-review",
+      "name": "MIT Technology Review",
+      "kind": "rss",
+      "feedUrl": "https://www.technologyreview.com/feed/",
+      "siteUrl": "https://www.technologyreview.com",
+      "enabled": true,
+      "availableTopics": ["technology", "ai", "business", "environment"],
+      "defaultTopics": ["technology", "ai"],
+      "sortOrder": 7
+    },
+    {
+      "id": "aeon",
+      "name": "Aeon",
+      "kind": "rss",
+      "feedUrl": "https://aeon.co/feed.rss",
+      "siteUrl": "https://aeon.co",
+      "enabled": true,
+      "availableTopics": [
+        "philosophy",
+        "psychology",
+        "culture",
+        "science",
+        "politics"
+      ],
+      "defaultTopics": ["philosophy", "psychology"],
+      "sortOrder": 8
+    },
+    {
+      "id": "smithsonian",
+      "name": "Smithsonian Magazine",
+      "kind": "rss",
+      "feedUrl": "https://www.smithsonianmag.com/rss/latest_articles/",
+      "siteUrl": "https://www.smithsonianmag.com",
+      "enabled": true,
+      "availableTopics": ["history", "culture", "science", "travel"],
+      "defaultTopics": ["history", "culture"],
+      "sortOrder": 9
+    },
+    {
+      "id": "science-daily",
+      "name": "ScienceDaily",
+      "kind": "rss",
+      "feedUrl": "https://www.sciencedaily.com/rss/all.xml",
+      "siteUrl": "https://www.sciencedaily.com",
+      "enabled": true,
+      "availableTopics": [
+        "science",
+        "health",
+        "environment",
+        "space",
+        "biology",
+        "physics",
+        "neuroscience"
+      ],
+      "defaultTopics": ["science", "health"],
+      "sortOrder": 10
+    },
+    {
+      "id": "the-hacker-news",
+      "name": "The Hacker News",
+      "kind": "rss",
+      "feedUrl": "https://feeds.feedburner.com/TheHackersNews",
+      "siteUrl": "https://thehackernews.com",
+      "enabled": true,
+      "availableTopics": ["cybersecurity", "technology", "ai"],
+      "defaultTopics": ["cybersecurity"],
+      "sortOrder": 11
+    },
+    {
+      "id": "lifehacker",
+      "name": "Lifehacker",
+      "kind": "rss",
+      "feedUrl": "https://lifehacker.com/rss",
+      "siteUrl": "https://lifehacker.com",
+      "enabled": true,
+      "availableTopics": ["productivity", "technology", "health"],
+      "defaultTopics": ["productivity"],
+      "sortOrder": 12
+    },
+    {
+      "id": "nautilus",
+      "name": "Nautilus",
+      "kind": "rss",
+      "feedUrl": "https://nautil.us/feed/",
+      "siteUrl": "https://nautil.us",
+      "enabled": false,
+      "availableTopics": [
+        "science",
+        "psychology",
+        "philosophy",
+        "space",
+        "biology"
+      ],
+      "defaultTopics": ["science", "psychology"],
+      "sortOrder": 13
+    },
+    {
+      "id": "nature",
+      "name": "Nature",
+      "kind": "rss",
+      "feedUrl": "https://www.nature.com/nature.rss",
+      "siteUrl": "https://www.nature.com",
+      "enabled": false,
+      "availableTopics": [
+        "science",
+        "biology",
+        "physics",
+        "health",
+        "environment"
+      ],
+      "defaultTopics": ["science"],
+      "sortOrder": 14
+    },
+    {
+      "id": "techcrunch",
+      "name": "TechCrunch",
+      "kind": "rss",
+      "feedUrl": "https://techcrunch.com/feed/",
+      "siteUrl": "https://techcrunch.com",
+      "enabled": false,
+      "availableTopics": [
+        "startups",
+        "business",
+        "technology",
+        "ai",
+        "finance"
+      ],
+      "defaultTopics": ["startups", "business"],
+      "sortOrder": 15
+    },
+    {
+      "id": "marketwatch",
+      "name": "MarketWatch",
+      "kind": "rss",
+      "feedUrl": "https://feeds.marketwatch.com/marketwatch/topstories/",
+      "siteUrl": "https://www.marketwatch.com",
+      "enabled": false,
+      "availableTopics": ["finance", "business", "economics"],
+      "defaultTopics": ["finance"],
+      "sortOrder": 16
+    },
+    {
+      "id": "the-conversation",
+      "name": "The Conversation",
+      "kind": "rss",
+      "feedUrl": "https://theconversation.com/global/articles.atom",
+      "siteUrl": "https://theconversation.com",
+      "enabled": false,
+      "availableTopics": [
+        "world",
+        "politics",
+        "science",
+        "health",
+        "education",
+        "environment"
+      ],
+      "defaultTopics": ["world", "science"],
+      "sortOrder": 17
+    },
+    {
+      "id": "pitchfork",
+      "name": "Pitchfork",
+      "kind": "rss",
+      "feedUrl": "https://pitchfork.com/rss/news/",
+      "siteUrl": "https://pitchfork.com",
+      "enabled": false,
+      "availableTopics": ["music", "culture"],
+      "defaultTopics": ["music"],
+      "sortOrder": 18
+    },
+    {
+      "id": "literary-hub",
+      "name": "Literary Hub",
+      "kind": "rss",
+      "feedUrl": "https://lithub.com/feed/",
+      "siteUrl": "https://lithub.com",
+      "enabled": false,
+      "availableTopics": ["books", "culture"],
+      "defaultTopics": ["books"],
+      "sortOrder": 19
+    },
+    {
+      "id": "atlas-obscura",
+      "name": "Atlas Obscura",
+      "kind": "rss",
+      "feedUrl": "https://www.atlasobscura.com/feeds/latest",
+      "siteUrl": "https://www.atlasobscura.com",
+      "enabled": false,
+      "availableTopics": ["travel", "history", "science"],
+      "defaultTopics": ["travel", "history"],
+      "sortOrder": 20
+    },
+    {
+      "id": "espn",
+      "name": "ESPN",
+      "kind": "rss",
+      "feedUrl": "https://www.espn.com/espn/rss/news",
+      "siteUrl": "https://www.espn.com",
+      "enabled": false,
+      "availableTopics": ["sports"],
+      "defaultTopics": ["sports"],
+      "sortOrder": 21
+    },
+    {
+      "id": "polygon",
+      "name": "Polygon",
+      "kind": "rss",
+      "feedUrl": "https://www.polygon.com/rss/index.xml",
+      "siteUrl": "https://www.polygon.com",
+      "enabled": false,
+      "availableTopics": ["gaming", "culture"],
+      "defaultTopics": ["gaming"],
+      "sortOrder": 22
+    },
+    {
+      "id": "dezeen",
+      "name": "Dezeen",
+      "kind": "rss",
+      "feedUrl": "https://www.dezeen.com/feed/",
+      "siteUrl": "https://www.dezeen.com",
+      "enabled": false,
+      "availableTopics": ["design", "culture"],
+      "defaultTopics": ["design"],
+      "sortOrder": 23
+    },
+    {
+      "id": "big-think",
+      "name": "Big Think",
+      "kind": "rss",
+      "feedUrl": "https://bigthink.com/feed/",
+      "siteUrl": "https://bigthink.com",
+      "enabled": false,
+      "availableTopics": [
+        "philosophy",
+        "psychology",
+        "science",
+        "productivity"
+      ],
+      "defaultTopics": ["philosophy", "psychology"],
+      "sortOrder": 24
     }
   ]
 }

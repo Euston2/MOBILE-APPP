@@ -9,11 +9,13 @@ class ReaderArticleCard extends StatelessWidget {
   const ReaderArticleCard({
     required this.article,
     required this.onTap,
+    this.onRemove,
     super.key,
   });
 
   final ReaderArticle article;
   final VoidCallback onTap;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +63,20 @@ class ReaderArticleCard extends StatelessWidget {
                   Icons.bookmark,
                   size: 16,
                   color: LockoutPalette.mint,
+                ),
+              ],
+              if (onRemove case final onRemove?) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: "Remove from today's list",
+                  onPressed: onRemove,
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 28,
+                    height: 28,
+                  ),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.close, size: 16),
                 ),
               ],
             ],

@@ -8,6 +8,7 @@ import '../../../core/utils/focus_window.dart';
 import '../../../domain/entities/usage_settings.dart';
 import '../../../domain/repositories/settings_repository.dart';
 import '../../../domain/usecases/focus_lock.dart';
+import '../../../domain/usecases/reading_goal.dart';
 import '../../../domain/usecases/reconcile_settings.dart';
 import '../../../domain/usecases/study_timer.dart';
 import 'monitored_apps_controller.dart';
@@ -140,6 +141,47 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
     await _update(
       (current) => current.copyWith(focusCutoffMinutes: minutes),
       requireFocusGoalEditable: true,
+    );
+  }
+
+  /// Sets the daily reading goal. 0 turns the goal and its automation off.
+  Future<void> setReadingGoal(int minutes) async {
+    if (minutes < 0 || minutes > maxReadingGoalMinutes) {
+      throw ArgumentError.value(
+        minutes,
+        'minutes',
+        'must be 0-$maxReadingGoalMinutes',
+      );
+    }
+    await _update(
+      (current) => current.copyWith(
+        readingGoalMinutes: minutes,
+        readingAutoBlockEnabled: minutes == 0
+            ? false
+            : current.readingAutoBlockEnabled,
+      ),
+      requireReadingGoalEditable: true,
+    );
+  }
+
+  /// Enables the block that starts when the cutoff passes below the reading goal.
+  Future<void> setReadingAutoBlock(bool enabled) async {
+    await _update((current) {
+      if (enabled && !hasReadingGoal(current)) {
+        throw StateError('Set a daily reading goal first.');
+      }
+      return current.copyWith(readingAutoBlockEnabled: enabled);
+    }, requireReadingGoalEditable: true);
+  }
+
+  /// Chooses the local time of day (minutes since midnight) for the block.
+  Future<void> setReadingCutoff(int minutes) async {
+    if (minutes < 0 || minutes >= 24 * 60) {
+      throw ArgumentError.value(minutes, 'minutes', 'must be 0-1439');
+    }
+    await _update(
+      (current) => current.copyWith(readingCutoffMinutes: minutes),
+      requireReadingGoalEditable: true,
     );
   }
 
@@ -277,25 +319,55 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
     UsageSettings Function(UsageSettings current) change, {
     bool requireUnlocked = false,
     bool requireFocusGoalEditable = false,
+    bool requireReadingGoalEditable = false,
   }) async {
     final repository = ref.read(settingsRepositoryProvider);
     final now = DateTime.now();
     final current = await _loadReconciled(
       repository,
-      reload: requireUnlocked || requireFocusGoalEditable,
+      reload:
+          requireUnlocked ||
+          requireFocusGoalEditable ||
+          requireReadingGoalEditable,
     );
+
+    final needsReadingSeconds =
+        (requireUnlocked || requireReadingGoalEditable) &&
+        hasReadingGoal(current);
+    final readingSeconds = needsReadingSeconds
+        ? await _readingSecondsToday()
+        : 0;
+
     if (requireUnlocked &&
-        (current.isLocked || isFocusLockActive(current, now))) {
+        (current.isLocked ||
+            isFocusLockActive(current, now) ||
+            isReadingGoalBlockActive(current, now, readingSeconds))) {
       throw StateError('The limit is locked until the current block ends.');
     }
     if (requireFocusGoalEditable && isFocusGoalBlockActive(current, now)) {
       throw StateError('The focus goal is locked until the day resets.');
+    }
+    if (requireReadingGoalEditable &&
+        isReadingGoalBlockActive(current, now, readingSeconds)) {
+      throw StateError('The reading goal is locked until it is met.');
     }
     final updated = change(current);
     await repository.save(updated);
     if (!ref.mounted) return;
     state = AsyncData(updated);
     _scheduleTransition(updated);
+  }
+
+  Future<int> _readingSecondsToday() async {
+    try {
+      return await ref
+          .read(readerRepositoryProvider)
+          .readingSecondsForDay(localDateKey(DateTime.now()));
+    } on Object {
+      // Treat an unreadable counter as "nothing read yet"; the block stays on
+      // rather than letting a storage error silently unlock the apps.
+      return 0;
+    }
   }
 
   /// Re-reads at the next lock/pending transition while the app stays open.
@@ -328,6 +400,10 @@ class SettingsController extends AsyncNotifier<UsageSettings> {
           now.isBefore(focusCutoffFor(now, settings.focusCutoffMinutes)))
         focusCutoffFor(now, settings.focusCutoffMinutes),
       if (isFocusGoalBlockActive(settings, now)) nextLocalMidnight(now),
+      if (settings.readingAutoBlockEnabled && hasReadingGoal(settings))
+        now.isBefore(readingCutoffFor(now, settings.readingCutoffMinutes))
+            ? readingCutoffFor(now, settings.readingCutoffMinutes)
+            : nextLocalMidnight(now),
     ];
     if (instants.isEmpty) return;
     instants.sort();

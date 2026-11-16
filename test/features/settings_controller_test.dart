@@ -6,6 +6,7 @@ import 'package:lockout/domain/entities/monitored_app.dart';
 import 'package:lockout/features/limits/presentation/monitored_apps_controller.dart';
 import 'package:lockout/features/limits/presentation/settings_controller.dart';
 
+import '../helpers/fake_reader.dart';
 import '../helpers/fake_stores.dart';
 
 void main() {
@@ -17,11 +18,15 @@ void main() {
   ProviderContainer containerFor({
     required FakeSettingsRepository settings,
     required FakeMonitoredAppsRepository monitored,
+    FakeReaderRepository? reader,
   }) {
     final container = ProviderContainer(
       overrides: [
         settingsRepositoryProvider.overrideWithValue(settings),
         monitoredAppsRepositoryProvider.overrideWithValue(monitored),
+        readerRepositoryProvider.overrideWithValue(
+          reader ?? FakeReaderRepository(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -257,5 +262,90 @@ void main() {
     await expectLater(controller.setFocusCutoff(24 * 60), throwsArgumentError);
     await expectLater(controller.startFocusSession(4), throwsArgumentError);
     await expectLater(controller.startFocusSession(481), throwsArgumentError);
+  });
+
+  test('persists the reading goal, cutoff and automation', () async {
+    final today = localDateKey(DateTime.now());
+    final reader = FakeReaderRepository();
+    // Keep the reading goal already met so enabling automation after the
+    // cutoff cannot start a hard block in this wall-clock-independent test.
+    reader.readingSessions[today] = {'article': 100 * 60};
+    final settings = FakeSettingsRepository();
+    final container = containerFor(
+      settings: settings,
+      monitored: FakeMonitoredAppsRepository(const [instagram]),
+      reader: reader,
+    );
+    await container.read(monitoredAppsControllerProvider.future);
+    await container.read(settingsControllerProvider.future);
+    final controller = container.read(settingsControllerProvider.notifier);
+
+    await controller.setReadingGoal(30);
+    await controller.setReadingAutoBlock(true);
+    await controller.setReadingCutoff(21 * 60);
+
+    expect(settings.settings.readingGoalMinutes, 30);
+    expect(settings.settings.readingAutoBlockEnabled, isTrue);
+    expect(settings.settings.readingCutoffMinutes, 21 * 60);
+    expect(
+      container.read(settingsControllerProvider).value?.readingGoalMinutes,
+      30,
+    );
+
+    await controller.setReadingGoal(0);
+    expect(settings.settings.readingGoalMinutes, 0);
+    expect(settings.settings.readingAutoBlockEnabled, isFalse);
+  });
+
+  test('rejects relaxing reading settings while the block is on', () async {
+    final today = localDateKey(DateTime.now());
+    final settings = FakeSettingsRepository(
+      initial: settingsWith(
+        readingGoalMinutes: 60,
+        readingAutoBlockEnabled: true,
+        readingCutoffMinutes: 0,
+      ),
+    );
+    final reader = FakeReaderRepository();
+    final container = containerFor(
+      settings: settings,
+      monitored: FakeMonitoredAppsRepository(const [instagram]),
+      reader: reader,
+    );
+    await container.read(monitoredAppsControllerProvider.future);
+    await container.read(settingsControllerProvider.future);
+    final controller = container.read(settingsControllerProvider.notifier);
+
+    await expectLater(controller.setReadingGoal(0), throwsStateError);
+    await expectLater(controller.setReadingGoal(120), throwsStateError);
+    await expectLater(controller.setReadingAutoBlock(false), throwsStateError);
+    await expectLater(controller.setReadingCutoff(60), throwsStateError);
+    await expectLater(controller.applyLimitNow(1800), throwsStateError);
+
+    // Reading enough lifts the block without waiting for midnight.
+    reader.readingSessions[today] = {'article': 60 * 60};
+    await controller.setReadingGoal(30);
+    expect(settings.settings.readingGoalMinutes, 30);
+    expect(settings.settings.readingAutoBlockEnabled, isTrue);
+  });
+
+  test('validates reading goal and cutoff values', () async {
+    final settings = FakeSettingsRepository();
+    final container = containerFor(
+      settings: settings,
+      monitored: FakeMonitoredAppsRepository(const [instagram]),
+    );
+    await container.read(monitoredAppsControllerProvider.future);
+    await container.read(settingsControllerProvider.future);
+    final controller = container.read(settingsControllerProvider.notifier);
+
+    await expectLater(controller.setReadingGoal(-1), throwsArgumentError);
+    await expectLater(controller.setReadingGoal(481), throwsArgumentError);
+    await expectLater(controller.setReadingCutoff(-1), throwsArgumentError);
+    await expectLater(
+      controller.setReadingCutoff(24 * 60),
+      throwsArgumentError,
+    );
+    await expectLater(controller.setReadingAutoBlock(true), throwsStateError);
   });
 }

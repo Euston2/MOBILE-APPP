@@ -28,6 +28,11 @@ class BlockingConfig {
     this.focusDayStart,
     this.focusSessionStartedAt,
     this.focusSessionEndsAt,
+    this.readingGoalSeconds = 0,
+    this.readingAutoBlockEnabled = false,
+    this.readingCutoffMinuteOfDay = 20 * 60,
+    this.readingBaseSeconds = 0,
+    this.readingDayStart,
   });
 
   /// Apps monitored today.
@@ -81,6 +86,21 @@ class BlockingConfig {
   final DateTime? focusSessionStartedAt;
   final DateTime? focusSessionEndsAt;
 
+  /// Daily reading goal in seconds; 0 means no goal.
+  final int readingGoalSeconds;
+
+  /// Whether missing the daily reading goal should block selected apps.
+  final bool readingAutoBlockEnabled;
+
+  /// Local minute of day (0-1439) at which the missed-reading block starts.
+  final int readingCutoffMinuteOfDay;
+
+  /// Reading seconds banked for [readingDayStart] (today).
+  final int readingBaseSeconds;
+
+  /// Local midnight of the day [readingBaseSeconds] belongs to.
+  final DateTime? readingDayStart;
+
   bool get hasPendingConfig =>
       pendingEffectiveAt != null &&
       pendingLimitSeconds > 0 &&
@@ -94,6 +114,11 @@ class BlockingConfig {
   bool get hasFocusGoal =>
       focusAutoBlockEnabled &&
       focusGoalSeconds > 0 &&
+      monitoredPackages.isNotEmpty;
+
+  bool get hasReadingGoal =>
+      readingAutoBlockEnabled &&
+      readingGoalSeconds > 0 &&
       monitoredPackages.isNotEmpty;
 
   /// Focus seconds for the local day containing [now], including the running
@@ -133,13 +158,41 @@ class BlockingConfig {
     return focusSecondsAt(now) < focusGoalSeconds;
   }
 
+  /// Reading seconds for the local day containing [now].
+  int readingSecondsAt(DateTime now) {
+    final dayStart = readingDayStart;
+    if (dayStart == null ||
+        dayStart.year != now.year ||
+        dayStart.month != now.month ||
+        dayStart.day != now.day) {
+      return 0;
+    }
+    return readingBaseSeconds;
+  }
+
+  /// True after the cutoff when automation is on and reading is still short.
+  bool isReadingGoalBlockActive(DateTime now) {
+    if (!hasReadingGoal) return false;
+    final cutoffMinutes = readingCutoffMinuteOfDay.clamp(0, 24 * 60 - 1);
+    final cutoff = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      cutoffMinutes ~/ 60,
+      cutoffMinutes % 60,
+    );
+    if (now.isBefore(cutoff)) return false;
+    return readingSecondsAt(now) < readingGoalSeconds;
+  }
+
   /// Nothing to enforce: no daily limit, scheduled limit or focus lock.
   bool get isActive =>
       (dailyLimitSeconds > 0 && monitoredPackages.isNotEmpty) ||
       hasPendingConfig ||
       hasOvernightFocus ||
       hasStudyFocus ||
-      hasFocusGoal;
+      hasFocusGoal ||
+      hasReadingGoal;
 
   @override
   String toString() =>
@@ -150,5 +203,8 @@ class BlockingConfig {
       'studyUntil: ${studyEndsAt?.toIso8601String()}, '
       'focusGoal: ${focusGoalSeconds}s, '
       'focusBlock: $focusAutoBlockEnabled, '
-      'focusToday: ${focusBaseSeconds}s)';
+      'focusToday: ${focusBaseSeconds}s, '
+      'readingGoal: ${readingGoalSeconds}s, '
+      'readingBlock: $readingAutoBlockEnabled, '
+      'readingToday: ${readingBaseSeconds}s)';
 }
